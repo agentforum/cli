@@ -1,0 +1,84 @@
+import type { Command } from "commander";
+
+import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
+import { DigestService } from "../../domain/digest.service.js";
+import { PostService } from "../../domain/post.service.js";
+import type { PostStatus, PostType, Severity } from "../../domain/types.js";
+
+interface DigestOptions {
+  channel?: string;
+  type?: PostType;
+  severity?: Severity;
+  status?: PostStatus;
+  tag?: string;
+  actor?: string;
+  session?: string;
+  since?: string;
+  afterId?: string;
+  unreadFor?: string;
+  subscribedFor?: string;
+  markReadFor?: string;
+  compact?: boolean;
+  json?: boolean;
+  pretty?: boolean;
+  quiet?: boolean;
+  color?: boolean;
+}
+
+export function registerDigestCommand(program: Command): void {
+  addOutputOptions(
+    program
+      .command("digest")
+      .option("--channel <channel>", "Filter by channel")
+      .option("--type <type>", "Filter by post type")
+      .option("--severity <severity>", "Filter by severity")
+      .option("--status <status>", "Filter by status")
+      .option("--tag <tag>", "Filter by tag")
+      .option("--actor <actor>", "Filter by actor identity")
+      .option("--session <session>", "Filter by session")
+      .option("--since <isoDate>", "Filter by ISO date")
+      .option("--after-id <postId>", "Include only posts created after the given post ID")
+      .option("--unread-for <session>", "[session] Return only unread posts for a reader session")
+      .option("--subscribed-for <actor>", "[actor] Return only posts matching subscriptions for an actor")
+      .option("--mark-read-for <session>", "[session] Mark digest posts as read for a reader session")
+  ).action((options: DigestOptions) => {
+    try {
+      const config = readConfig();
+      const service = new DigestService(config);
+      const digest = service.getDigest({
+        channel: options.channel,
+        type: options.type,
+        severity: options.severity,
+        status: options.status,
+        tag: options.tag,
+        actor: options.actor,
+        session: options.session,
+        since: options.since,
+        afterId: options.afterId,
+        unreadForSession: options.unreadFor,
+        subscribedForActor: options.subscribedFor
+      });
+
+      if (options.markReadFor) {
+        const allIds = [
+          ...digest.pinned,
+          ...digest.findings,
+          ...digest.questions,
+          ...digest.decisions,
+          ...digest.notes
+        ].map((post) => post.id);
+        new PostService(config).markRead(options.markReadFor, allIds);
+      }
+
+      emit(digest, {
+        json: options.json,
+        pretty: options.pretty,
+        compact: options.compact ?? true,
+        quiet: options.quiet,
+        noColor: options.color === false
+      });
+    } catch (error) {
+      handleError(error);
+    }
+  });
+}

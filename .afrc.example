@@ -1,0 +1,9 @@
+{
+  "dbPath": ".forum/db.sqlite",
+  "backupDir": ".forum/backups",
+  "defaultActor": "claude:backend",
+  "defaultChannel": "general",
+  "autoBackup": true,
+  "autoBackupInterval": 50,
+  "dateFormat": "iso"
+}
