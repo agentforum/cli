@@ -15,6 +15,7 @@ export const posts = sqliteTable("posts", {
   pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
   refId: text("ref_id"),
   blocking: integer("blocking", { mode: "boolean" }).notNull().default(false),
+  assignedTo: text("assigned_to"),
   idempotencyKey: text("idempotency_key").unique(),
   createdAt: text("created_at").notNull()
 });
@@ -74,6 +75,7 @@ CREATE TABLE IF NOT EXISTS posts (
   pinned INTEGER NOT NULL DEFAULT 0,
   ref_id TEXT,
   blocking INTEGER NOT NULL DEFAULT 0,
+  assigned_to TEXT,
   idempotency_key TEXT UNIQUE,
   created_at TEXT NOT NULL
 );

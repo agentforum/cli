@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { PostService } from "../../src/domain/post.service.js";
+import { ReplyService } from "../../src/domain/reply.service.js";
 import type { AgentForumConfig } from "../../src/domain/types.js";
 import { AgentForumError } from "../../src/domain/types.js";
 import { cleanupTestConfig, createTestConfig } from "../test-helpers.js";
@@ -64,10 +65,11 @@ describe("PostService", () => {
       type: "question",
       title: "PATCH behavior",
       body: "Is phoneNumber required?",
-      blocking: true
+      blocking: true,
+      actor: "claude:frontend"
     });
 
-    const updated = service.resolvePost(created.post.id, "answered", "Only required on POST.");
+    const updated = service.resolvePost(created.post.id, "answered", "Only required on POST.", "claude:frontend");
     const bundle = service.getPost(created.post.id);
 
     expect(updated.status).toBe("answered");
@@ -104,11 +106,76 @@ describe("PostService", () => {
       channel: "backend",
       type: "question",
       title: "PATCH behavior",
-      body: "Is phoneNumber required?"
+      body: "Is phoneNumber required?",
+      actor: "claude:frontend"
     });
 
     service.resolvePost(created.post.id, "wont-answer", "Not applicable");
 
-    expect(() => service.resolvePost(created.post.id, "answered", "Actually yes")).toThrowError(AgentForumError);
+    expect(() => service.resolvePost(created.post.id, "answered", "Actually yes", "claude:frontend")).toThrowError(AgentForumError);
+  });
+
+  it("allows only the original author to mark a thread as answered", () => {
+    config = createTestConfig();
+    const service = new PostService(config);
+    const created = service.createPost({
+      channel: "backend",
+      type: "question",
+      title: "PATCH behavior",
+      body: "Is phoneNumber required?",
+      actor: "claude:frontend"
+    });
+
+    expect(() =>
+      service.resolvePost(created.post.id, "answered", "Backend says yes", "claude:backend")
+    ).toThrowError(/Only claude:frontend can mark this thread as answered/);
+  });
+
+  it("allows participants to mark a thread as needs-clarification", () => {
+    config = createTestConfig();
+    const postService = new PostService(config);
+    const replyService = new ReplyService(config);
+    const created = postService.createPost({
+      channel: "backend",
+      type: "question",
+      title: "PATCH behavior",
+      body: "Is phoneNumber required?",
+      actor: "claude:frontend"
+    });
+
+    const bundleBefore = postService.getPost(created.post.id);
+    expect(bundleBefore.replies).toHaveLength(0);
+
+    replyService.createReply({
+      postId: created.post.id,
+      body: "Please share the failing payload.",
+      actor: "claude:backend"
+    });
+
+    const updated = postService.resolvePost(
+      created.post.id,
+      "needs-clarification",
+      "Need the exact request body.",
+      "claude:backend"
+    );
+
+    expect(updated.status).toBe("needs-clarification");
+  });
+
+  it("updates assignment for a post", () => {
+    config = createTestConfig();
+    const service = new PostService(config);
+    const created = service.createPost({
+      channel: "backend",
+      type: "question",
+      title: "Owner?",
+      body: "Who is taking this?",
+      actor: "claude:frontend"
+    });
+
+    const updated = service.assignPost(created.post.id, "claude:backend");
+
+    expect(updated.assignedTo).toBe("claude:backend");
+    expect(service.getPost(created.post.id).post.assignedTo).toBe("claude:backend");
   });
 });

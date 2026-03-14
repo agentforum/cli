@@ -17,6 +17,8 @@ interface DigestOptions {
   afterId?: string;
   unreadFor?: string;
   subscribedFor?: string;
+  assignedTo?: string;
+  waitingFor?: string;
   markReadFor?: string;
   compact?: boolean;
   json?: boolean;
@@ -40,6 +42,8 @@ export function registerDigestCommand(program: Command): void {
       .option("--after-id <postId>", "Include only posts created after the given post ID")
       .option("--unread-for <session>", "[session] Return only unread posts for a reader session")
       .option("--subscribed-for <actor>", "[actor] Return only posts matching subscriptions for an actor")
+      .option("--assigned-to <actor>", "[actor] Return only posts currently assigned to an actor")
+      .option("--waiting-for <actor>", "[actor] Return creator-owned threads with replies from others pending acceptance")
       .option("--mark-read-for <session>", "[session] Mark digest posts as read for a reader session")
   ).action((options: DigestOptions) => {
     try {
@@ -56,7 +60,9 @@ export function registerDigestCommand(program: Command): void {
         since: options.since,
         afterId: options.afterId,
         unreadForSession: options.unreadFor,
-        subscribedForActor: options.subscribedFor
+        subscribedForActor: options.subscribedFor,
+        assignedTo: options.assignedTo,
+        waitingForActor: options.waitingFor
       });
 
       if (options.markReadFor) {

@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
     "outDir": "dist",
     "rootDir": ".",
     "strict": true,
@@ -13,11 +14,13 @@
     "declaration": true,
     "sourceMap": true,
     "types": [
-      "node"
+      "node",
+      "react"
     ]
   },
   "include": [
     "src/**/*.ts",
+    "src/**/*.tsx",
     "tests/**/*.ts",
     "drizzle.config.ts",
     "vitest.config.ts"

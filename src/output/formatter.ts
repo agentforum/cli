@@ -82,7 +82,7 @@ function formatPostPretty(post: PostRecord, options: OutputOptions): string {
     c.bold(post.title),
     post.body,
     `channel=${post.channel} status=${post.status}${post.blocking ? " blocking=true" : ""}${post.pinned ? " pinned=true" : ""}`,
-    `actor=${post.actor ?? "unknown"} session=${post.session ?? "-"}`,
+    `actor=${post.actor ?? "unknown"} session=${post.session ?? "-"} assignedTo=${post.assignedTo ?? "-"}`,
     `tags=${post.tags.join(", ") || "-"} createdAt=${post.createdAt}`
   ];
 
@@ -96,7 +96,7 @@ function formatPostPretty(post: PostRecord, options: OutputOptions): string {
 function formatPostListPretty(posts: PostRecord[], options: OutputOptions): string {
   const c = getChalk(options.noColor);
   const table = new Table({
-    head: [c.bold("ID"), c.bold("Type"), c.bold("Severity"), c.bold("Channel"), c.bold("Title"), c.bold("Actor"), c.bold("Session")]
+    head: [c.bold("ID"), c.bold("Type"), c.bold("Severity"), c.bold("Channel"), c.bold("Title"), c.bold("Actor"), c.bold("Assigned"), c.bold("Session")]
   });
 
   for (const post of posts) {
@@ -107,6 +107,7 @@ function formatPostListPretty(posts: PostRecord[], options: OutputOptions): stri
       post.channel,
       post.title,
       post.actor ?? "unknown",
+      post.assignedTo ?? "-",
       post.session ?? "-"
     ]);
   }
@@ -201,7 +202,12 @@ function appendSection(lines: string[], title: string, posts: PostRecord[]): voi
 
 function formatCompactLine(post: PostRecord): string {
   const tags = post.tags.map((tag) => `#${tag}`).join(" ");
-  const metadata = [post.actor, post.session ? `session:${post.session}` : null, projectMetadataHint(post)]
+  const metadata = [
+    post.actor,
+    post.assignedTo ? `owner:${post.assignedTo}` : null,
+    post.session ? `session:${post.session}` : null,
+    projectMetadataHint(post)
+  ]
     .filter(Boolean)
     .join(" • ");
   return `[${post.id}] ${post.type.toUpperCase()}${post.severity ? ` ${post.severity.toUpperCase()}` : ""}${post.blocking ? " BLOCKING" : ""} ${tags} "${post.title}"${metadata ? ` — ${metadata}` : ""}`;

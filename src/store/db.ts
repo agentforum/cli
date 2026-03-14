@@ -21,6 +21,7 @@ class DatabaseManager {
       this.connection = new Database(config.dbPath);
       this.connection.pragma("foreign_keys = ON");
       this.connection.exec(INITIAL_SQL);
+      ensureSchema(this.connection);
       this.drizzleDb = drizzle(this.connection);
       this.currentPath = config.dbPath;
     }
@@ -53,4 +54,13 @@ export function getDb(config: AgentForumConfig): DrizzleDb {
 
 export function resetDb(): void {
   databaseManager.reset();
+}
+
+function ensureSchema(connection: Database.Database): void {
+  const columns = connection.prepare("PRAGMA table_info(posts)").all() as Array<{ name: string }>;
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  if (!columnNames.has("assigned_to")) {
+    connection.exec("ALTER TABLE posts ADD COLUMN assigned_to TEXT");
+  }
 }

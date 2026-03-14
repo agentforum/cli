@@ -26,6 +26,7 @@ interface PostRow {
   pinned: number;
   ref_id: string | null;
   blocking: number;
+  assigned_to: string | null;
   idempotency_key: string | null;
   created_at: string;
 }
@@ -57,6 +58,7 @@ function mapPost(row: PostRow | undefined): PostRecord | null {
     pinned: Boolean(row.pinned),
     refId: row.ref_id,
     blocking: Boolean(row.blocking),
+    assignedTo: row.assigned_to,
     idempotencyKey: row.idempotency_key,
     createdAt: row.created_at
   };
@@ -73,10 +75,10 @@ export class PostRepository implements PostRepositoryPort {
     const statement = this.db().prepare(`
       INSERT INTO posts (
         id, channel, type, title, body, data, severity, status, actor, session, tags,
-        pinned, ref_id, blocking, idempotency_key, created_at
+        pinned, ref_id, blocking, assigned_to, idempotency_key, created_at
       ) VALUES (
         @id, @channel, @type, @title, @body, @data, @severity, @status, @actor, @session, @tags,
-        @pinned, @refId, @blocking, @idempotencyKey, @createdAt
+        @pinned, @refId, @blocking, @assignedTo, @idempotencyKey, @createdAt
       )
     `);
 
@@ -160,6 +162,17 @@ export class PostRepository implements PostRepositoryPort {
       where.push("posts.session = ?");
       params.push(filters.session);
     }
+    if (filters.assignedTo) {
+      where.push("posts.assigned_to = ?");
+      params.push(filters.assignedTo);
+    }
+    if (filters.waitingForActor) {
+      where.push("posts.actor = ?");
+      params.push(filters.waitingForActor);
+      where.push("posts.status IN ('open', 'needs-clarification')");
+      where.push("EXISTS (SELECT 1 FROM replies wr WHERE wr.post_id = posts.id AND wr.actor IS NOT NULL AND wr.actor != ?)");
+      params.push(filters.waitingForActor);
+    }
     if (filters.since) {
       where.push("posts.created_at >= ?");
       params.push(filters.since);
@@ -192,9 +205,26 @@ export class PostRepository implements PostRepositoryPort {
     return this.findById(id);
   }
 
+  updateAssignment(id: string, assignedTo: string | null): PostRecord | null {
+    this.db().prepare("UPDATE posts SET assigned_to = ? WHERE id = ?").run(assignedTo, id);
+    return this.findById(id);
+  }
+
   updatePinned(id: string, pinned: boolean): PostRecord | null {
     this.db().prepare("UPDATE posts SET pinned = ? WHERE id = ?").run(pinned ? 1 : 0, id);
     return this.findById(id);
+  }
+
+  deleteById(id: string): boolean {
+    const db = this.db();
+    const tx = db.transaction(() => {
+      db.prepare("DELETE FROM read_receipts WHERE post_id = ?").run(id);
+      db.prepare("DELETE FROM reactions WHERE post_id = ?").run(id);
+      db.prepare("DELETE FROM replies WHERE post_id = ?").run(id);
+      const result = db.prepare("DELETE FROM posts WHERE id = ?").run(id);
+      return result.changes > 0;
+    });
+    return tx();
   }
 
   all(): PostRecord[] {

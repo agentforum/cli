@@ -1,9 +1,13 @@
 import { Command } from "commander";
 
+import { registerAssignCommand } from "./commands/assign.js";
 import { registerBackupCommands } from "./commands/backup.js";
+import { registerBrowseCommand } from "./commands/browse.js";
 import { registerConfigCommands } from "./commands/config.js";
 import { registerDigestCommand } from "./commands/digest.js";
+import { registerOpenCommand } from "./commands/open.js";
 import { registerPinCommands } from "./commands/pin.js";
+import { registerPipeCommands } from "./commands/pipe.js";
 import { registerPostCommand } from "./commands/post.js";
 import { registerReactCommand } from "./commands/react.js";
 import { registerReadCommand } from "./commands/read.js";
@@ -12,6 +16,7 @@ import { registerResolveCommand } from "./commands/resolve.js";
 import { registerRulesCommand } from "./commands/rules.js";
 import { registerTemplateCommand } from "./commands/template.js";
 import { registerSubscriptionCommands } from "./commands/subscriptions.js";
+import { registerWorkflowCommands } from "./commands/workflow.js";
 
 const IDENTITY_MODEL_LEGEND = `
 Identity model:
@@ -22,10 +27,10 @@ Actor-scoped commands (use --actor):
   post, reply, react, resolve, subscribe, unsubscribe, subscriptions
 
 Session-scoped commands (use --session):
-  mark-read, read --unread-for, digest --unread-for
+  mark-read, read --unread-for, digest --unread-for, inbox --session
 
 General commands (no identity required):
-  read, digest, pin, unpin, template, rules, backup, config
+  read, digest, pin, unpin, assign, queue, waiting, ids, summary, browse, open, template, rules, backup, config
 `;
 
 export function buildProgram(): Command {
@@ -41,14 +46,19 @@ export function buildProgram(): Command {
   registerReplyCommand(program);
   registerReadCommand(program);
   registerResolveCommand(program);
+  registerAssignCommand(program);
   registerReactCommand(program);
   registerPinCommands(program);
   registerDigestCommand(program);
+  registerWorkflowCommands(program);
+  registerPipeCommands(program);
   registerTemplateCommand(program);
   registerRulesCommand(program);
   registerSubscriptionCommands(program);
   registerBackupCommands(program);
   registerConfigCommands(program);
+  registerBrowseCommand(program);
+  registerOpenCommand(program);
 
   return program;
 }

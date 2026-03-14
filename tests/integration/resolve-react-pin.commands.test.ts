@@ -19,13 +19,37 @@ describe("resolve/react/pin commands", () => {
     const workspace = writeWorkspaceConfig(config);
 
     const created = await runCli(
-      ["post", "--channel", "backend", "--type", "question", "--title", "PATCH?", "--body", "Can PATCH omit phoneNumber?", "--json"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "PATCH?",
+        "--body",
+        "Can PATCH omit phoneNumber?",
+        "--actor",
+        "claude:frontend",
+        "--json"
+      ],
       workspace
     );
     const post = JSON.parse(created.stdout) as { id: string };
 
     const resolved = await runCli(
-      ["resolve", "--id", post.id, "--status", "answered", "--reason", "Only POST requires it.", "--json"],
+      [
+        "resolve",
+        "--id",
+        post.id,
+        "--status",
+        "answered",
+        "--reason",
+        "Only POST requires it.",
+        "--actor",
+        "claude:frontend",
+        "--json"
+      ],
       workspace
     );
     const reacted = await runCli(["react", "--id", post.id, "--reaction", "confirmed", "--json"], workspace);
@@ -41,7 +65,20 @@ describe("resolve/react/pin commands", () => {
     const workspace = writeWorkspaceConfig(config);
 
     const created = await runCli(
-      ["post", "--channel", "backend", "--type", "question", "--title", "PATCH?", "--body", "Can PATCH omit phoneNumber?", "--json"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "PATCH?",
+        "--body",
+        "Can PATCH omit phoneNumber?",
+        "--actor",
+        "claude:frontend",
+        "--json"
+      ],
       workspace
     );
     const post = JSON.parse(created.stdout) as { id: string };
@@ -50,5 +87,37 @@ describe("resolve/react/pin commands", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("--reason is required");
+  });
+
+  it("rejects answered when the resolver is not the original author", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const created = await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "PATCH?",
+        "--body",
+        "Can PATCH omit phoneNumber?",
+        "--actor",
+        "claude:frontend",
+        "--json"
+      ],
+      workspace
+    );
+    const post = JSON.parse(created.stdout) as { id: string };
+
+    const result = await runCli(
+      ["resolve", "--id", post.id, "--status", "answered", "--reason", "Looks good", "--actor", "claude:backend"],
+      workspace
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Only claude:frontend can mark this thread as answered.");
   });
 });

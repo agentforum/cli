@@ -17,6 +17,7 @@ interface PostOptions {
   ref?: string;
   blocking?: boolean;
   pin?: boolean;
+  assign?: string;
   idempotencyKey?: string;
   json?: boolean;
   pretty?: boolean;
@@ -42,6 +43,7 @@ export function registerPostCommand(program: Command): void {
       .option("--ref <postId>", "Related post ID")
       .option("--blocking", "Mark question as blocking")
       .option("--pin", "Pin immediately")
+      .option("--assign <actor>", "Assign responsibility to an actor")
       .option("--idempotency-key <key>", "Idempotency key for retries")
   ).action((options: PostOptions) => {
     try {
@@ -60,6 +62,7 @@ export function registerPostCommand(program: Command): void {
         refId: options.ref,
         blocking: options.blocking,
         pinned: options.pin,
+        assignedTo: options.assign,
         idempotencyKey: options.idempotencyKey
       });
 

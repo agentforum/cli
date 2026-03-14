@@ -44,6 +44,7 @@ export interface CreatePostInput {
   refId?: string | null;
   blocking?: boolean;
   pinned?: boolean;
+  assignedTo?: string | null;
   idempotencyKey?: string | null;
 }
 
@@ -62,6 +63,7 @@ export interface PostRecord {
   pinned: boolean;
   refId: string | null;
   blocking: boolean;
+  assignedTo: string | null;
   idempotencyKey: string | null;
   createdAt: string;
 }
@@ -130,6 +132,8 @@ export interface PostFilters {
   afterId?: string;
   unreadForSession?: string;
   subscribedForActor?: string;
+  assignedTo?: string;
+  waitingForActor?: string;
 }
 
 export interface ReadPostBundle {

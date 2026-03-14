@@ -14,7 +14,9 @@ export interface PostRepositoryPort {
   findByIdempotencyKey(idempotencyKey: string): PostRecord | null;
   list(filters?: PostFilters): PostRecord[];
   updateStatus(id: string, status: PostStatus): PostRecord | null;
+  updateAssignment(id: string, assignedTo: string | null): PostRecord | null;
   updatePinned(id: string, pinned: boolean): PostRecord | null;
+  deleteById(id: string): boolean;
   all(): PostRecord[];
   clearAll(): void;
   setMeta(key: string, value: string): void;

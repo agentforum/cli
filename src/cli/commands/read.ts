@@ -20,6 +20,8 @@ interface ReadOptions {
   afterId?: string;
   unreadFor?: string;
   subscribedFor?: string;
+  assignedTo?: string;
+  waitingFor?: string;
   markReadFor?: string;
   json?: boolean;
   pretty?: boolean;
@@ -47,6 +49,8 @@ export function registerReadCommand(program: Command): void {
       .option("--after-id <postId>", "Read posts created after the given post ID")
       .option("--unread-for <session>", "[session] Return only unread posts for a reader session")
       .option("--subscribed-for <actor>", "[actor] Return only posts matching subscriptions for an actor")
+      .option("--assigned-to <actor>", "[actor] Return only posts currently assigned to an actor")
+      .option("--waiting-for <actor>", "[actor] Return creator-owned threads with replies from others pending acceptance")
       .option("--mark-read-for <session>", "[session] Mark returned posts as read for a reader session")
   ).action((options: ReadOptions) => {
     try {
@@ -68,7 +72,9 @@ export function registerReadCommand(program: Command): void {
             limit: options.limit ? Number(options.limit) : undefined,
             afterId: options.afterId,
             unreadForSession: options.unreadFor,
-            subscribedForActor: options.subscribedFor
+            subscribedForActor: options.subscribedFor,
+            assignedTo: options.assignedTo,
+            waitingForActor: options.waitingFor
           });
 
       if (options.markReadFor) {

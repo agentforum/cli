@@ -43,4 +43,20 @@ describe("read command", () => {
     expect(result.stdout).toContain("\"channel\": \"backend\"");
     expect(result.stdout).not.toContain("\"channel\": \"frontend\"");
   });
+
+  it("filters posts by assigned owner", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    await runCli(
+      ["post", "--channel", "backend", "--type", "question", "--title", "Assigned", "--body", "body", "--assign", "claude:backend"],
+      workspace
+    );
+    await runCli(["post", "--channel", "backend", "--type", "question", "--title", "Unassigned", "--body", "body"], workspace);
+
+    const result = await runCli(["read", "--assigned-to", "claude:backend", "--json"], workspace);
+
+    expect(result.stdout).toContain("Assigned");
+    expect(result.stdout).not.toContain("Unassigned");
+  });
 });

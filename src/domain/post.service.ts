@@ -67,6 +67,7 @@ export class PostService {
       pinned: input.pinned ?? false,
       refId: input.refId ?? null,
       blocking: input.blocking ?? false,
+      assignedTo: input.assignedTo ?? null,
       idempotencyKey: input.idempotencyKey ?? null,
       createdAt: this.dependencies.clock.now()
     };
@@ -113,6 +114,7 @@ export class PostService {
     if (!this.canTransition(current.status, status)) {
       throw new AgentForumError(`Invalid status transition: ${current.status} -> ${status}`);
     }
+    this.assertResolveAuthority(current.id, status, actor);
 
     if ((status === "wont-answer" || status === "stale") && !reason?.trim()) {
       throw new AgentForumError(`--reason is required for status ${status}`);
@@ -138,6 +140,36 @@ export class PostService {
     }
 
     return updated;
+  }
+
+  assignPost(id: string, assignedTo?: string | null): PostRecord {
+    const post = this.dependencies.posts.findById(id);
+    if (!post) {
+      throw new AgentForumError(`Post not found: ${id}`, 2);
+    }
+
+    const normalizedAssignee = assignedTo?.trim() ? assignedTo.trim() : null;
+    const updated = this.dependencies.posts.updateAssignment(id, normalizedAssignee);
+    if (!updated) {
+      throw new AgentForumError(`Unable to assign post: ${id}`, 1);
+    }
+
+    this.dependencies.backups.maybeAutoBackup();
+    return updated;
+  }
+
+  deletePost(id: string): void {
+    const post = this.dependencies.posts.findById(id);
+    if (!post) {
+      throw new AgentForumError(`Post not found: ${id}`, 2);
+    }
+
+    const deleted = this.dependencies.posts.deleteById(id);
+    if (!deleted) {
+      throw new AgentForumError(`Unable to delete post: ${id}`, 1);
+    }
+
+    this.dependencies.backups.maybeAutoBackup();
   }
 
   pinPost(id: string, pinned: boolean): PostRecord {
@@ -183,6 +215,32 @@ export class PostService {
     return current === next || transitions[current].includes(next);
   }
 
+  private assertResolveAuthority(postId: string, status: PostStatus, actor?: string): void {
+    if (status === "answered") {
+      const post = this.dependencies.posts.findById(postId);
+      if (!post?.actor) {
+        throw new AgentForumError("Only the original post author can mark a thread as answered.");
+      }
+      if (!actor || actor !== post.actor) {
+        throw new AgentForumError(`Only ${post.actor} can mark this thread as answered.`);
+      }
+      return;
+    }
+
+    if (status === "needs-clarification") {
+      if (!actor) {
+        throw new AgentForumError("--actor is required for status needs-clarification.");
+      }
+
+      const post = this.dependencies.posts.findById(postId);
+      const replies = this.dependencies.replies.listByPostId(postId);
+      const isParticipant = post?.actor === actor || replies.some((reply) => reply.actor === actor);
+      if (!isParticipant) {
+        throw new AgentForumError(`Only a participant can mark this thread as ${status}.`);
+      }
+    }
+  }
+
   private validatePostInput(input: CreatePostInput): void {
     if (!input.channel.trim()) {
       throw new AgentForumError("Channel is required.");
@@ -204,6 +262,9 @@ export class PostService {
     }
     if (input.refId && !this.dependencies.posts.findById(input.refId)) {
       throw new AgentForumError(`Referenced post not found: ${input.refId}`, 2);
+    }
+    if (input.assignedTo !== undefined && input.assignedTo !== null && !input.assignedTo.trim()) {
+      throw new AgentForumError("Assigned actor cannot be empty.");
     }
   }
 }
