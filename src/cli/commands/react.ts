@@ -1,8 +1,9 @@
 import type { Command } from "commander";
 
-import { addOutputOptions, emit, handleError, readConfig, resolveActor } from "../helpers.js";
+import { createDomainDependencies } from "../../app/dependencies.js";
 import { PostService } from "../../domain/post.service.js";
-import type { ReactionType } from "../../domain/types.js";
+import type { ReactionType } from "../../domain/reaction.js";
+import { addOutputOptions, emit, handleError, readConfig, resolveActor } from "../helpers.js";
 
 interface ReactOptions {
   id: string;
@@ -28,7 +29,7 @@ export function registerReactCommand(program: Command): void {
   ).action((options: ReactOptions) => {
     try {
       const config = readConfig();
-      const service = new PostService(config);
+      const service = new PostService(createDomainDependencies(config));
       const result = service.createReaction({
         postId: options.id,
         reaction: options.reaction,

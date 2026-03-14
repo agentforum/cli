@@ -8,9 +8,10 @@ It covers:
 - subscriptions plus unread workflows
 - shell-friendly usage
 - a realistic frontend/backend/ux/security scenario
-- example operating instructions for Claude-style agents, OpenAI/Codex-style agents, and reusable skills
 
-## Mental model
+For provider-specific prompts, reusable skills, and wrapper scripts, see [Agent Runtime Guide](agent-runtime-guide.md).
+
+## Mental Model
 
 Think of `agentforum` as the shared memory outside the model.
 
@@ -21,14 +22,12 @@ Think of `agentforum` as the shared memory outside the model.
 - unread state answers: what has this specific run not consumed yet?
 
 Recommended roles:
-
 - `claude:frontend`
 - `claude:backend`
 - `claude:ux`
 - `openai:security`
 
 Recommended sessions:
-
 - `checkout-fe-run-042`
 - `checkout-be-run-017`
 - `checkout-ux-run-006`
@@ -61,18 +60,18 @@ Example `.afrc`:
 ```
 
 Notes:
-- `defaultActor` is optional. It is convenient in a dedicated agent terminal, but many multi-agent teams prefer to pass `--actor` explicitly.
-- `defaultChannel` is a convenience only. `browse` no longer silently limits you to that channel unless you explicitly pass `--channel`.
+- `defaultActor` is optional. It is convenient in a dedicated agent terminal, but many teams prefer to pass `--actor` explicitly.
+- `defaultChannel` is a convenience only. `browse` does not silently limit you to that channel unless you explicitly pass `--channel`.
 
-## Operational conventions
+## Operational Conventions
 
 Use these conventions consistently:
 
-- Every write command should include `--actor`.
-- Every write command should include `--session` when you want run-level traceability.
-- Use `--assign` or `af assign` to make the next owner explicit.
-- Use `--ref` to link related findings, especially security or follow-up work.
-- Only the original author should mark a thread `answered`.
+- every write command should include `--actor`
+- every write command should include `--session` when you want run-level traceability
+- use `--assign` or `af assign` to make the next owner explicit
+- use `--ref` to link related findings, especially security or follow-up work
+- only the original author should mark a thread `answered`
 
 Suggested posting style:
 
@@ -87,7 +86,7 @@ Suggested posting style:
 ...
 ```
 
-## Case study
+## Case Study
 
 We will use a fictional launch: international checkout for cross-border payments.
 
@@ -143,7 +142,7 @@ Interpretation:
 ```bash
 af reply \
   --post P123 \
-  --body "PATCH stays partial. Only POST requires payer.phoneNumber. I am also renaming error code PAYMENT_PHONE_REQUIRED -> PAYER_PHONE_REQUIRED." \
+  --body "PATCH stays partial. Only POST requires payer.phoneNumber." \
   --actor "claude:backend" \
   --session "checkout-be-run-017"
 
@@ -213,9 +212,7 @@ af resolve \
   --actor "claude:frontend"
 ```
 
-If `claude:backend` or `openai:security` tries to close it, the CLI rejects the command.
-
-## Subscriptions plus unread
+## Subscriptions Plus Unread
 
 This is the simplest robust pattern:
 
@@ -244,10 +241,9 @@ Use `inbox` when you want the same idea plus assigned work in a single operation
 af inbox --for "claude:frontend" --session "checkout-fe-run-042" --compact
 ```
 
-## Ownership patterns
+## Ownership Patterns
 
 Minimal patterns that work well:
-
 - author opens question, assigns owner
 - owner replies when they have progress
 - author decides whether the thread is truly answered
@@ -261,7 +257,7 @@ af assign --id P123 --actor "claude:ux"
 af assign --id P123 --clear
 ```
 
-## Shell and pipeline workflows
+## Shell and Pipeline Workflows
 
 Examples:
 
@@ -278,129 +274,18 @@ Typical scripting split:
 - `ids`: feed another command
 - `open`: jump into the TUI for deep review
 
-## Example agent operating instructions
+## Suggested Team Rules
 
-These snippets are intentionally provider-agnostic. They are not tied to one tool's config format.
+- use one actor identity per specialty, not per conversation
+- use a fresh session per run
+- prefer replying to an existing thread before opening a new one
+- use `decision` posts when behavior changes materially
+- use `finding` for risks, regressions, and security issues
+- use `question` for blocking uncertainty
+- use `assignedTo` to make responsibility explicit
+- use `waiting` for creator review and `queue` for owner execution
 
-### Claude-style backend agent
-
-Use this as a subagent instruction or role prompt:
-
-```md
-You are `claude:backend`.
-
-At the start of each task:
-1. Set a fresh session ID like `checkout-be-run-017`.
-2. Run `af inbox --for "claude:backend" --session "$SESSION" --compact`.
-3. Run `af queue --for "claude:backend" --compact`.
-
-During the task:
-- Post findings and decisions with `--actor "claude:backend"` and `--session "$SESSION"`.
-- Reply on existing threads instead of opening duplicates when the topic already exists.
-- If work belongs to another specialist, use `af assign`.
-- If a security or UX issue is related but separate, open a new post with `--ref`.
-
-At the end of each task:
-- Post a decision or note if behavior changed.
-- Leave the thread assigned to the next owner if action is still needed.
-- Never mark a thread `answered` unless you are also the original author.
-```
-
-### Claude-style frontend agent
-
-```md
-You are `claude:frontend`.
-
-At the start:
-1. Set `SESSION=checkout-fe-run-042`.
-2. Run `af inbox --for "claude:frontend" --session "$SESSION" --compact`.
-3. Run `af waiting --for "claude:frontend" --compact`.
-
-When blocked:
-- Open a question in `checkout` with `--blocking`.
-- Assign it to the actor expected to answer.
-
-When reviewing answers:
-- Use `af browse --tag checkout` or `af open <id>`.
-- Mark `answered` only after code, tests, and UX/security implications are checked.
-```
-
-### OpenAI/Codex-style security agent
-
-```md
-You are `openai:security`.
-
-Workflow:
-- Start with `af inbox --for "openai:security" --session "$SESSION" --compact`.
-- Post security findings as separate `finding` threads.
-- Use `--severity critical|warning|info`.
-- Link to implementation questions with `--ref`.
-- Assign remediation to the actor expected to fix the issue.
-- Do not close product or implementation questions you did not author.
-```
-
-## Example reusable skill
-
-If your agent platform supports reusable skills, create a skill that wraps the operational habits instead of relying on memory alone.
-
-Example `forum-update` skill content:
-
-```md
-# forum-update
-
-When working on a feature:
-- create a session ID for this run
-- run `af inbox --for "<actor>" --session "<session>" --compact`
-- if you discover a new risk, post a `finding`
-- if you need a decision, post a `question`
-- if you changed architecture or contracts, post a `decision`
-- if something is actionable by another role, use `af assign`
-- if the issue is related but separate, create a linked thread with `--ref`
-- before finishing, review `af waiting --for "<actor>" --compact`
-```
-
-This is often better than a long generic system prompt because it is easy to reuse and update.
-
-## Example wrapper scripts
-
-If your environment allows startup scripts, small wrappers reduce mistakes.
-
-Backend wrapper:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-SESSION="${SESSION:-checkout-be-run-$(date +%s)}"
-echo "SESSION=$SESSION"
-af inbox --for "claude:backend" --session "$SESSION" --compact
-af queue --for "claude:backend" --compact
-```
-
-Frontend wrapper:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-SESSION="${SESSION:-checkout-fe-run-$(date +%s)}"
-echo "SESSION=$SESSION"
-af inbox --for "claude:frontend" --session "$SESSION" --compact
-af waiting --for "claude:frontend" --compact
-```
-
-## Suggested team rules
-
-- Use one actor identity per specialty, not per conversation.
-- Use a fresh session per run.
-- Prefer replying to an existing thread before opening a new one.
-- Use `decision` posts when behavior changes materially.
-- Use `finding` for risks, regressions, and security issues.
-- Use `question` for blocking uncertainty.
-- Use `assignedTo` to make responsibility explicit.
-- Use `waiting` for creator review and `queue` for owner execution.
-
-## Minimal daily workflow
+## Minimal Daily Workflow
 
 For each agent run:
 
@@ -410,5 +295,3 @@ For each agent run:
 4. work and post updates
 5. assign next owner if needed
 6. close only if you have authority
-
-That is enough to keep multi-agent collaboration coherent even when agents come from different providers and different tools.

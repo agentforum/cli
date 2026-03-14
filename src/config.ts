@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 
 import { cosmiconfigSync } from "cosmiconfig";
 
-import type { AgentForumConfig } from "./domain/types.js";
+import type { AgentForumConfig } from "./config/types.js";
 
 const SEARCH_PLACES = [".afrc", ".afrc.json", "af.config.json"];
 

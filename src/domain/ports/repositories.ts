@@ -1,12 +1,10 @@
 import type {
-  PostFilters,
-  PostRecord,
-  PostStatus,
-  ReadReceiptRecord,
-  ReactionRecord,
-  ReplyRecord,
-  SubscriptionRecord
-} from "../types.js";
+  PostFilters
+} from "../filters.js";
+import type { PostRecord, PostStatus } from "../post.js";
+import type { ReactionRecord } from "../reaction.js";
+import type { ReplyRecord } from "../reply.js";
+import type { SubscriptionRecord } from "../subscription.js";
 
 export interface PostRepositoryPort {
   create(post: PostRecord): PostRecord;
@@ -19,11 +17,6 @@ export interface PostRepositoryPort {
   deleteById(id: string): boolean;
   all(): PostRecord[];
   clearAll(): void;
-  setMeta(key: string, value: string): void;
-  getMeta(key: string): string | null;
-  allMeta(): Record<string, string>;
-  markRead(session: string, postIds: string[]): void;
-  allReadReceipts(): ReadReceiptRecord[];
 }
 
 export interface ReplyRepositoryPort {

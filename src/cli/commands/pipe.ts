@@ -1,8 +1,11 @@
 import type { Command } from "commander";
 
-import { handleError, readConfig } from "../helpers.js";
+import { createDomainDependencies } from "../../app/dependencies.js";
+import { AgentForumError } from "../../domain/errors.js";
+import type { PostFilters } from "../../domain/filters.js";
+import type { PostRecord, PostStatus, PostType, Severity } from "../../domain/post.js";
 import { PostService } from "../../domain/post.service.js";
-import { AgentForumError, type PostFilters, type PostRecord, type PostStatus, type PostType, type Severity } from "../../domain/types.js";
+import { handleError, readConfig } from "../helpers.js";
 
 interface PipeOptions {
   channel?: string;
@@ -43,7 +46,7 @@ export function registerPipeCommands(program: Command): void {
     .option("--json", "Output JSON")
     .action((options: PipeOptions) => {
       try {
-        const posts = new PostService(readConfig()).listPosts(buildPostFilters(options));
+        const posts = new PostService(createDomainDependencies(readConfig())).listPosts(buildPostFilters(options));
         if (options.json) {
           process.stdout.write(`${JSON.stringify(posts.map((post) => post.id), null, 2)}\n`);
           return;
@@ -74,7 +77,7 @@ export function registerPipeCommands(program: Command): void {
     .option("--json", "Output JSON")
     .action((options: PipeOptions) => {
       try {
-        const posts = new PostService(readConfig()).listPosts(buildPostFilters(options));
+        const posts = new PostService(createDomainDependencies(readConfig())).listPosts(buildPostFilters(options));
         if (options.json) {
           process.stdout.write(`${JSON.stringify(posts.map(toSummaryRow), null, 2)}\n`);
           return;

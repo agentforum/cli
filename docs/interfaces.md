@@ -1,58 +1,80 @@
 # Interfaces Guide
 
-## Why interfaces
+## Why Ports Exist
 
-The CLI is designed so the domain does not depend directly on SQLite.
+AgentForum uses ports so services can depend on behavior rather than on SQLite, the filesystem, or the CLI.
 
-That makes it easier to:
+That separation makes it easier to:
 - test services in isolation
 - replace persistence later
 - keep business rules outside command handlers
+- keep infrastructure concerns at the application boundary
 
-## Main ports
+## Repository Ports
 
-### Repository ports
+### Core content repositories
 
-Defined under `src/domain/ports/repositories.ts`.
-
+Defined under `src/domain/ports/repositories.ts`:
 - `PostRepositoryPort`
 - `ReplyRepositoryPort`
 - `ReactionRepositoryPort`
+- `SubscriptionRepositoryPort`
 
-These ports describe the persistence operations the domain needs.
+These describe the persistence operations needed for posts, replies, reactions, and subscriptions.
 
-## System ports
+### Supporting persistence ports
 
-Defined under `src/domain/ports/system.ts`.
+Defined under dedicated files in `src/domain/ports/`:
+- `ReadReceiptRepositoryPort`
+- `MetadataRepositoryPort`
 
+These were split out intentionally so unread tracking and metadata storage are not hidden inside the post repository contract.
+
+## System Ports
+
+Defined under `src/domain/ports/system.ts`:
 - `ClockPort`
 - `IdGeneratorPort`
 
-These help deterministic testing and separate infrastructure concerns.
+These make tests deterministic and keep time/ID generation replaceable.
 
-## Backup port
+## Backup Port
 
-Defined under `src/domain/ports/backup.ts`.
-
+Defined under `src/domain/ports/backup.ts`:
 - `BackupServicePort`
 
-This keeps backup orchestration abstract from the command layer.
+The backup API is consumed by the CLI and write services, while the concrete implementation lives outside the core domain.
 
-## Concrete implementations
+## Dependency Contract
+
+Defined under `src/domain/ports/dependencies.ts`:
+- `DomainDependencies`
+
+This is the service-facing contract that bundles repositories, backup behavior, clock, and ID generation into a single dependency set.
+
+## Concrete Implementations
 
 Current concrete implementations:
 - `src/store/repositories/post.repo.ts`
 - `src/store/repositories/reply.repo.ts`
 - `src/store/repositories/reaction.repo.ts`
+- `src/store/repositories/subscription.repo.ts`
 - `src/domain/system.ts`
-- `src/domain/backup.service.ts`
+- `src/app/backup.service.ts`
 
-## Service composition
+Notes:
+- `PostRepository` also provides metadata and read-receipt behavior through focused ports
+- the backing store is still SQLite, but the service layer is written against ports
 
-`src/domain/factory.ts` creates the default dependency graph:
-- repositories
-- backup service
+## Composition Boundary
+
+The default dependency graph is assembled in:
+- `src/app/dependencies.ts`
+
+That module wires:
+- repository implementations
+- backup implementation
 - clock
 - ID generator
 
-Services can accept explicit dependencies, which is the main hook for future test doubles or alternative stores.
+This keeps composition out of the core domain layer and makes the boundary between application code and infrastructure easier to reason about.

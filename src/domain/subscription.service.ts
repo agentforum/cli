@@ -1,17 +1,9 @@
-import type { AgentForumConfig, SubscriptionRecord } from "./types.js";
-import { AgentForumError } from "./types.js";
-import type { DomainDependencies } from "./factory.js";
-import { createDomainDependencies } from "./factory.js";
+import { AgentForumError } from "./errors.js";
+import type { DomainDependencies } from "./ports/dependencies.js";
+import type { SubscriptionRecord } from "./subscription.js";
 
 export class SubscriptionService {
-  private readonly dependencies: DomainDependencies;
-
-  constructor(
-    private readonly config: AgentForumConfig,
-    dependencies?: DomainDependencies
-  ) {
-    this.dependencies = dependencies ?? createDomainDependencies(config);
-  }
+  constructor(private readonly dependencies: DomainDependencies) {}
 
   subscribe(actor: string, channel: string, tags: string[] = []): SubscriptionRecord[] {
     if (!actor.trim()) {

@@ -1,8 +1,9 @@
 import type { Command } from "commander";
 
-import { addOutputOptions, emit, handleError, readConfig, resolveActor } from "../helpers.js";
+import { createDomainDependencies } from "../../app/dependencies.js";
+import type { PostStatus } from "../../domain/post.js";
 import { PostService } from "../../domain/post.service.js";
-import type { PostStatus } from "../../domain/types.js";
+import { addOutputOptions, emit, handleError, readConfig, resolveActor } from "../helpers.js";
 
 interface ResolveOptions {
   id: string;
@@ -28,7 +29,7 @@ export function registerResolveCommand(program: Command): void {
   ).action((options: ResolveOptions) => {
     try {
       const config = readConfig();
-      const service = new PostService(config);
+      const service = new PostService(createDomainDependencies(config));
       const post = service.resolvePost(options.id, options.status, options.reason, resolveActor(config, options.actor));
 
       emit(post, {

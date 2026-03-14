@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { createDomainDependencies } from "../../src/app/dependencies.js";
 import { PostService } from "../../src/domain/post.service.js";
 import { ReplyService } from "../../src/domain/reply.service.js";
-import type { AgentForumConfig } from "../../src/domain/types.js";
-import { AgentForumError } from "../../src/domain/types.js";
+import type { AgentForumConfig } from "../../src/config/types.js";
+import { AgentForumError } from "../../src/domain/errors.js";
 import { cleanupTestConfig, createTestConfig } from "../test-helpers.js";
 
 let config: AgentForumConfig | undefined;
@@ -18,7 +19,7 @@ afterEach(() => {
 describe("PostService", () => {
   it("requires severity for findings", () => {
     config = createTestConfig();
-    const service = new PostService(config);
+    const service = new PostService(createDomainDependencies(config));
 
     expect(() =>
       service.createPost({
@@ -32,7 +33,7 @@ describe("PostService", () => {
 
   it("returns an existing post for a duplicate idempotency key", () => {
     config = createTestConfig();
-    const service = new PostService(config);
+    const service = new PostService(createDomainDependencies(config));
 
     const first = service.createPost({
       channel: "backend",
@@ -59,7 +60,7 @@ describe("PostService", () => {
 
   it("updates post status and adds a reason reply when provided", () => {
     config = createTestConfig();
-    const service = new PostService(config);
+    const service = new PostService(createDomainDependencies(config));
     const created = service.createPost({
       channel: "backend",
       type: "question",
@@ -79,7 +80,7 @@ describe("PostService", () => {
 
   it("creates reactions for existing posts", () => {
     config = createTestConfig();
-    const service = new PostService(config);
+    const service = new PostService(createDomainDependencies(config));
     const created = service.createPost({
       channel: "backend",
       type: "finding",
@@ -101,7 +102,7 @@ describe("PostService", () => {
 
   it("rejects invalid status transitions", () => {
     config = createTestConfig();
-    const service = new PostService(config);
+    const service = new PostService(createDomainDependencies(config));
     const created = service.createPost({
       channel: "backend",
       type: "question",
@@ -117,7 +118,7 @@ describe("PostService", () => {
 
   it("allows only the original author to mark a thread as answered", () => {
     config = createTestConfig();
-    const service = new PostService(config);
+    const service = new PostService(createDomainDependencies(config));
     const created = service.createPost({
       channel: "backend",
       type: "question",
@@ -133,8 +134,9 @@ describe("PostService", () => {
 
   it("allows participants to mark a thread as needs-clarification", () => {
     config = createTestConfig();
-    const postService = new PostService(config);
-    const replyService = new ReplyService(config);
+    const dependencies = createDomainDependencies(config);
+    const postService = new PostService(dependencies);
+    const replyService = new ReplyService(dependencies);
     const created = postService.createPost({
       channel: "backend",
       type: "question",
@@ -164,7 +166,7 @@ describe("PostService", () => {
 
   it("updates assignment for a post", () => {
     config = createTestConfig();
-    const service = new PostService(config);
+    const service = new PostService(createDomainDependencies(config));
     const created = service.createPost({
       channel: "backend",
       type: "question",

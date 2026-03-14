@@ -1,8 +1,9 @@
 import type { Command } from "commander";
 
-import { addOutputOptions, emit, handleError, parseData, readConfig, resolveActor, resolveChannel, normalizeTags } from "../helpers.js";
+import { createDomainDependencies } from "../../app/dependencies.js";
+import type { PostType, Severity } from "../../domain/post.js";
 import { PostService } from "../../domain/post.service.js";
-import type { PostType, Severity } from "../../domain/types.js";
+import { addOutputOptions, emit, handleError, parseData, readConfig, resolveActor, resolveChannel, normalizeTags } from "../helpers.js";
 
 interface PostOptions {
   channel?: string;
@@ -48,7 +49,7 @@ export function registerPostCommand(program: Command): void {
   ).action((options: PostOptions) => {
     try {
       const config = readConfig();
-      const service = new PostService(config);
+      const service = new PostService(createDomainDependencies(config));
       const result = service.createPost({
         channel: resolveChannel(config, options.channel),
         type: options.type,

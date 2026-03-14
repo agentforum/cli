@@ -2,10 +2,11 @@ import { writeFileSync } from "node:fs";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { BackupService } from "../../src/domain/backup.service.js";
+import { createDomainDependencies } from "../../src/app/dependencies.js";
+import { BackupService } from "../../src/app/backup.service.js";
 import { PostService } from "../../src/domain/post.service.js";
-import type { AgentForumConfig } from "../../src/domain/types.js";
-import { AgentForumError } from "../../src/domain/types.js";
+import type { AgentForumConfig } from "../../src/config/types.js";
+import { AgentForumError } from "../../src/domain/errors.js";
 import { cleanupTestConfig, createTestConfig } from "../test-helpers.js";
 
 let config: AgentForumConfig | undefined;
@@ -20,8 +21,9 @@ afterEach(() => {
 describe("BackupService", () => {
   it("exports and imports forum data as JSON", () => {
     config = createTestConfig();
-    const postService = new PostService(config);
-    const backupService = new BackupService(config);
+    const dependencies = createDomainDependencies(config);
+    const postService = new PostService(dependencies);
+    const backupService = new BackupService(config, dependencies);
 
     postService.createPost({
       channel: "backend",
@@ -44,7 +46,7 @@ describe("BackupService", () => {
 
   it("creates sqlite backups and lists them", () => {
     config = createTestConfig();
-    const backupService = new BackupService(config);
+    const backupService = new BackupService(config, createDomainDependencies(config));
 
     const path = backupService.createBackup();
     const backups = backupService.listBackups();
@@ -55,7 +57,7 @@ describe("BackupService", () => {
 
   it("rejects malformed backup JSON", () => {
     config = createTestConfig();
-    const backupService = new BackupService(config);
+    const backupService = new BackupService(config, createDomainDependencies(config));
     const badPath = `${config.backupDir}/bad.json`;
 
     writeFileSync(badPath, "{broken", "utf8");
@@ -65,8 +67,9 @@ describe("BackupService", () => {
 
   it("creates an auto-backup after the configured number of writes", () => {
     config = createTestConfig();
-    const postService = new PostService(config);
-    const backupService = new BackupService(config);
+    const dependencies = createDomainDependencies(config);
+    const postService = new PostService(dependencies);
+    const backupService = new BackupService(config, dependencies);
 
     postService.createPost({
       channel: "backend",

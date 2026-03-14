@@ -1,0 +1,155 @@
+import React from "react";
+import type { TermElement } from "terminosaurus";
+
+import type { ReadPostBundle } from "../../../../domain/post.js";
+import { describeConversationFilterMode, sanitizeTerminalText, timeAgo } from "../formatters.js";
+import type { BrowseTheme, ConversationFilterMode, ConversationItem, ConversationSortMode, PanelFocus } from "../types.js";
+
+export function PostView({
+  bundle,
+  actor,
+  now,
+  theme,
+  focusedIndex,
+  conversationItems,
+  conversationFilterMode,
+  conversationSortMode,
+  itemRefs,
+  indexScrollRef,
+  contentScrollRef,
+  panelFocus,
+  readProgressLabel
+}: {
+  bundle: ReadPostBundle | null;
+  actor?: string;
+  now: Date;
+  theme: BrowseTheme;
+  focusedIndex: number;
+  conversationItems: ConversationItem[];
+  conversationFilterMode: ConversationFilterMode;
+  conversationSortMode: ConversationSortMode;
+  itemRefs: React.MutableRefObject<Array<TermElement | null>>;
+  indexScrollRef: React.MutableRefObject<TermElement | null>;
+  contentScrollRef: React.MutableRefObject<TermElement | null>;
+  panelFocus: PanelFocus;
+  readProgressLabel: string;
+}) {
+  if (!bundle) {
+    return <term:text>Select a post to open it.</term:text>;
+  }
+
+  const bodyFocused = focusedIndex === -1;
+  const selectedReply = focusedIndex >= 0 ? bundle.replies[focusedIndex] ?? null : null;
+
+  return (
+    <term:div flexDirection="row" padding={[0, 1]} height="100%">
+      <term:div
+        ref={indexScrollRef}
+        width={24}
+        flexShrink={0}
+        overflow="scroll"
+        border="rounded"
+        borderColor={panelFocus === "index" ? theme.accent : theme.muted}
+        padding={[0, 1]}
+        marginRight={1}
+      >
+        <term:div flexDirection="row" marginBottom={0}>
+          <term:text color={panelFocus === "index" ? theme.accent : theme.fg} fontWeight="bold">
+            {"Conversation"}
+          </term:text>
+          <term:text color={theme.muted} flexGrow={1} textAlign="right">
+            {`${conversationItems.length}/${bundle.replies.length + 1}`}
+          </term:text>
+        </term:div>
+        <term:text color={theme.muted} marginBottom={1}>
+          {`[f] ${describeConversationFilterMode(conversationFilterMode)}  [s] ${conversationSortMode === "thread" ? "thr" : "new"}`}
+        </term:text>
+
+        {conversationItems.length === 0 ? (
+          <term:text color={theme.muted}>No replies yet.</term:text>
+        ) : (
+          conversationItems.map((item, itemIndex) => {
+            const focused = item.replyIndex === focusedIndex;
+            return (
+              <term:div
+                key={item.id}
+                ref={(el: TermElement | null) => {
+                  itemRefs.current[itemIndex] = el;
+                }}
+                border={focused ? "modern" : "rounded"}
+                borderColor={focused ? theme.accent : theme.muted}
+                backgroundColor={focused ? theme.selected : undefined}
+                padding={[0, 1]}
+                marginBottom={1}
+              >
+                <term:text color={focused ? theme.selectedFg : theme.fg} fontWeight="bold">
+                  {`${focused ? "\u25B8 " : "  "}${item.label}`}
+                </term:text>
+                <term:text color={focused ? theme.selectedFg : theme.muted}>
+                  {timeAgo(item.createdAt, now)}
+                </term:text>
+              </term:div>
+            );
+          })
+        )}
+      </term:div>
+
+      <term:div
+        ref={contentScrollRef}
+        flexGrow={1}
+        flexShrink={1}
+        overflow="scroll"
+        border="rounded"
+        borderColor={panelFocus === "content" ? theme.accent : theme.muted}
+        padding={[0, 1]}
+      >
+        <term:text color={panelFocus === "content" ? theme.accent : theme.fg} fontWeight="bold" marginBottom={1}>
+          {"Content"}
+        </term:text>
+        {bodyFocused ? (
+          <term:div flexDirection="column">
+            <term:text color={theme.accent} fontWeight="bold" marginBottom={0}>
+              {"Original post"}
+            </term:text>
+            <term:text color={theme.muted} marginBottom={1}>
+              {`${bundle.post.actor ?? actor ?? "unknown"}${bundle.post.session ? ` [${bundle.post.session}]` : ""}  \u00B7  ${timeAgo(bundle.post.createdAt, now)}`}
+            </term:text>
+            <term:text whiteSpace="preWrap" color={theme.fg}>
+              {sanitizeTerminalText(bundle.post.body)}
+            </term:text>
+            {bundle.post.refId ? (
+              <term:text color={theme.accent} marginTop={1}>
+                {`Referenced post: ${bundle.post.refId}`}
+              </term:text>
+            ) : null}
+            {bundle.reactions.length > 0 ? (
+              <>
+                <term:text color={theme.accent} fontWeight="bold" marginTop={1}>
+                  {"Reactions"}
+                </term:text>
+                <term:text color={theme.warning}>
+                  {bundle.reactions.map((reaction) => `${reaction.reaction} (${reaction.actor ?? "unknown"})`).join("  \u00B7  ")}
+                </term:text>
+              </>
+            ) : null}
+          </term:div>
+        ) : selectedReply ? (
+          <term:div flexDirection="column">
+            <term:text color={theme.accent} fontWeight="bold" marginBottom={0}>
+              {`Reply ${focusedIndex + 1}`}
+            </term:text>
+            <term:text color={theme.muted} marginBottom={1}>
+              {`${selectedReply.actor ?? "unknown"}${selectedReply.session ? ` [${selectedReply.session}]` : ""}  \u00B7  ${timeAgo(selectedReply.createdAt, now)}`}
+            </term:text>
+            <term:text whiteSpace="preWrap" color={theme.fg}>
+              {sanitizeTerminalText(selectedReply.body)}
+            </term:text>
+          </term:div>
+        ) : null}
+        <term:text color={theme.muted} marginTop={1} textAlign="right">
+          {readProgressLabel}
+        </term:text>
+      </term:div>
+    </term:div>
+  );
+}

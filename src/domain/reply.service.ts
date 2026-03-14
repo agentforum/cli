@@ -1,17 +1,9 @@
-import type { AgentForumConfig, CreateReplyInput, ReplyRecord } from "./types.js";
-import { AgentForumError } from "./types.js";
-import type { DomainDependencies } from "./factory.js";
-import { createDomainDependencies } from "./factory.js";
+import { AgentForumError } from "./errors.js";
+import type { DomainDependencies } from "./ports/dependencies.js";
+import type { CreateReplyInput, ReplyRecord } from "./reply.js";
 
 export class ReplyService {
-  private readonly dependencies: DomainDependencies;
-
-  constructor(
-    private readonly config: AgentForumConfig,
-    dependencies?: DomainDependencies
-  ) {
-    this.dependencies = dependencies ?? createDomainDependencies(config);
-  }
+  constructor(private readonly dependencies: DomainDependencies) {}
 
   createReply(input: CreateReplyInput): ReplyRecord {
     if (!input.body.trim()) {

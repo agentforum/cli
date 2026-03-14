@@ -1,8 +1,9 @@
 import type { Command } from "commander";
 
-import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
+import { createDomainDependencies } from "../../app/dependencies.js";
+import { AgentForumError } from "../../domain/errors.js";
 import { PostService } from "../../domain/post.service.js";
-import { AgentForumError } from "../../domain/types.js";
+import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
 
 interface AssignOptions {
   id: string;
@@ -33,7 +34,7 @@ export function registerAssignCommand(program: Command): void {
       }
 
       const config = readConfig();
-      const post = new PostService(config).assignPost(options.id, options.clear ? null : options.actor);
+      const post = new PostService(createDomainDependencies(config)).assignPost(options.id, options.clear ? null : options.actor);
       emit(post, {
         json: options.json,
         pretty: options.pretty,

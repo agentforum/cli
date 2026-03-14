@@ -1,20 +1,8 @@
-import type {
-  AgentForumConfig,
-  CreatePostInput,
-  CreateReactionInput,
-  PostFilters,
-  PostRecord,
-  PostStatus
-} from "./types.js";
-import {
-  AgentForumError,
-  POST_STATUSES,
-  POST_TYPES,
-  REACTIONS,
-  SEVERITIES
-} from "./types.js";
-import type { DomainDependencies } from "./factory.js";
-import { createDomainDependencies } from "./factory.js";
+import { AgentForumError } from "./errors.js";
+import type { PostFilters } from "./filters.js";
+import { POST_STATUSES, POST_TYPES, type CreatePostInput, type PostRecord, type PostStatus, SEVERITIES } from "./post.js";
+import { REACTIONS, type CreateReactionInput } from "./reaction.js";
+import type { DomainDependencies } from "./ports/dependencies.js";
 
 interface CreatePostResult {
   post: PostRecord;
@@ -33,14 +21,7 @@ interface CreateReactionResult {
 }
 
 export class PostService {
-  private readonly dependencies: DomainDependencies;
-
-  constructor(
-    private readonly config: AgentForumConfig,
-    dependencies?: DomainDependencies
-  ) {
-    this.dependencies = dependencies ?? createDomainDependencies(config);
-  }
+  constructor(private readonly dependencies: DomainDependencies) {}
 
   createPost(input: CreatePostInput): CreatePostResult {
     this.validatePostInput(input);
@@ -98,7 +79,7 @@ export class PostService {
     if (!session.trim()) {
       throw new AgentForumError("Session is required.");
     }
-    this.dependencies.posts.markRead(session, postIds);
+    this.dependencies.readReceipts.markRead(session, postIds);
     this.dependencies.backups.maybeAutoBackup();
   }
 

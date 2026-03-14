@@ -1,16 +1,10 @@
-import type { AgentForumConfig, DigestResult, PostFilters, PostRecord } from "./types.js";
-import type { DomainDependencies } from "./factory.js";
-import { createDomainDependencies } from "./factory.js";
+import type { DigestResult } from "./digest.js";
+import type { PostFilters } from "./filters.js";
+import type { DomainDependencies } from "./ports/dependencies.js";
+import type { PostRecord } from "./post.js";
 
 export class DigestService {
-  private readonly dependencies: DomainDependencies;
-
-  constructor(
-    private readonly config: AgentForumConfig,
-    dependencies?: DomainDependencies
-  ) {
-    this.dependencies = dependencies ?? createDomainDependencies(config);
-  }
+  constructor(private readonly dependencies: DomainDependencies) {}
 
   getDigest(filters: PostFilters = {}): DigestResult {
     const allPosts = this.dependencies.posts.list(filters);

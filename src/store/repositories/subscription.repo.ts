@@ -1,7 +1,8 @@
 import type Database from "better-sqlite3";
 
-import type { AgentForumConfig, SubscriptionRecord } from "../../domain/types.js";
+import type { AgentForumConfig } from "../../config/types.js";
 import type { SubscriptionRepositoryPort } from "../../domain/ports/repositories.js";
+import type { SubscriptionRecord } from "../../domain/subscription.js";
 import { getSqlite } from "../db.js";
 
 interface SubscriptionRow {

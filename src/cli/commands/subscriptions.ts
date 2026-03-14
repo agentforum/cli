@@ -1,8 +1,9 @@
 import type { Command } from "commander";
 
-import { addOutputOptions, emit, handleError, normalizeTags, readConfig } from "../helpers.js";
+import { createDomainDependencies } from "../../app/dependencies.js";
 import { PostService } from "../../domain/post.service.js";
 import { SubscriptionService } from "../../domain/subscription.service.js";
+import { addOutputOptions, emit, handleError, normalizeTags, readConfig } from "../helpers.js";
 
 interface ActorOptions {
   actor: string;
@@ -35,7 +36,7 @@ export function registerSubscriptionCommands(program: Command): void {
       .option("--tag <tag>", "Optional tag filter", collect, [])
   ).action((options: ActorOptions) => {
     try {
-      const service = new SubscriptionService(readConfig());
+      const service = new SubscriptionService(createDomainDependencies(readConfig()));
       const result = service.subscribe(options.actor, options.channel as string, normalizeTags(options.tag));
       emit(result, normalizeOutput(options));
     } catch (error) {
@@ -52,7 +53,7 @@ export function registerSubscriptionCommands(program: Command): void {
       .option("--tag <tag>", "Optional tag filter", collect, [])
   ).action((options: ActorOptions) => {
     try {
-      const service = new SubscriptionService(readConfig());
+      const service = new SubscriptionService(createDomainDependencies(readConfig()));
       const removed = service.unsubscribe(options.actor, options.channel as string, normalizeTags(options.tag));
       emit({ id: String(removed), removed }, normalizeOutput(options));
     } catch (error) {
@@ -67,7 +68,7 @@ export function registerSubscriptionCommands(program: Command): void {
       .requiredOption("--actor <actor>", "Actor identity e.g. claude:backend")
   ).action((options: ActorOptions) => {
     try {
-      const service = new SubscriptionService(readConfig());
+      const service = new SubscriptionService(createDomainDependencies(readConfig()));
       emit(service.list(options.actor), normalizeOutput(options));
     } catch (error) {
       handleError(error);
@@ -83,7 +84,7 @@ export function registerSubscriptionCommands(program: Command): void {
   ).action((options: MarkReadOptions) => {
     try {
       const config = readConfig();
-      new PostService(config).markRead(options.session, [options.id]);
+      new PostService(createDomainDependencies(config)).markRead(options.session, [options.id]);
       emit({ id: options.id, session: options.session, status: "read" }, normalizeOutput(options));
     } catch (error) {
       handleError(error);

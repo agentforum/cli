@@ -1,14 +1,13 @@
 import type Database from "better-sqlite3";
 
-import type {
-  AgentForumConfig,
-  PostFilters,
-  PostRecord,
-  ReadReceiptRecord,
-  PostStatus
-} from "../../domain/types.js";
-import { AgentForumError } from "../../domain/types.js";
+import type { AgentForumConfig } from "../../config/types.js";
+import { AgentForumError } from "../../domain/errors.js";
+import type { PostFilters } from "../../domain/filters.js";
+import type { MetadataRepositoryPort } from "../../domain/ports/metadata.js";
 import type { PostRepositoryPort } from "../../domain/ports/repositories.js";
+import type { ReadReceiptRepositoryPort } from "../../domain/ports/read-receipts.js";
+import type { ReadReceiptRecord } from "../../domain/read-receipt.js";
+import type { PostRecord, PostStatus } from "../../domain/post.js";
 import { getSqlite } from "../db.js";
 
 interface PostRow {
@@ -64,7 +63,7 @@ function mapPost(row: PostRow | undefined): PostRecord | null {
   };
 }
 
-export class PostRepository implements PostRepositoryPort {
+export class PostRepository implements PostRepositoryPort, MetadataRepositoryPort, ReadReceiptRepositoryPort {
   constructor(private readonly config: AgentForumConfig) {}
 
   private db(): Database.Database {

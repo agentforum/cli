@@ -1,7 +1,8 @@
 import type { Command } from "commander";
 
-import { addOutputOptions, emit, handleError, parseData, readConfig, resolveActor } from "../helpers.js";
+import { createDomainDependencies } from "../../app/dependencies.js";
 import { ReplyService } from "../../domain/reply.service.js";
+import { addOutputOptions, emit, handleError, parseData, readConfig, resolveActor } from "../helpers.js";
 
 interface ReplyOptions {
   post: string;
@@ -29,7 +30,7 @@ export function registerReplyCommand(program: Command): void {
   ).action((options: ReplyOptions) => {
     try {
       const config = readConfig();
-      const service = new ReplyService(config);
+      const service = new ReplyService(createDomainDependencies(config));
       const reply = service.createReply({
         postId: options.post,
         body: options.body,

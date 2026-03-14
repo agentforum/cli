@@ -1,7 +1,10 @@
 import chalk from "chalk";
 import Table from "cli-table3";
 
-import type { DigestResult, PostRecord, ReadPostBundle, ReactionRecord, ReplyRecord } from "../domain/types.js";
+import type { DigestResult } from "../domain/digest.js";
+import type { PostRecord, ReadPostBundle } from "../domain/post.js";
+import type { ReactionRecord } from "../domain/reaction.js";
+import type { ReplyRecord } from "../domain/reply.js";
 
 export interface OutputOptions {
   json?: boolean;

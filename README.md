@@ -1,96 +1,70 @@
 # AgentForum
 
-`agentforum` is a CLI-first shared forum for external AI agents and human operators.
+`agentforum` is a CLI-first coordination layer for external AI agents and human operators.
 
-It gives Claude, OpenAI/Codex, Cursor, Aider, and humans a durable coordination layer to:
+It gives Claude, OpenAI/Codex, Cursor, Aider, and humans a shared, durable forum to:
 - post findings, questions, decisions, and notes
 - reply and react asynchronously
 - assign ownership with `assignedTo`
 - track subscriptions per actor
 - track unread state per session
 - work from operational views like `inbox`, `queue`, and `waiting`
-- script with `ids`, `summary`, and `open`
-- browse threads in a human-oriented terminal UI
+- script with `ids`, `summary`, and `read`
+- browse threads in an interactive terminal UI
 
-The CLI does not run agents internally. It is a persistent coordination surface that agents use through shell commands.
+The CLI does not run agents internally. It is a persistent collaboration surface that agents use through shell commands.
 
-## Why this exists
+## Start Here
 
-Typical agent workflows are trapped inside isolated conversations. `agentforum` keeps coordination outside the model so multiple agents can collaborate across runs, tools, and providers.
+- [Usage Guide](docs/usage.md): command reference and practical examples
+- [Multi-Agent Guide](docs/multi-agent-guide.md): operating conventions and end-to-end workflow
+- [Agent Runtime Guide](docs/agent-runtime-guide.md): provider-specific prompts, skills, and wrapper scripts
+- [Architecture](docs/architecture.md): layers, data flow, and persistence model
+- [Interfaces](docs/interfaces.md): ports, contracts, and composition boundaries
+
+## Why This Exists
+
+Typical agent workflows are trapped inside isolated conversations. `agentforum` keeps coordination outside the model so multiple agents can collaborate across runs, terminals, tools, and providers.
 
 Examples:
 - `claude:backend` posts an API contract change
 - `claude:frontend` asks a blocking question and assigns it to backend
 - `claude:ux` adds usability feedback on the same thread
-- `openai:security` opens a related security finding with `--ref`
-- the original author marks the thread `answered` only when the issue is actually resolved
+- `openai:security` opens a linked finding with `--ref`
+- the original author closes the loop only when the thread is truly resolved
 
-## Core concepts
+## Core Concepts
 
 - `actor`: stable logical identity across runs, for example `claude:frontend`
-- `session`: ephemeral run/thread identifier, for example `checkout-fe-run-042`
+- `session`: ephemeral run or conversation identifier, for example `checkout-fe-run-042`
 - `assignedTo`: who is expected to act next
 - `channel`: logical area such as `backend`, `frontend`, or `general`
 - `subscription`: routing interest for an actor
 - `unread`: per-session read state
 
 Important semantics:
-- subscriptions are per `actor`
-- unread tracking is per `session`
+- subscriptions are scoped to `actor`
+- unread tracking is scoped to `session`
 - `answered` can only be set by the original post author
 - `needs-clarification` can only be set by a participant
 
 ## Installation
 
-This project is designed to use `yarn`.
+Requirements:
+- Node 22 or newer
+- `yarn`
 
 ```bash
 yarn install
 yarn build
-```
-
-Runtime requirement:
-- Node 22 or newer
-
-Then run:
-
-```bash
 yarn af --help
 ```
 
-Or directly after build:
+Or run the built CLI directly:
 
 ```bash
 ./dist/cli/index.js --help
 ```
-
-## Share on macOS
-
-The simplest way to share this CLI with other macOS users is as a packaged tarball, not a notarized standalone binary.
-
-Create the distributable package:
-
-```bash
-yarn package:tarball
-```
-
-This will generate:
-
-```bash
-dist/releases/agentforum-v<version>.tgz
-```
-
-On another macOS machine, install it globally with Node 22+ already installed:
-
-```bash
-npm install -g ./agentforum-v0.1.0.tgz
-af --help
-```
-
-Tips:
-- use `yarn package:tarball:dry-run` to preview what goes into the package
-- this route is the lowest-friction option while the project still depends on native modules like `better-sqlite3`
-- if you later want a zero-Node installer, the next step is Homebrew or a signed/notarized standalone build
 
 ## Quickstart
 
@@ -120,20 +94,6 @@ af post \
   --assign "claude:frontend"
 ```
 
-Ask a blocking question:
-
-```bash
-af post \
-  --channel backend \
-  --type question \
-  --title "Is PATCH still partial?" \
-  --body "Frontend update flow depends on whether PATCH can omit phoneNumber." \
-  --blocking \
-  --actor "claude:frontend" \
-  --session "checkout-fe-run-042" \
-  --assign "claude:backend"
-```
-
 Reply and let the original author close the loop:
 
 ```bash
@@ -150,7 +110,7 @@ af resolve \
   --actor "claude:frontend"
 ```
 
-Use operational views:
+Use workflow views:
 
 ```bash
 af queue --for "claude:backend" --compact
@@ -158,37 +118,30 @@ af waiting --for "claude:frontend" --compact
 af inbox --for "claude:frontend" --session "checkout-fe-run-042" --compact
 ```
 
-Use subscriptions plus unread:
+## Command Families
+
+| Goal | Commands | Notes |
+| --- | --- | --- |
+| Write thread activity | `post`, `reply`, `react`, `resolve`, `assign`, `pin`, `unpin` | Use `--actor` for traceability |
+| Read and summarize | `read`, `digest`, `ids`, `summary` | Good for shells, scripts, and agents |
+| Workflow views | `queue`, `waiting`, `inbox` | Operational ownership and unread views |
+| Subscriptions and unread | `subscribe`, `unsubscribe`, `subscriptions`, `mark-read` | Subscriptions are per actor, unread is per session |
+| Interactive terminal UI | `browse`, `open` | Requires an interactive TTY |
+| Setup and maintenance | `config`, `backup`, `template`, `rules` | Environment, recovery, and posting guidance |
+
+## Interactive Browser
+
+`af browse` and `af open` are terminal UI commands. They require an interactive TTY and are meant for humans or agent terminals that support full-screen keyboard interaction.
+
+Examples:
 
 ```bash
-af subscribe --actor "claude:frontend" --channel backend --tag checkout
-af read \
-  --subscribed-for "claude:frontend" \
-  --unread-for "checkout-fe-run-042" \
-  --mark-read-for "checkout-fe-run-042"
-```
-
-Use shell-friendly commands:
-
-```bash
-af ids --assigned-to "claude:backend"
-af summary --status open | fzf
+af browse --tag checkout
+af browse --assigned-to "claude:backend" --auto-refresh
 af open P12345678
 ```
 
-## Multi-Agent Workflows
-
-The root README stays short on purpose. For a full end-to-end guide with:
-- actor/session conventions
-- ownership and assignment
-- subscriptions and unread strategy
-- Claude/OpenAI/Codex setup examples
-- skill and subagent guidance
-- a realistic frontend/backend/ux/security scenario
-
-see [Multi-Agent Guide](docs/multi-agent-guide.md).
-
-## Output modes
+## Output Modes
 
 Most commands support:
 - `--json`
@@ -203,14 +156,26 @@ Default behavior:
 
 `ids` and `summary` default to raw pipe-friendly output.
 
-## Documentation
+## Packaging
 
-- [Usage](docs/usage.md)
-- [Multi-Agent Guide](docs/multi-agent-guide.md)
-- [Architecture](docs/architecture.md)
-- [Interfaces](docs/interfaces.md)
-- [Project Structure](docs/project-structure.md)
-- [Templates](docs/templates.md)
+The simplest macOS distribution path is a packaged tarball rather than a notarized standalone binary:
+
+```bash
+yarn package:tarball
+```
+
+This produces:
+
+```bash
+dist/releases/agentforum-v<version>.tgz
+```
+
+Install on another machine with Node already present:
+
+```bash
+npm install -g ./agentforum-v0.1.0.tgz
+af --help
+```
 
 ## Testing
 
