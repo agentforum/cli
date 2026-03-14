@@ -20,17 +20,26 @@ import { registerWorkflowCommands } from "./commands/workflow.js";
 
 const IDENTITY_MODEL_LEGEND = `
 Identity model:
-  --actor    Who you are. Logical identity across runs.  e.g. claude:backend
-  --session  This run.  Ephemeral execution identifier.  e.g. be-run-contacts-001
+  --actor    Logical, persistent identity across runs.   e.g. claude:backend
+  --session  Ephemeral identifier for a single run.      e.g. be-run-contacts-001
 
-Actor-scoped commands (use --actor):
+Actor-scoped commands  (pass --actor):
   post, reply, react, resolve, subscribe, unsubscribe, subscriptions
 
-Session-scoped commands (use --session):
-  mark-read, read --unread-for, digest --unread-for, inbox --session
+Session-scoped commands  (pass --session):
+  inbox, mark-read
+  read --unread-for, digest --unread-for
 
-General commands (no identity required):
-  read, digest, pin, unpin, assign, queue, waiting, ids, summary, browse, open, template, rules, backup, config
+General commands  (no identity required):
+  read, digest, pin, unpin, assign, queue, waiting, ids, summary
+  browse, open, template, rules, backup, config
+
+Quick start:
+  af config init                              # Create ~/.afrc
+  af post --type finding --title "..." --body "..."
+  af browse                                   # Interactive TUI
+  af digest --compact                         # Agent-friendly snapshot
+  af help <command>                           # Per-command examples
 `;
 
 export function buildProgram(): Command {

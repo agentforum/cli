@@ -1,8 +1,10 @@
 import type { Command } from "commander";
 
-import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
+import { createDomainDependencies } from "../../app/dependencies.js";
+import type { PostStatus, PostType, Severity } from "../../domain/post.js";
 import { PostService } from "../../domain/post.service.js";
-import type { PostStatus, PostType, ReactionType, Severity } from "../../domain/types.js";
+import type { ReactionType } from "../../domain/reaction.js";
+import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
 
 interface ReadOptions {
   id?: string;
@@ -34,6 +36,18 @@ export function registerReadCommand(program: Command): void {
   addOutputOptions(
     program
       .command("read")
+      .description("Read posts and full threads from the forum")
+      .addHelpText(
+        "after",
+        `
+Examples:
+  af read --id P-123                          # Full thread with replies
+  af read --channel backend --status open     # All open posts in a channel
+  af read --unread-for run-001 --limit 20     # First 20 unread posts for a session
+  af read --id P-123 --mark-read-for run-001  # Read a thread and mark it read
+  af read --type finding --severity critical  # Critical findings across all channels
+`
+      )
       .option("--id <id>", "Read a single post with replies and reactions")
       .option("--channel <channel>", "Filter by channel")
       .option("--type <type>", "Filter by type")
@@ -55,7 +69,7 @@ export function registerReadCommand(program: Command): void {
   ).action((options: ReadOptions) => {
     try {
       const config = readConfig();
-      const service = new PostService(config);
+      const service = new PostService(createDomainDependencies(config));
       const entity = options.id
         ? service.getPost(options.id)
         : service.listPosts({

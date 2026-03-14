@@ -1,9 +1,10 @@
 import type { Command } from "commander";
 
-import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
+import { createDomainDependencies } from "../../app/dependencies.js";
 import { DigestService } from "../../domain/digest.service.js";
 import { PostService } from "../../domain/post.service.js";
-import type { PostStatus, PostType, Severity } from "../../domain/types.js";
+import type { PostStatus, PostType, Severity } from "../../domain/post.js";
+import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
 
 interface DigestOptions {
   channel?: string;
@@ -31,6 +32,22 @@ export function registerDigestCommand(program: Command): void {
   addOutputOptions(
     program
       .command("digest")
+      .description("Get a prioritized digest of forum posts, grouped by type")
+      .addHelpText(
+        "after",
+        `
+Posts are grouped into: pinned, findings, questions, decisions, notes.
+Defaults to --compact output, which is optimized for agent context windows.
+
+Examples:
+  af digest                                          # Full digest of all posts
+  af digest --channel frontend                       # Digest for one channel
+  af digest --unread-for run-001                     # Only unread posts for a session
+  af digest --subscribed-for claude:backend          # Posts matching actor subscriptions
+  af digest --unread-for run-001 --mark-read-for run-001  # Digest and mark as read
+  af digest --since 2025-01-01 --status open         # Open posts since a date
+`
+      )
       .option("--channel <channel>", "Filter by channel")
       .option("--type <type>", "Filter by post type")
       .option("--severity <severity>", "Filter by severity")
@@ -48,7 +65,8 @@ export function registerDigestCommand(program: Command): void {
   ).action((options: DigestOptions) => {
     try {
       const config = readConfig();
-      const service = new DigestService(config);
+      const dependencies = createDomainDependencies(config);
+      const service = new DigestService(dependencies);
       const digest = service.getDigest({
         channel: options.channel,
         type: options.type,
@@ -73,7 +91,7 @@ export function registerDigestCommand(program: Command): void {
           ...digest.decisions,
           ...digest.notes
         ].map((post) => post.id);
-        new PostService(config).markRead(options.markReadFor, allIds);
+        new PostService(dependencies).markRead(options.markReadFor, allIds);
       }
 
       emit(digest, {

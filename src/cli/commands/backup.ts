@@ -1,7 +1,8 @@
 import type { Command } from "commander";
 
+import { createDomainDependencies } from "../../app/dependencies.js";
+import { BackupService } from "../../app/backup.service.js";
 import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
-import { BackupService } from "../../domain/backup.service.js";
 
 interface BackupOutputOptions {
   output?: string;
@@ -16,10 +17,16 @@ interface BackupOutputOptions {
 export function registerBackupCommands(program: Command): void {
   const backup = program.command("backup").description("Manage forum backups");
 
-  addOutputOptions(backup.command("create").option("--output <path>", "Backup destination")).action(
+  addOutputOptions(
+    backup
+      .command("create")
+      .description("Create a SQLite snapshot in the backups directory")
+      .option("--output <path>", "Backup destination (default: backups dir from config)")
+  ).action(
     (options: BackupOutputOptions) => {
       try {
-        const service = new BackupService(readConfig());
+        const config = readConfig();
+        const service = new BackupService(config, createDomainDependencies(config));
         emit({ id: service.createBackup(options.output) }, normalize(options));
       } catch (error) {
         handleError(error);
@@ -27,10 +34,16 @@ export function registerBackupCommands(program: Command): void {
     }
   );
 
-  addOutputOptions(backup.command("export").requiredOption("--output <path>", "JSON output path")).action(
+  addOutputOptions(
+    backup
+      .command("export")
+      .description("Export all forum data to a portable JSON file")
+      .requiredOption("--output <path>", "JSON output path")
+  ).action(
     (options: BackupOutputOptions) => {
       try {
-        const service = new BackupService(readConfig());
+        const config = readConfig();
+        const service = new BackupService(config, createDomainDependencies(config));
         emit(service.exportToJson(options.output as string), normalize(options));
       } catch (error) {
         handleError(error);
@@ -38,10 +51,16 @@ export function registerBackupCommands(program: Command): void {
     }
   );
 
-  addOutputOptions(backup.command("import").requiredOption("--file <path>", "JSON backup file")).action(
+  addOutputOptions(
+    backup
+      .command("import")
+      .description("Import posts from a JSON backup file (non-destructive, skips duplicates)")
+      .requiredOption("--file <path>", "JSON backup file")
+  ).action(
     (options: BackupOutputOptions) => {
       try {
-        const service = new BackupService(readConfig());
+        const config = readConfig();
+        const service = new BackupService(config, createDomainDependencies(config));
         emit(service.importFromJson(options.file as string), normalize(options));
       } catch (error) {
         handleError(error);
@@ -49,10 +68,16 @@ export function registerBackupCommands(program: Command): void {
     }
   );
 
-  addOutputOptions(backup.command("restore").requiredOption("--file <path>", "SQLite backup file")).action(
+  addOutputOptions(
+    backup
+      .command("restore")
+      .description("Restore the live database from a SQLite backup (replaces current data)")
+      .requiredOption("--file <path>", "SQLite backup file")
+  ).action(
     (options: BackupOutputOptions) => {
       try {
-        const service = new BackupService(readConfig());
+        const config = readConfig();
+        const service = new BackupService(config, createDomainDependencies(config));
         emit({ id: service.restoreFromSqlite(options.file as string) }, normalize(options));
       } catch (error) {
         handleError(error);
@@ -60,14 +85,17 @@ export function registerBackupCommands(program: Command): void {
     }
   );
 
-  addOutputOptions(backup.command("list")).action((options: BackupOutputOptions) => {
-    try {
-      const service = new BackupService(readConfig());
-      emit(service.listBackups().map((id) => ({ id })), normalize(options));
-    } catch (error) {
-      handleError(error);
+  addOutputOptions(backup.command("list").description("List available SQLite backups")).action(
+    (options: BackupOutputOptions) => {
+      try {
+        const config = readConfig();
+        const service = new BackupService(config, createDomainDependencies(config));
+        emit(service.listBackups().map((id) => ({ id })), normalize(options));
+      } catch (error) {
+        handleError(error);
+      }
     }
-  });
+  );
 }
 
 function normalize(options: BackupOutputOptions) {
