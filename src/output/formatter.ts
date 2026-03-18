@@ -1,6 +1,7 @@
 import chalk, { Chalk } from "chalk";
 import Table from "cli-table3";
 
+import type { BackupImportReport } from "../domain/backup.js";
 import type { DigestResult } from "../domain/digest.js";
 import type { PostRecord, ReadPostBundle } from "../domain/post.js";
 import type { ReactionRecord } from "../domain/reaction.js";
@@ -17,7 +18,7 @@ export interface OutputOptions {
 const ASCII_BANNER = String.raw`
     _                    _   _____
    / \   __ _  ___ _ __ | |_|  ___|__  _ __ _   _ _ __ ___
-  / _ \ / _\` |/ _ \ '_ \| __| |_ / _ \| '__| | | | '_ \` _ \
+  / _ \ / _\` |/ _ \ '_ \| __| |_ / _ \|'__| | | | '_ \` _ \
  / ___ \ (_| |  __/ | | | |_|  _| (_) | |  | |_| | | | | | |
 /_/   \_\__, |\___|_| |_|\__|_|  \___/|_|   \__,_|_| |_| |_|
         |___/
@@ -40,6 +41,10 @@ export function formatEntity(entity: unknown, options: OutputOptions = {}): stri
 
   if (mode === "json") {
     return `${JSON.stringify(entity, null, 2)}\n`;
+  }
+
+  if (isImportReport(entity)) {
+    return mode === "compact" ? formatImportReportCompact(entity) : formatImportReportPretty(entity, options);
   }
 
   if (isDigest(entity)) {
@@ -244,6 +249,56 @@ function maybePrefixBanner(text: string, options: OutputOptions): string {
     return text;
   }
   return `${ASCII_BANNER}\n${text}`;
+}
+
+function formatImportReportPretty(report: BackupImportReport, options: OutputOptions): string {
+  const c = getChalk(options.noColor);
+  const lines = [`${c.bold("IMPORT")} ${report.file}`];
+
+  const createdParts = formatCountParts(report.created);
+  if (createdParts.length > 0) {
+    lines.push(`  ${c.green("created")}  ${createdParts.join("  ")}`);
+  } else {
+    lines.push(`  ${c.green("created")}  none`);
+  }
+
+  const skippedParts = formatCountParts(report.skipped);
+  if (skippedParts.length > 0) {
+    lines.push(`  ${c.dim("skipped")}  ${skippedParts.join("  ")}`);
+  } else {
+    lines.push(`  ${c.dim("skipped")}  none`);
+  }
+
+  if (report.conflicts.total === 0) {
+    lines.push(`  ${c.dim("conflicts")}  none`);
+  } else {
+    lines.push(`  ${c.yellow("conflicts")}  ${report.conflicts.total}`);
+    for (const conflict of report.conflicts.items) {
+      lines.push(`    ${c.yellow(conflict.entity)}  ${conflict.key}  ${conflict.reason}`);
+    }
+  }
+
+  return maybePrefixBanner(`${lines.join("\n")}\n`, options);
+}
+
+function formatImportReportCompact(report: BackupImportReport): string {
+  return `IMPORT ${report.file}  created=${report.created.total}  skipped=${report.skipped.total}  conflicts=${report.conflicts.total}\n`;
+}
+
+function formatCountParts(counts: BackupImportReport["created"]): string[] {
+  const fields: Array<[keyof typeof counts, string]> = [
+    ["posts", "posts"],
+    ["replies", "replies"],
+    ["reactions", "reactions"],
+    ["subscriptions", "subscriptions"],
+    ["readReceipts", "readReceipts"],
+    ["meta", "meta"]
+  ];
+  return fields.filter(([key]) => counts[key] > 0).map(([key, label]) => `${label}=${counts[key]}`);
+}
+
+function isImportReport(value: unknown): value is BackupImportReport {
+  return Boolean(value && typeof value === "object" && "mode" in value && (value as { mode: unknown }).mode === "merge" && "created" in value && "skipped" in value && "conflicts" in value);
 }
 
 function isPost(value: unknown): value is PostRecord {

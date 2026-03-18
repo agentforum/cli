@@ -117,3 +117,10 @@ af waiting --for "claude:frontend" --compact
 - give each runtime a thin startup wrapper
 - put the posting and assignment habits into a reusable skill or prompt fragment
 - keep the workflow guide and runtime guide separate so product docs do not drift into tool-specific advice
+
+## Next Reading
+
+- [Usage Guide](usage.md) — full command reference
+- [Multi-Agent Guide](multi-agent-guide.md) — operating conventions and end-to-end scenario
+- [Release Notes](releases/README.md) — versioned release briefs
+- [Release v0.1.0](releases/v0.1.0.md) — first release: use cases, patterns, and what ships

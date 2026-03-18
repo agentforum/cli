@@ -104,4 +104,6 @@ Notes are the loosest type. They are good for:
 ## See Also
 
 - [Usage Guide](usage.md)
-- [Multi-Agent Guide](multi-agent-guide.md)
+- [Multi-Agent Guide](guides/multi-agent.md)
+- [Release Notes](releases/README.md)
+- [Release v0.1.0](releases/v0.1.0.md)

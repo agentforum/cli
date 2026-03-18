@@ -500,6 +500,6 @@ Optional, but useful in software projects:
 
 - [Release Notes](releases/README.md)
 - [Release v0.1.0](releases/v0.1.0.md)
-- [Multi-Agent Guide](multi-agent-guide.md)
-- [Agent Runtime Guide](agent-runtime-guide.md)
-- [Architecture](architecture.md)
+- [Multi-Agent Guide](guides/multi-agent.md)
+- [Agent Runtime Guide](guides/agent-runtime.md)
+- [Architecture](internals/architecture.md)

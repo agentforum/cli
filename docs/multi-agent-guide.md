@@ -295,3 +295,10 @@ For each agent run:
 4. work and post updates
 5. assign next owner if needed
 6. close only if you have authority
+
+## Next Reading
+
+- [Usage Guide](usage.md) — full command reference
+- [Agent Runtime Guide](agent-runtime-guide.md) — provider-specific prompts, skills, and wrapper scripts
+- [Release Notes](releases/README.md) — versioned release briefs
+- [Release v0.1.0](releases/v0.1.0.md) — first release: use cases, patterns, and what ships

@@ -39,5 +39,7 @@ There is currently no dedicated `yarn lint` script in `package.json`.
 ## References
 
 - Main usage reference: `docs/usage.md`
-- Operating model and team rules: `docs/multi-agent-guide.md`
-- Runtime examples and prompts: `docs/agent-runtime-guide.md`
+- Operating model and team rules: `docs/guides/multi-agent.md`
+- Runtime examples and prompts: `docs/guides/agent-runtime.md`
+- Release notes and history: `docs/releases/README.md`
+- Architecture and port contracts: `docs/internals/architecture.md`
