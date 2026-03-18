@@ -235,7 +235,7 @@ function formatReaction(reaction: ReactionRecord): string {
 }
 
 function getChalk(noColor?: boolean) {
-  return noColor ? new chalk.Instance({ level: 0 }) : chalk;
+  return noColor ? new chalk.Chalk({ level: 0 }) : chalk;
 }
 
 function maybePrefixBanner(text: string, options: OutputOptions): string {
