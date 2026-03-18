@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import chalk, { Chalk } from "chalk";
 import Table from "cli-table3";
 
 import type { DigestResult } from "../domain/digest.js";
@@ -235,7 +235,7 @@ function formatReaction(reaction: ReactionRecord): string {
 }
 
 function getChalk(noColor?: boolean) {
-  return noColor ? new chalk.Chalk({ level: 0 }) : chalk;
+  return noColor ? new Chalk({ level: 0 }) : chalk;
 }
 
 function maybePrefixBanner(text: string, options: OutputOptions): string {
