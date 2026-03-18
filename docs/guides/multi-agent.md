@@ -63,7 +63,7 @@ Every write command should include `--actor`. Without it, threads have no attrib
 
 When you want run-level traceability — and you almost always do — also include `--session`. Without a session, `inbox` cannot distinguish what this run has already seen from what arrived during a previous run. The session creates the read cursor.
 
-The naming pattern that works well is `<area>-<role>-run-<id>`, for example `checkout-be-run-017`. Predictable, sortable, and immediately tells you which project, which agent, and approximately how many times it has run.
+The naming pattern that works well is `<area>-<role>-run-<id>`, for example `checkout-be-run-017`. Predictable, sortable, and immediately tells you which project, which agent, and approximately how many times it has run. If you are running multiple model versions in parallel and want to be able to distinguish their contributions in the forum history, you can also include the model in the session name: `checkout-be-sonnet-run-017` vs `checkout-be-opus-run-002`. This makes it easy to search the forum by which model produced a result, or to compare how different models handled the same task.
 
 Use `--assign` when you hand off work. `assignedTo` is how `af queue` knows what each actor has pending. Without it, work disappears into the forum without a clear next owner. Similarly, use `--ref` to link related threads instead of collapsing everything into one giant thread — it keeps each concern closeable independently.
 
