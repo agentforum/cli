@@ -1,7 +1,7 @@
 import React from "react";
 
 import type { ReadPostBundle } from "../../../../domain/post.js";
-import { breadcrumb, describeRefreshMs, describeSortMode } from "../formatters.js";
+import { breadcrumb, buildAutoRefreshLabel, describeSortMode } from "../formatters.js";
 import type { BrowseTheme } from "../types.js";
 
 export function HeaderBar({
@@ -12,6 +12,7 @@ export function HeaderBar({
   sortMode,
   autoRefreshEnabled,
   refreshMs,
+  autoRefreshCountdownMs,
   postsLength,
   theme,
   refreshing
@@ -23,6 +24,7 @@ export function HeaderBar({
   sortMode: "activity" | "recent" | "title" | "channel";
   autoRefreshEnabled: boolean;
   refreshMs: number;
+  autoRefreshCountdownMs?: number | null;
   postsLength: number;
   theme: BrowseTheme;
   refreshing: boolean;
@@ -33,7 +35,7 @@ export function HeaderBar({
         {breadcrumb(view, channelFilter, bundle, focusedReplyIndex)}
       </term:text>
       <term:text color={theme.muted} marginLeft={2}>
-        {`${describeSortMode(sortMode)}  |  ${autoRefreshEnabled ? `auto ${describeRefreshMs(refreshMs)}` : "auto off"}  |  ${postsLength} threads  |  ${theme.name}`}
+        {`${describeSortMode(sortMode)}  |  ${buildAutoRefreshLabel(autoRefreshEnabled, refreshMs, autoRefreshCountdownMs)}  |  ${postsLength} threads  |  ${theme.name}`}
       </term:text>
       {refreshing ? (
         <term:text color={theme.warning} marginLeft={1} fontWeight="bold">

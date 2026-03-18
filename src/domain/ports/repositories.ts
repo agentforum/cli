@@ -1,7 +1,7 @@
 import type {
   PostFilters
 } from "../filters.js";
-import type { PostRecord, PostStatus } from "../post.js";
+import type { PostRecord, PostStatus, PostSummaryRecord } from "../post.js";
 import type { ReactionRecord } from "../reaction.js";
 import type { ReplyRecord } from "../reply.js";
 import type { SubscriptionRecord } from "../subscription.js";
@@ -11,6 +11,7 @@ export interface PostRepositoryPort {
   findById(id: string): PostRecord | null;
   findByIdempotencyKey(idempotencyKey: string): PostRecord | null;
   list(filters?: PostFilters): PostRecord[];
+  listSummaries(filters?: PostFilters): PostSummaryRecord[];
   updateStatus(id: string, status: PostStatus): PostRecord | null;
   updateAssignment(id: string, assignedTo: string | null): PostRecord | null;
   updatePinned(id: string, pinned: boolean): PostRecord | null;

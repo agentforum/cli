@@ -3,14 +3,28 @@ import type { TermElement, TermInput } from "terminosaurus";
 
 import type { ReadPostBundle } from "../../../../domain/post.js";
 import { sanitizeTerminalText } from "../formatters.js";
-import type { BrowseListPost, BrowseTheme, ChannelStats, ConversationFilterMode, ConversationItem, ConversationSortMode, Notice, ViewMode } from "../types.js";
+import type {
+  BrowseListPost,
+  BrowseTheme,
+  ChannelStats,
+  ConversationFilterMode,
+  ConversationItem,
+  ConversationSortMode,
+  GotoPageMode,
+  Notice,
+  PaginatedItems,
+  ReplyQuote,
+  ViewMode
+} from "../types.js";
 import { ChannelsView } from "./ChannelsView.js";
 import { FooterBar } from "./FooterBar.js";
+import { GotoPageModal } from "./GotoPageModal.js";
 import { HeaderBar } from "./HeaderBar.js";
 import { ListView } from "./ListView.js";
 import { PostContextBar } from "./PostContextBar.js";
 import { PostView } from "./PostView.js";
 import { ReplyComposer } from "./ReplyComposer.js";
+import { SearchBar } from "./SearchBar.js";
 import { ShortcutsModal } from "./ShortcutsModal.js";
 
 export function BrowseScreen({
@@ -24,11 +38,14 @@ export function BrowseScreen({
   sortMode,
   autoRefreshEnabled,
   refreshMs,
+  autoRefreshCountdownMs,
   posts,
+  postPage,
   loading,
   refreshing,
   channelStats,
   rawPosts,
+  changedPostIds,
   channelSelectedIndex,
   channelItemRefs,
   selectedIndex,
@@ -36,6 +53,7 @@ export function BrowseScreen({
   now,
   actor,
   conversationItems,
+  conversationPage,
   conversationFilterMode,
   conversationSortMode,
   focusedReplyRefs,
@@ -44,8 +62,17 @@ export function BrowseScreen({
   postPanelFocus,
   readProgressLabel,
   replyBody,
+  replyQuote,
   replyInputRef,
   onReplyBodyChange,
+  searchMode,
+  searchQuery,
+  searchInputRef,
+  onSearchQueryChange,
+  gotoPageMode,
+  gotoPageInput,
+  gotoPageInputRef,
+  onGotoPageInputChange,
   notice,
   selectedConversationIndex,
   showShortcutsHelp,
@@ -61,11 +88,14 @@ export function BrowseScreen({
   sortMode: "activity" | "recent" | "title" | "channel";
   autoRefreshEnabled: boolean;
   refreshMs: number;
+  autoRefreshCountdownMs?: number | null;
   posts: BrowseListPost[];
+  postPage: PaginatedItems<BrowseListPost>;
   loading: boolean;
   refreshing: boolean;
   channelStats: ChannelStats[];
   rawPosts: BrowseListPost[];
+  changedPostIds: string[];
   channelSelectedIndex: number;
   channelItemRefs: React.MutableRefObject<Array<TermElement | null>>;
   selectedIndex: number;
@@ -73,6 +103,7 @@ export function BrowseScreen({
   now: Date;
   actor?: string;
   conversationItems: ConversationItem[];
+  conversationPage: PaginatedItems<ConversationItem>;
   conversationFilterMode: ConversationFilterMode;
   conversationSortMode: ConversationSortMode;
   focusedReplyRefs: React.MutableRefObject<Array<TermElement | null>>;
@@ -81,8 +112,17 @@ export function BrowseScreen({
   postPanelFocus: "index" | "content";
   readProgressLabel: string;
   replyBody: string;
+  replyQuote: ReplyQuote | null;
   replyInputRef: React.MutableRefObject<TermInput | null>;
   onReplyBodyChange: (value: string) => void;
+  searchMode: boolean;
+  searchQuery: string;
+  searchInputRef: React.MutableRefObject<TermInput | null>;
+  onSearchQueryChange: (value: string) => void;
+  gotoPageMode: GotoPageMode | null;
+  gotoPageInput: string;
+  gotoPageInputRef: React.MutableRefObject<TermInput | null>;
+  onGotoPageInputChange: (value: string) => void;
   notice: Notice;
   selectedConversationIndex: number;
   showShortcutsHelp: boolean;
@@ -108,7 +148,8 @@ export function BrowseScreen({
         sortMode={sortMode}
         autoRefreshEnabled={autoRefreshEnabled}
         refreshMs={refreshMs}
-        postsLength={posts.length}
+        autoRefreshCountdownMs={autoRefreshCountdownMs}
+        postsLength={postPage.totalCount}
         theme={theme}
         refreshing={refreshing}
       />
@@ -135,7 +176,14 @@ export function BrowseScreen({
             theme={theme}
           />
         ) : view === "list" ? (
-          <ListView posts={posts} selectedIndex={selectedIndex} listItemRefs={listItemRefs} now={now} theme={theme} />
+          <ListView
+            posts={posts}
+            changedPostIds={changedPostIds}
+            selectedIndex={selectedIndex}
+            listItemRefs={listItemRefs}
+            now={now}
+            theme={theme}
+          />
         ) : view === "post" ? (
           <PostView
             bundle={bundle}
@@ -144,6 +192,7 @@ export function BrowseScreen({
             theme={theme}
             focusedIndex={focusedReplyIndex}
             conversationItems={conversationItems}
+            conversationPage={conversationPage}
             conversationFilterMode={conversationFilterMode}
             conversationSortMode={conversationSortMode}
             itemRefs={focusedReplyRefs}
@@ -156,6 +205,7 @@ export function BrowseScreen({
           <ReplyComposer
             bundle={bundle}
             replyBody={replyBody}
+            replyQuote={replyQuote}
             actor={actor}
             inputRef={replyInputRef}
             onReplyBodyChange={onReplyBodyChange}
@@ -168,15 +218,30 @@ export function BrowseScreen({
         notice={notice}
         theme={theme}
         view={view}
-        postsLength={posts.length}
+        postsLength={postPage.totalCount}
+        postPage={postPage}
         autoRefreshEnabled={autoRefreshEnabled}
         refreshMs={refreshMs}
         selectedIndex={selectedIndex}
         bundleOpen={Boolean(bundle)}
         selectedConversationIndex={selectedConversationIndex}
-        conversationItemsLength={conversationItems.length}
+        conversationItemsLength={conversationPage.totalCount}
+        conversationPage={conversationPage}
       />
 
+      {searchMode ? (
+        <SearchBar theme={theme} inputRef={searchInputRef} value={searchQuery} onChange={onSearchQueryChange} />
+      ) : null}
+      {gotoPageMode ? (
+        <GotoPageModal
+          theme={theme}
+          mode={gotoPageMode}
+          totalPages={gotoPageMode === "list" ? postPage.totalPages : conversationPage.totalPages}
+          inputRef={gotoPageInputRef}
+          value={gotoPageInput}
+          onChange={onGotoPageInputChange}
+        />
+      ) : null}
       {showShortcutsHelp ? <ShortcutsModal view={view} theme={theme} scrollRef={shortcutsScrollRef} /> : null}
     </term:div>
   );

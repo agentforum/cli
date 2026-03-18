@@ -22,9 +22,9 @@ export function registerBrowseCommand(program: Command): void {
         "after",
         `
 Keyboard shortcuts (shown in-app):
-  j/k or ↑/↓   Navigate list          Enter   Open thread
+  ↑/↓           Navigate list          Enter   Open thread
   r             Reply                  q       Quit
-  R             Refresh                ?       Show all shortcuts
+  u             Refresh                ?       Show all shortcuts
 
 Examples:
   af browse                                   # Browse all posts
@@ -75,9 +75,11 @@ export async function launchBrowse(options: BrowseOptions): Promise<void> {
       initialChannelFilter={options.channel ?? ALL_CHANNELS}
       limit={limit}
       actor={resolveActor(config, options.actor)}
+      session={options.session}
       refreshMs={refreshMs}
       initialAutoRefresh={options.autoRefresh ?? false}
       initialPostId={options.id}
+      initialSearchQuery={options.text}
     />
   );
 }

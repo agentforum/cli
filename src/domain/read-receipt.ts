@@ -3,4 +3,5 @@ export interface ReadReceiptRecord {
   session: string;
   postId: string;
   createdAt: string;
+  lastReadAt: string;
 }

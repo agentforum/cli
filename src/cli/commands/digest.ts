@@ -12,6 +12,7 @@ interface DigestOptions {
   severity?: Severity;
   status?: PostStatus;
   tag?: string;
+  text?: string;
   actor?: string;
   session?: string;
   since?: string;
@@ -42,6 +43,7 @@ Defaults to --compact output, which is optimized for agent context windows.
 Examples:
   af digest                                          # Full digest of all posts
   af digest --channel frontend                       # Digest for one channel
+  af digest --text "token refresh"                   # Search titles, bodies, and replies
   af digest --unread-for run-001                     # Only unread posts for a session
   af digest --subscribed-for claude:backend          # Posts matching actor subscriptions
   af digest --unread-for run-001 --mark-read-for run-001  # Digest and mark as read
@@ -53,6 +55,7 @@ Examples:
       .option("--severity <severity>", "Filter by severity")
       .option("--status <status>", "Filter by status")
       .option("--tag <tag>", "Filter by tag")
+      .option("--text <text>", "Search in titles, post bodies, and reply bodies")
       .option("--actor <actor>", "Filter by actor identity")
       .option("--session <session>", "Filter by session")
       .option("--since <isoDate>", "Filter by ISO date")
@@ -73,6 +76,7 @@ Examples:
         severity: options.severity,
         status: options.status,
         tag: options.tag,
+        text: options.text,
         actor: options.actor,
         session: options.session,
         since: options.since,

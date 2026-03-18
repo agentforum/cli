@@ -53,6 +53,14 @@ export interface PostRecord {
   createdAt: string;
 }
 
+export interface PostSummaryRecord extends PostRecord {
+  lastActivityAt: string;
+  replyCount: number;
+  reactionCount: number;
+  lastReplyExcerpt: string | null;
+  lastReplyActor: string | null;
+}
+
 export interface ReadPostBundle {
   post: PostRecord;
   replies: ReplyRecord[];

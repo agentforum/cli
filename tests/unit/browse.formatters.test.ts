@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildAutoRefreshLabel,
   buildBrowseHint,
   buildFilterSummary,
+  buildPageLabel,
   buildReadProgressLabel,
   describeConversationFilterMode,
   describeConversationSortMode,
   describeRefreshMs,
   describeSortMode,
+  estimateTokenCount,
   excerpt,
   sanitizeTerminalText,
   statusIcon,
@@ -43,11 +46,15 @@ describe("browse formatters", () => {
   it("formats time, labels, and status helpers", () => {
     const now = new Date("2026-03-13T14:00:00.000Z");
     expect(describeRefreshMs(5000)).toBe("5s");
+    expect(buildAutoRefreshLabel(true, 5000, 3000)).toBe("auto 5s  |  next 3s");
+    expect(buildAutoRefreshLabel(false, 5000, 3000)).toBe("auto off");
     expect(describeSortMode("channel")).toBe("channel (A-Z)");
     expect(describeConversationFilterMode("replies")).toBe("replies");
     expect(describeConversationSortMode("recent")).toBe("newest first");
     expect(timeAgo("2026-03-13T13:55:00.000Z", now)).toBe("5m ago");
     expect(statusIcon("answered")).toBe("\u2713");
+    expect(buildPageLabel(2, 4, 31, 60, 120)).toContain("page 2/4");
+    expect(estimateTokenCount("abcd".repeat(10))).toBe(10);
   });
 
   it("builds read progress labels", () => {

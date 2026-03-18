@@ -41,6 +41,18 @@ export function describeRefreshMs(refreshMs: number): string {
   return `${refreshMs}ms`;
 }
 
+export function buildAutoRefreshLabel(autoRefreshEnabled: boolean, refreshMs: number, remainingMs?: number | null): string {
+  if (!autoRefreshEnabled) {
+    return "auto off";
+  }
+
+  if (remainingMs == null) {
+    return `auto ${describeRefreshMs(refreshMs)}`;
+  }
+
+  return `auto ${describeRefreshMs(refreshMs)}  |  next ${describeRefreshMs(Math.max(0, remainingMs))}`;
+}
+
 export function buildFilterSummary(
   filters: PostFilters,
   postCount: number,
@@ -87,11 +99,11 @@ export function buildBrowseHint(
   postCount: number
 ): string {
   if (view === "reply") {
-    return "Ctrl+Enter send  |  Esc cancel  |  ? shortcuts";
+    return "Ctrl+Enter send  |  Ctrl+K clear quote  |  Esc cancel  |  ? shortcuts";
   }
 
   if (view === "post") {
-    return "\u2190\u2192 panel  |  \u2191\u2193 navigate/scroll  |  r reply  |  b back  |  ? shortcuts";
+    return "\u2190\u2192 panel  |  \u2191\u2193 navigate/scroll  |  [/] pages  |  G goto  |  Q quote  |  r reply";
   }
 
   if (view === "channels") {
@@ -99,10 +111,10 @@ export function buildBrowseHint(
   }
 
   if (postCount === 0) {
-    return "u refresh  |  c channel  |  o sort  |  Tab channels  |  ? shortcuts";
+    return "u refresh  |  c channel  |  o sort  |  / search  |  Tab channels  |  ? shortcuts";
   }
 
-  return "\u2191\u2193 navigate  |  Enter open  |  c channel  |  o sort  |  ? shortcuts";
+  return "\u2191\u2193 navigate  |  Enter open  |  [/] pages  |  G goto  |  / search  |  c channel";
 }
 
 export function timeAgo(isoDate: string, now?: Date): string {
@@ -168,6 +180,22 @@ export function buildReadProgressLabel(scrollTop: number, scrollHeight: number, 
 
   const percent = Math.max(0, Math.min(99, Math.round((scrollTop / maxScroll) * 100)));
   return `[${percent}% read]`;
+}
+
+export function buildPageLabel(page: number, totalPages: number, rangeStart: number, rangeEnd: number, totalCount: number): string {
+  if (totalCount <= 0) {
+    return "page 1/1  (0 of 0)";
+  }
+
+  return `page ${page}/${totalPages}  (${rangeStart}\u2013${rangeEnd} of ${totalCount})`;
+}
+
+export function estimateTokenCount(text: string): number {
+  if (!text) {
+    return 0;
+  }
+
+  return Math.max(1, Math.ceil(text.length / 4));
 }
 
 export function breadcrumb(view: ViewMode, channelFilter: string, bundle: ReadPostBundle | null, focusedReplyIndex = -1): string {

@@ -31,6 +31,25 @@ describe("workflow and pipe commands", () => {
     expect(queue.stdout).toContain(post.id);
   });
 
+  it("validates assign error paths", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const created = await runCli(
+      ["post", "--channel", "backend", "--type", "question", "--title", "Assign me", "--body", "body", "--json"],
+      workspace
+    );
+    const post = JSON.parse(created.stdout) as { id: string };
+
+    const missingActor = await runCli(["assign", "--id", post.id], workspace);
+    const conflictingFlags = await runCli(["assign", "--id", post.id, "--actor", "claude:backend", "--clear"], workspace);
+
+    expect(missingActor.exitCode).toBe(3);
+    expect(missingActor.stderr).toContain("Either --actor or --clear is required.");
+    expect(conflictingFlags.exitCode).toBe(3);
+    expect(conflictingFlags.stderr).toContain("Use either --actor or --clear, not both.");
+  });
+
   it("shows creator-owned threads in waiting after another actor replies", async () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
@@ -112,5 +131,15 @@ describe("workflow and pipe commands", () => {
     expect(summary.stdout).toContain(post.id);
     expect(summary.stdout).toContain("claude:backend");
     expect(summary.stdout).toContain("\t");
+  });
+
+  it("rejects invalid workflow limits", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const result = await runCli(["queue", "--for", "claude:backend", "--limit", "0"], workspace);
+
+    expect(result.exitCode).toBe(3);
+    expect(result.stderr).toContain("--limit must be a positive integer.");
   });
 });

@@ -11,12 +11,16 @@ import {
   buildBrowseFilters,
   buildChannelStats,
   buildConversationItems,
+  clampOffset,
   filterAndSortPosts,
   getLastActivityAt,
   listChannels,
   nextChannelFilter,
   nextValue,
+  offsetForPage,
+  paginateItems,
   resolveConversationSelection,
+  resolvePageOffsetForId,
   resolveSelectedIndex
 } from "../../src/cli/commands/browse/selectors.js";
 import { BUNDLE, POSTS, toBrowsePost } from "./browse.fixtures.js";
@@ -42,6 +46,7 @@ describe("browse selectors", () => {
       type: "question",
       status: "open",
       tag: undefined,
+      text: undefined,
       pinned: undefined,
       unreadForSession: undefined,
       subscribedForActor: undefined,
@@ -63,6 +68,7 @@ describe("browse selectors", () => {
       status: "open",
       severity: undefined,
       tag: undefined,
+      text: undefined,
       pinned: true,
       unreadForSession: undefined,
       subscribedForActor: undefined,
@@ -95,13 +101,72 @@ describe("browse selectors", () => {
       })
     ).toBe("2026-03-13T12:03:00.000Z");
 
-    expect(filterAndSortPosts(withActivity, { channelFilter: ALL_CHANNELS, sortMode: "activity", limit: 10 }).map((post) => post.id)).toEqual([
+    expect(filterAndSortPosts(withActivity, { channelFilter: ALL_CHANNELS, sortMode: "activity", limit: 10 }).items.map((post) => post.id)).toEqual([
       "P-1",
       "P-2"
     ]);
-    expect(filterAndSortPosts(withActivity, { channelFilter: "frontend", sortMode: "activity", limit: 10 }).map((post) => post.id)).toEqual([
+    expect(filterAndSortPosts(withActivity, { channelFilter: "frontend", sortMode: "activity", limit: 10 }).items.map((post) => post.id)).toEqual([
       "P-2"
     ]);
+  });
+
+  it("paginateItems slices correctly and computes pagination metadata", () => {
+    const items = ["a", "b", "c", "d", "e"];
+
+    const page1 = paginateItems(items, { limit: 2, offset: 0 });
+    expect(page1.items).toEqual(["a", "b"]);
+    expect(page1.totalCount).toBe(5);
+    expect(page1.totalPages).toBe(3);
+    expect(page1.page).toBe(1);
+    expect(page1.rangeStart).toBe(1);
+    expect(page1.rangeEnd).toBe(2);
+
+    const page2 = paginateItems(items, { limit: 2, offset: 2 });
+    expect(page2.items).toEqual(["c", "d"]);
+    expect(page2.page).toBe(2);
+    expect(page2.rangeStart).toBe(3);
+    expect(page2.rangeEnd).toBe(4);
+
+    const lastPage = paginateItems(items, { limit: 2, offset: 4 });
+    expect(lastPage.items).toEqual(["e"]);
+    expect(lastPage.page).toBe(3);
+    expect(lastPage.rangeEnd).toBe(5);
+
+    const empty = paginateItems([], { limit: 10, offset: 0 });
+    expect(empty.items).toHaveLength(0);
+    expect(empty.totalCount).toBe(0);
+    expect(empty.totalPages).toBe(1);
+    expect(empty.rangeStart).toBe(0);
+    expect(empty.rangeEnd).toBe(0);
+  });
+
+  it("clampOffset keeps offset within valid bounds", () => {
+    expect(clampOffset(0, 10, 3)).toBe(0);
+    expect(clampOffset(-5, 10, 3)).toBe(0);
+    expect(clampOffset(100, 10, 3)).toBe(9);
+    expect(clampOffset(9, 10, 3)).toBe(9);
+    expect(clampOffset(0, 0, 3)).toBe(0);
+  });
+
+  it("offsetForPage converts 1-based page to offset", () => {
+    expect(offsetForPage(1, 10)).toBe(0);
+    expect(offsetForPage(2, 10)).toBe(10);
+    expect(offsetForPage(3, 5)).toBe(10);
+    expect(offsetForPage(0, 10)).toBe(0);
+  });
+
+  it("resolvePageOffsetForId keeps focused item in view after refresh", () => {
+    const items = [{ id: "A" }, { id: "B" }, { id: "C" }, { id: "D" }, { id: "E" }];
+    const limit = 2;
+
+    const offset = resolvePageOffsetForId(items, { focusedId: "C", currentOffset: 0, limit });
+    expect(offset).toBe(2);
+
+    const samePageOffset = resolvePageOffsetForId(items, { focusedId: "B", currentOffset: 0, limit });
+    expect(samePageOffset).toBe(0);
+
+    const missingId = resolvePageOffsetForId(items, { focusedId: "Z", currentOffset: 4, limit });
+    expect(missingId).toBe(4);
   });
 
   it("builds channel stats and conversation items", () => {

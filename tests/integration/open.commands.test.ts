@@ -23,6 +23,8 @@ describe("open command", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("--auto-refresh");
     expect(result.stdout).toContain("--refresh-ms");
+    expect(result.stdout).toContain("--session");
+    expect(result.stdout).not.toContain("--channel");
     expect(result.stdout).toContain("Open a specific thread directly in the terminal browser");
   });
 

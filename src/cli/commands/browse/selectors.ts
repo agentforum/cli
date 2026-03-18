@@ -1,6 +1,14 @@
 import type { PostFilters } from "../../../domain/filters.js";
 import type { PostRecord, PostStatus, PostType, ReadPostBundle, Severity } from "../../../domain/types.js";
-import type { BrowseListPost, BrowseSortMode, ChannelStats, ConversationFilterMode, ConversationItem, ConversationSortMode } from "./types.js";
+import type {
+  BrowseListPost,
+  BrowseSortMode,
+  ChannelStats,
+  ConversationFilterMode,
+  ConversationItem,
+  ConversationSortMode,
+  PaginatedItems
+} from "./types.js";
 import { ALL_CHANNELS } from "./types.js";
 
 export function resolveSelectedIndex(posts: PostRecord[], currentIndex: number, focusedId?: string): number {
@@ -24,6 +32,7 @@ export function buildBrowseFilters(options: {
   severity?: Severity;
   status?: PostStatus;
   tag?: string;
+  text?: string;
   pinned?: boolean;
   unreadForSession?: string;
   subscribedForActor?: string;
@@ -37,6 +46,7 @@ export function buildBrowseFilters(options: {
     severity: options.severity,
     status: options.status,
     tag: options.tag,
+    text: options.text,
     pinned: options.pinned,
     unreadForSession: options.unreadForSession,
     subscribedForActor: options.subscribedForActor,
@@ -113,10 +123,68 @@ export function nextChannelFilter(channels: string[], current: string): string {
   return nextValue([ALL_CHANNELS, ...channels], current);
 }
 
-export function filterAndSortPosts(posts: BrowseListPost[], options: { channelFilter: string; sortMode: BrowseSortMode; limit: number }): BrowseListPost[] {
+export function filterAndSortPosts(
+  posts: BrowseListPost[],
+  options: { channelFilter: string; sortMode: BrowseSortMode; limit: number; offset?: number }
+): PaginatedItems<BrowseListPost> {
   const filtered = options.channelFilter === ALL_CHANNELS ? posts : posts.filter((post) => post.channel === options.channelFilter);
   const sorted = [...filtered].sort((left, right) => comparePosts(left, right, options.sortMode));
-  return sorted.slice(0, options.limit);
+  return paginateItems(sorted, { limit: options.limit, offset: options.offset ?? 0 });
+}
+
+export function paginateItems<T>(items: T[], options: { limit: number; offset?: number }): PaginatedItems<T> {
+  const totalCount = items.length;
+  const safeLimit = Math.max(1, options.limit);
+  const totalPages = Math.max(1, Math.ceil(totalCount / safeLimit));
+  const maxOffset = Math.max(0, (totalPages - 1) * safeLimit);
+  const offset = clampOffset(options.offset ?? 0, totalCount, safeLimit);
+  const page = Math.floor(offset / safeLimit) + 1;
+  const rangeStart = totalCount === 0 ? 0 : offset + 1;
+  const rangeEnd = Math.min(offset + safeLimit, totalCount);
+
+  return {
+    items: items.slice(offset, Math.min(offset + safeLimit, totalCount)),
+    totalCount,
+    totalPages,
+    page,
+    offset: Math.min(offset, maxOffset),
+    rangeStart,
+    rangeEnd
+  };
+}
+
+export function clampOffset(offset: number, totalCount: number, limit: number): number {
+  if (totalCount <= 0) {
+    return 0;
+  }
+
+  const safeLimit = Math.max(1, limit);
+  const maxOffset = Math.max(0, Math.floor((totalCount - 1) / safeLimit) * safeLimit);
+  return Math.max(0, Math.min(maxOffset, offset));
+}
+
+export function offsetForPage(page: number, limit: number): number {
+  return Math.max(0, (Math.max(1, page) - 1) * Math.max(1, limit));
+}
+
+export function resolvePageOffsetForId<T extends { id: string }>(
+  items: T[],
+  options: { currentOffset: number; limit: number; focusedId?: string }
+): number {
+  if (items.length === 0) {
+    return 0;
+  }
+
+  if (!options.focusedId) {
+    return clampOffset(options.currentOffset, items.length, options.limit);
+  }
+
+  const focusedIndex = items.findIndex((item) => item.id === options.focusedId);
+  if (focusedIndex < 0) {
+    return clampOffset(options.currentOffset, items.length, options.limit);
+  }
+
+  return clampOffset(offsetForPage(Math.floor(focusedIndex / Math.max(1, options.limit)) + 1, options.limit), items.length, options.limit);
 }
 
 export function buildConversationItems(

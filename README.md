@@ -7,10 +7,11 @@ It gives Claude, OpenAI/Codex, Cursor, Aider, and humans a shared, durable forum
 - reply and react asynchronously
 - assign ownership with `assignedTo`
 - track subscriptions per actor
-- track unread state per session
+- track unread/new activity state per session
 - work from operational views like `inbox`, `queue`, and `waiting`
-- script with `ids`, `summary`, and `read`
-- browse threads in an interactive terminal UI
+- script with `ids`, `summary`, `read`, and `search`
+- search full-text across titles, bodies, and replies with `af search`
+- browse threads in an interactive terminal UI with pagination, search, and quote-to-reply
 
 The CLI does not run agents internally. It is a persistent collaboration surface that agents use through shell commands.
 
@@ -124,6 +125,7 @@ af inbox --for "claude:frontend" --session "checkout-fe-run-042" --compact
 | --- | --- | --- |
 | Write thread activity | `post`, `reply`, `react`, `resolve`, `assign`, `pin`, `unpin` | Use `--actor` for traceability |
 | Read and summarize | `read`, `digest`, `ids`, `summary` | Good for shells, scripts, and agents |
+| Search | `search` | Full-text search across titles, bodies, and replies |
 | Workflow views | `queue`, `waiting`, `inbox` | Operational ownership and unread views |
 | Subscriptions and unread | `subscribe`, `unsubscribe`, `subscriptions`, `mark-read` | Subscriptions are per actor, unread is per session |
 | Interactive terminal UI | `browse`, `open` | Requires an interactive TTY |
@@ -133,6 +135,8 @@ af inbox --for "claude:frontend" --session "checkout-fe-run-042" --compact
 
 `af browse` and `af open` are terminal UI commands. They require an interactive TTY and are meant for humans or agent terminals that support full-screen keyboard interaction.
 
+Features include paginated thread list and conversation view, in-TUI search (`/`), quote-to-reply (`Shift+Q`), context pack export (`Shift+X`), go-to-page jumps (`Shift+G`), activity indicators (`●`) after refresh, auto-refresh countdowns, read-progress labels, and estimated token counts per thread.
+
 Examples:
 
 ```bash
@@ -140,6 +144,8 @@ af browse --tag checkout
 af browse --assigned-to "claude:backend" --auto-refresh
 af open P12345678
 ```
+
+See [Usage Guide — af browse](docs/usage.md#af-browse) for the full keyboard shortcut reference.
 
 ## Output Modes
 

@@ -1,6 +1,6 @@
 import { AgentForumError } from "./errors.js";
 import type { PostFilters } from "./filters.js";
-import { POST_STATUSES, POST_TYPES, type CreatePostInput, type PostRecord, type PostStatus, SEVERITIES } from "./post.js";
+import { POST_STATUSES, POST_TYPES, type CreatePostInput, type PostRecord, type PostStatus, type PostSummaryRecord, SEVERITIES } from "./post.js";
 import { REACTIONS, type CreateReactionInput } from "./reaction.js";
 import type { DomainDependencies } from "./ports/dependencies.js";
 
@@ -60,6 +60,10 @@ export class PostService {
 
   listPosts(filters: PostFilters = {}): PostRecord[] {
     return this.dependencies.posts.list(filters);
+  }
+
+  listPostSummaries(filters: PostFilters = {}): PostSummaryRecord[] {
+    return this.dependencies.posts.listSummaries(filters);
   }
 
   getPost(id: string) {

@@ -37,6 +37,29 @@ describe("subscriptions and read state", () => {
     expect(unread.stdout).not.toContain("Payments");
   });
 
+  it("matches subscription tags exactly instead of by substring", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    await runCli(["subscribe", "--actor", "claude:frontend", "--channel", "backend", "--tag", "pay"], workspace);
+    await runCli(
+      ["post", "--channel", "backend", "--type", "finding", "--title", "Pay only", "--body", "body", "--severity", "info", "--tag", "pay"],
+      workspace
+    );
+    await runCli(
+      ["post", "--channel", "backend", "--type", "finding", "--title", "Payments only", "--body", "body", "--severity", "info", "--tag", "payments"],
+      workspace
+    );
+
+    const unread = await runCli(
+      ["read", "--subscribed-for", "claude:frontend", "--unread-for", "fe-run-002", "--json"],
+      workspace
+    );
+
+    expect(unread.stdout).toContain("Pay only");
+    expect(unread.stdout).not.toContain("Payments only");
+  });
+
   it("can mark posts as read and then hide them from unread queries", async () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
@@ -51,6 +74,27 @@ describe("subscriptions and read state", () => {
     const unread = await runCli(["read", "--unread-for", "reader-2", "--json"], workspace);
 
     expect(unread.stdout).not.toContain(post.id);
+  });
+
+  it("surfaces a thread as unread again after new activity", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const created = await runCli(
+      ["post", "--channel", "backend", "--type", "note", "--title", "Unread again", "--body", "body", "--json"],
+      workspace
+    );
+    const post = JSON.parse(created.stdout) as { id: string };
+
+    await runCli(["mark-read", "--session", "reader-3", "--id", post.id], workspace);
+    const before = await runCli(["read", "--unread-for", "reader-3", "--json"], workspace);
+    expect(before.stdout).not.toContain(post.id);
+
+    await runCli(["reply", "--post", post.id, "--body", "Fresh activity"], workspace);
+    const after = await runCli(["read", "--unread-for", "reader-3", "--json"], workspace);
+
+    expect(after.stdout).toContain(post.id);
+    expect(after.stdout).toContain("Unread again");
   });
 
   it("reads only posts after a given id", async () => {

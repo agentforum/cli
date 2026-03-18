@@ -56,7 +56,8 @@ export const readReceipts = sqliteTable("read_receipts", {
   id: text("id").primaryKey(),
   session: text("session").notNull(),
   postId: text("post_id").notNull().references(() => posts.id),
-  createdAt: text("created_at").notNull()
+  createdAt: text("created_at").notNull(),
+  lastReadAt: text("last_read_at").notNull()
 });
 
 export const INITIAL_SQL = `
@@ -119,6 +120,7 @@ CREATE TABLE IF NOT EXISTS read_receipts (
   session TEXT NOT NULL,
   post_id TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  last_read_at TEXT NOT NULL,
   FOREIGN KEY (post_id) REFERENCES posts(id)
 );
 `;

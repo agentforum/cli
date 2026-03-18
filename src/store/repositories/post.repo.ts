@@ -7,7 +7,7 @@ import type { MetadataRepositoryPort } from "../../domain/ports/metadata.js";
 import type { PostRepositoryPort } from "../../domain/ports/repositories.js";
 import type { ReadReceiptRepositoryPort } from "../../domain/ports/read-receipts.js";
 import type { ReadReceiptRecord } from "../../domain/read-receipt.js";
-import type { PostRecord, PostStatus } from "../../domain/post.js";
+import type { PostRecord, PostStatus, PostSummaryRecord } from "../../domain/post.js";
 import { getSqlite } from "../db.js";
 
 interface PostRow {
@@ -30,12 +30,27 @@ interface PostRow {
   created_at: string;
 }
 
+interface PostSummaryRow extends PostRow {
+  last_activity_at: string;
+  reply_count: number;
+  reaction_count: number;
+  last_reply_actor: string | null;
+  last_reply_body: string | null;
+}
+
 interface ReadReceiptRow {
   id: string;
   session: string;
   post_id: string;
   created_at: string;
+  last_read_at: string;
 }
+
+const LAST_ACTIVITY_SQL = `MAX(
+  posts.created_at,
+  COALESCE((SELECT MAX(created_at) FROM replies WHERE post_id = posts.id), posts.created_at),
+  COALESCE((SELECT MAX(created_at) FROM reactions WHERE post_id = posts.id), posts.created_at)
+)`;
 
 function mapPost(row: PostRow | undefined): PostRecord | null {
   if (!row) {
@@ -60,6 +75,127 @@ function mapPost(row: PostRow | undefined): PostRecord | null {
     assignedTo: row.assigned_to,
     idempotencyKey: row.idempotency_key,
     createdAt: row.created_at
+  };
+}
+
+function mapPostSummary(row: PostSummaryRow): PostSummaryRecord {
+  return {
+    ...(mapPost(row) as PostRecord),
+    lastActivityAt: row.last_activity_at,
+    replyCount: row.reply_count,
+    reactionCount: row.reaction_count,
+    lastReplyExcerpt: row.last_reply_body,
+    lastReplyActor: row.last_reply_actor
+  };
+}
+
+function buildListQuery(filters: PostFilters, selectClause: string): { sql: string; params: Array<string | number> } {
+  const joins: string[] = [];
+  const where: string[] = [];
+  const params: Array<string | number> = [];
+
+  if (filters.reaction) {
+    joins.push("INNER JOIN reactions r ON r.post_id = posts.id");
+    where.push("r.reaction = ?");
+    params.push(filters.reaction);
+  }
+  if (filters.unreadForSession) {
+    joins.push("LEFT JOIN read_receipts rr ON rr.post_id = posts.id AND rr.session = ?");
+    params.push(filters.unreadForSession);
+    where.push(`(rr.post_id IS NULL OR rr.last_read_at < ${LAST_ACTIVITY_SQL})`);
+  }
+  if (filters.subscribedForActor) {
+    joins.push("INNER JOIN subscriptions s ON s.actor = ?");
+    params.push(filters.subscribedForActor);
+    where.push("s.channel = posts.channel");
+    where.push(`(s.tag IS NULL OR posts.tags LIKE '%"' || s.tag || '"%')`);
+  }
+
+  if (filters.channel) {
+    where.push("posts.channel = ?");
+    params.push(filters.channel);
+  }
+  if (filters.text) {
+    const query = `%${filters.text}%`;
+    where.push(`(
+      posts.title LIKE ?
+      OR posts.body LIKE ?
+      OR EXISTS (
+        SELECT 1 FROM replies rt
+        WHERE rt.post_id = posts.id
+        AND rt.body LIKE ?
+      )
+    )`);
+    params.push(query, query, query);
+  }
+  if (filters.type) {
+    where.push("posts.type = ?");
+    params.push(filters.type);
+  }
+  if (filters.severity) {
+    where.push("posts.severity = ?");
+    params.push(filters.severity);
+  }
+  if (filters.status) {
+    where.push("posts.status = ?");
+    params.push(filters.status);
+  }
+  if (typeof filters.pinned === "boolean") {
+    where.push("posts.pinned = ?");
+    params.push(filters.pinned ? 1 : 0);
+  }
+  if (filters.actor) {
+    where.push("posts.actor = ?");
+    params.push(filters.actor);
+  }
+  if (filters.replyActor) {
+    where.push("EXISTS (SELECT 1 FROM replies ra WHERE ra.post_id = posts.id AND ra.actor = ?)");
+    params.push(filters.replyActor);
+  }
+  if (filters.session) {
+    where.push("posts.session = ?");
+    params.push(filters.session);
+  }
+  if (filters.assignedTo) {
+    where.push("posts.assigned_to = ?");
+    params.push(filters.assignedTo);
+  }
+  if (filters.waitingForActor) {
+    where.push("posts.actor = ?");
+    params.push(filters.waitingForActor);
+    where.push("posts.status IN ('open', 'needs-clarification')");
+    where.push("EXISTS (SELECT 1 FROM replies wr WHERE wr.post_id = posts.id AND wr.actor IS NOT NULL AND wr.actor != ?)");
+    params.push(filters.waitingForActor);
+  }
+  if (filters.since) {
+    where.push("posts.created_at >= ?");
+    params.push(filters.since);
+  }
+  if (filters.until) {
+    where.push("posts.created_at <= ?");
+    params.push(filters.until);
+  }
+  if (filters.afterId) {
+    where.push("posts.created_at > (SELECT created_at FROM posts WHERE id = ?)");
+    params.push(filters.afterId);
+  }
+  if (filters.tag) {
+    where.push("posts.tags LIKE ?");
+    params.push(`%${JSON.stringify(filters.tag)}%`);
+  }
+
+  return {
+    sql: [
+      selectClause,
+      joins.join(" "),
+      where.length > 0 ? `WHERE ${where.join(" AND ")}` : "",
+      "ORDER BY posts.pinned DESC, posts.created_at DESC",
+      filters.limit ? `LIMIT ${Number(filters.limit)}` : filters.offset ? "LIMIT -1" : "",
+      filters.offset ? `OFFSET ${Number(filters.offset)}` : ""
+    ]
+      .filter(Boolean)
+      .join(" "),
+    params
   };
 }
 
@@ -112,91 +248,31 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
   }
 
   list(filters: PostFilters = {}): PostRecord[] {
-    const joins: string[] = [];
-    const where: string[] = [];
-    const params: Array<string | number> = [];
-
-    if (filters.reaction) {
-      joins.push("INNER JOIN reactions r ON r.post_id = posts.id");
-      where.push("r.reaction = ?");
-      params.push(filters.reaction);
+    if (filters.afterId && !this.findById(filters.afterId)) {
+      throw new AgentForumError(`Post not found: ${filters.afterId}`, 2);
     }
-    if (filters.unreadForSession) {
-      joins.push("LEFT JOIN read_receipts rr ON rr.post_id = posts.id AND rr.session = ?");
-      params.push(filters.unreadForSession);
-      where.push("rr.post_id IS NULL");
-    }
-    if (filters.subscribedForActor) {
-      joins.push("INNER JOIN subscriptions s ON s.actor = ?");
-      params.push(filters.subscribedForActor);
-      where.push("s.channel = posts.channel");
-      where.push("(s.tag IS NULL OR posts.tags LIKE '%' || s.tag || '%')");
-    }
-
-    if (filters.channel) {
-      where.push("posts.channel = ?");
-      params.push(filters.channel);
-    }
-    if (filters.type) {
-      where.push("posts.type = ?");
-      params.push(filters.type);
-    }
-    if (filters.severity) {
-      where.push("posts.severity = ?");
-      params.push(filters.severity);
-    }
-    if (filters.status) {
-      where.push("posts.status = ?");
-      params.push(filters.status);
-    }
-    if (typeof filters.pinned === "boolean") {
-      where.push("posts.pinned = ?");
-      params.push(filters.pinned ? 1 : 0);
-    }
-    if (filters.actor) {
-      where.push("posts.actor = ?");
-      params.push(filters.actor);
-    }
-    if (filters.session) {
-      where.push("posts.session = ?");
-      params.push(filters.session);
-    }
-    if (filters.assignedTo) {
-      where.push("posts.assigned_to = ?");
-      params.push(filters.assignedTo);
-    }
-    if (filters.waitingForActor) {
-      where.push("posts.actor = ?");
-      params.push(filters.waitingForActor);
-      where.push("posts.status IN ('open', 'needs-clarification')");
-      where.push("EXISTS (SELECT 1 FROM replies wr WHERE wr.post_id = posts.id AND wr.actor IS NOT NULL AND wr.actor != ?)");
-      params.push(filters.waitingForActor);
-    }
-    if (filters.since) {
-      where.push("posts.created_at >= ?");
-      params.push(filters.since);
-    }
-    if (filters.afterId) {
-      where.push("posts.created_at > COALESCE((SELECT created_at FROM posts WHERE id = ?), '')");
-      params.push(filters.afterId);
-    }
-    if (filters.tag) {
-      where.push("posts.tags LIKE ?");
-      params.push(`%${JSON.stringify(filters.tag).slice(1, -1)}%`);
-    }
-
-    const sql = [
-      "SELECT DISTINCT posts.* FROM posts",
-      joins.join(" "),
-      where.length > 0 ? `WHERE ${where.join(" AND ")}` : "",
-      "ORDER BY posts.pinned DESC, posts.created_at DESC",
-      filters.limit ? `LIMIT ${Number(filters.limit)}` : ""
-    ]
-      .filter(Boolean)
-      .join(" ");
-
+    const { sql, params } = buildListQuery(filters, "SELECT DISTINCT posts.* FROM posts");
     const rows = this.db().prepare(sql).all(...params) as PostRow[];
     return rows.map((row) => mapPost(row) as PostRecord);
+  }
+
+  listSummaries(filters: PostFilters = {}): PostSummaryRecord[] {
+    if (filters.afterId && !this.findById(filters.afterId)) {
+      throw new AgentForumError(`Post not found: ${filters.afterId}`, 2);
+    }
+    const { sql, params } = buildListQuery(
+      filters,
+      `SELECT DISTINCT
+        posts.*,
+        ${LAST_ACTIVITY_SQL} AS last_activity_at,
+        (SELECT COUNT(*) FROM replies WHERE post_id = posts.id) AS reply_count,
+        (SELECT COUNT(*) FROM reactions WHERE post_id = posts.id) AS reaction_count,
+        (SELECT actor FROM replies WHERE post_id = posts.id ORDER BY created_at DESC LIMIT 1) AS last_reply_actor,
+        (SELECT body FROM replies WHERE post_id = posts.id ORDER BY created_at DESC LIMIT 1) AS last_reply_body
+      FROM posts`
+    );
+    const rows = this.db().prepare(sql).all(...params) as PostSummaryRow[];
+    return rows.map(mapPostSummary);
   }
 
   updateStatus(id: string, status: PostStatus): PostRecord | null {
@@ -260,24 +336,31 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
     return Object.fromEntries(rows.map((row) => [row.key, row.value]));
   }
 
-  markRead(session: string, postIds: string[]): void {
+  markRead(session: string, postIds: string[], readAt?: string): void {
     if (postIds.length === 0) {
       return;
     }
 
+    const timestamp = readAt ?? new Date().toISOString();
     const statement = this.db().prepare(`
-      INSERT INTO read_receipts (id, session, post_id, created_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO read_receipts (id, session, post_id, created_at, last_read_at)
+      VALUES (?, ?, ?, ?, ?)
     `);
+    const updateStatement = this.db().prepare("UPDATE read_receipts SET last_read_at = ? WHERE id = ?");
 
     const tx = this.db().transaction((ids: string[]) => {
       for (const postId of ids) {
         const existing = this.db()
-          .prepare("SELECT id FROM read_receipts WHERE session = ? AND post_id = ?")
-          .get(session, postId) as { id: string } | undefined;
-        if (!existing) {
-          statement.run(`RR-${session}-${postId}`, session, postId, new Date().toISOString());
+          .prepare("SELECT id, last_read_at FROM read_receipts WHERE session = ? AND post_id = ?")
+          .get(session, postId) as { id: string; last_read_at: string } | undefined;
+        if (existing) {
+          if (existing.last_read_at < timestamp) {
+            updateStatement.run(timestamp, existing.id);
+          }
+          continue;
         }
+
+        statement.run(`RR-${session}-${postId}`, session, postId, timestamp, timestamp);
       }
     });
 
@@ -290,7 +373,8 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
       id: row.id,
       session: row.session,
       postId: row.post_id,
-      createdAt: row.created_at
+      createdAt: row.created_at,
+      lastReadAt: row.last_read_at
     }));
   }
 }

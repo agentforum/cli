@@ -1,11 +1,11 @@
 import type { Command } from "commander";
 
 import { handleError } from "../helpers.js";
-import { registerBrowseOptions, toOpenBrowseOptions } from "./browse/options.js";
+import { registerOpenBrowseOptions, toOpenBrowseOptions, type OpenBrowseOptions } from "./browse/options.js";
 import { launchBrowse } from "./browse.js";
 
 export function registerOpenCommand(program: Command): void {
-  registerBrowseOptions(
+  registerOpenBrowseOptions(
     program
       .command("open <id>")
       .description("Open a specific thread directly in the terminal browser (requires a TTY)")
@@ -19,8 +19,7 @@ Example:
   af open P-123
   af open P-123 --actor claude:backend
 `
-      ),
-    { includeIdOption: false }
+      )
   )
     .action(async (id: string, options: OpenOptions) => {
       try {
@@ -31,8 +30,4 @@ Example:
     });
 }
 
-interface OpenOptions {
-  actor?: string;
-  autoRefresh?: boolean;
-  refreshMs?: string;
-}
+type OpenOptions = OpenBrowseOptions;

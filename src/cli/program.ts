@@ -14,6 +14,7 @@ import { registerReadCommand } from "./commands/read.js";
 import { registerReplyCommand } from "./commands/reply.js";
 import { registerResolveCommand } from "./commands/resolve.js";
 import { registerRulesCommand } from "./commands/rules.js";
+import { registerSearchCommand } from "./commands/search.js";
 import { registerTemplateCommand } from "./commands/template.js";
 import { registerSubscriptionCommands } from "./commands/subscriptions.js";
 import { registerWorkflowCommands } from "./commands/workflow.js";
@@ -32,7 +33,7 @@ Session-scoped commands  (pass --session):
 
 General commands  (no identity required):
   read, digest, pin, unpin, assign, queue, waiting, ids, summary
-  browse, open, template, rules, backup, config
+  browse, search, open, template, rules, backup, config
 
 Quick start:
   af config init                              # Create ~/.afrc
@@ -54,6 +55,7 @@ export function buildProgram(): Command {
   registerPostCommand(program);
   registerReplyCommand(program);
   registerReadCommand(program);
+  registerSearchCommand(program);
   registerResolveCommand(program);
   registerAssignCommand(program);
   registerReactCommand(program);

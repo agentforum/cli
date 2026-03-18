@@ -27,6 +27,9 @@ export function ShortcutsModal({
       entries: [
         "\u2191/\u2193 move selection",
         "Enter open thread",
+        "[ / ] previous or next page",
+        "Shift+G goto page",
+        "/ search text",
         "c cycle channel filter",
         "o cycle thread sort",
         "u refresh",
@@ -40,9 +43,13 @@ export function ShortcutsModal({
         "\u2190/\u2192 switch panel",
         "\u2191/\u2193 navigate items or scroll content",
         "PgUp/PgDn jump between visible items",
+        "[ / ] previous or next conversation page",
+        "Shift+G goto page",
         "f cycle conversation filter",
         "s cycle conversation sort",
         "y copy selected body",
+        "Shift+Q quote selected reply",
+        "Shift+X copy context pack",
         "g open referenced post",
         "r write reply",
         "b or Esc go back"
@@ -52,6 +59,7 @@ export function ShortcutsModal({
       title: "Reply editor",
       entries: [
         "Ctrl+Enter or Ctrl+S send reply",
+        "Ctrl+K clear quote",
         "Esc cancel",
         "Ctrl+Y copy draft"
       ]

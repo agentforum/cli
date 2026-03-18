@@ -1,16 +1,27 @@
-import React, { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { TermElement, TermInput } from "terminosaurus";
 import { useScreen } from "terminosaurus/react";
 
 import type { ReadPostBundle } from "../../../domain/post.js";
-import type { BrowseAppProps, BrowseListPost, BrowseSortMode, KeyLike } from "./types.js";
+import type { BrowseAppProps, BrowseListPost, BrowseSortMode, KeyLike, ReplyQuote } from "./types.js";
 import { CONVERSATION_FILTER_MODES, CONVERSATION_SORT_MODES, SORT_MODES } from "./types.js";
 import { BrowseScreen } from "./components/BrowseScreen.js";
-import { copyToClipboard } from "./clipboard.js";
+import { copyContextPack, copyToClipboard } from "./clipboard.js";
 import { submitBrowseReply, refreshBrowseData } from "./data.js";
 import { buildReadProgressLabel, formatRefreshClock, toMessage } from "./formatters.js";
 import { resolveBrowseKeyCommand } from "./keybindings.js";
-import { buildBrowseFilters, buildChannelStats, buildConversationItems, filterAndSortPosts, listChannels, nextChannelFilter, nextValue, resolveConversationSelection } from "./selectors.js";
+import {
+  buildChannelStats,
+  buildConversationItems,
+  clampOffset,
+  filterAndSortPosts,
+  listChannels,
+  nextChannelFilter,
+  nextValue,
+  offsetForPage,
+  paginateItems,
+  resolveConversationSelection
+} from "./selectors.js";
 import { browseReducer, clampIndex, createInitialBrowseState, cycleThemeIndex } from "./state.js";
 import { THEMES } from "./theme.js";
 
@@ -21,7 +32,7 @@ export function BrowseApp(props: BrowseAppProps) {
 }
 
 function useBrowseController(
-  { postService, replyService, baseFilters, initialChannelFilter, limit, actor, refreshMs, initialAutoRefresh, initialPostId }: BrowseAppProps,
+  { postService, replyService, baseFilters, initialChannelFilter, limit, actor, session, refreshMs, initialAutoRefresh, initialPostId, initialSearchQuery }: BrowseAppProps,
   screen: ReturnType<typeof useScreen>
 ) {
   const rootRef = useRef<TermElement | null>(null);
@@ -31,56 +42,65 @@ function useBrowseController(
   const postContentRef = useRef<TermElement | null>(null);
   const shortcutsScrollRef = useRef<TermElement | null>(null);
   const replyInputRef = useRef<TermInput | null>(null);
+  const searchInputRef = useRef<TermInput | null>(null);
+  const gotoPageInputRef = useRef<TermInput | null>(null);
   const focusedReplyRefs = useRef<Array<TermElement | null>>([]);
   const bundleRef = useRef<ReadPostBundle | null>(null);
   const selectedPostIdRef = useRef<string | null>(null);
   const selectedIndexRef = useRef(0);
+  const listOffsetRef = useRef(0);
   const channelFilterRef = useRef(initialChannelFilter);
   const sortModeRef = useRef<BrowseSortMode>("activity");
   const noticeRef = useRef<ReturnType<typeof createInitialBrowseState>["notice"]>(null);
   const viewRef = useRef<ReturnType<typeof createInitialBrowseState>["view"]>("list");
   const replyBodyRef = useRef("");
+  const searchQueryRef = useRef(initialSearchQuery ?? "");
+  const rawPostsRef = useRef<BrowseListPost[]>([]);
   const initialOpenAttemptedRef = useRef(false);
+  const nextAutoRefreshAtRef = useRef<number | null>(null);
+  const [autoRefreshNowMs, setAutoRefreshNowMs] = useState(() => Date.now());
 
   const [state, dispatch] = useReducer(
     browseReducer,
-    createInitialBrowseState({ initialChannelFilter, initialAutoRefresh })
+    createInitialBrowseState({ initialChannelFilter, initialAutoRefresh, initialSearchQuery })
   );
 
   const theme = THEMES[state.themeIndex];
   const channels = useMemo(() => listChannels(state.rawPosts), [state.rawPosts]);
   const channelStats = useMemo(() => buildChannelStats(state.rawPosts), [state.rawPosts]);
-  const filters = useMemo(
-    () =>
-      buildBrowseFilters({
-        channel: state.channelFilter === "__all__" ? undefined : state.channelFilter,
-        type: baseFilters.type,
-        severity: baseFilters.severity,
-        status: baseFilters.status,
-        tag: baseFilters.tag,
-        pinned: baseFilters.pinned,
-        unreadForSession: baseFilters.unreadForSession,
-        subscribedForActor: baseFilters.subscribedForActor,
-        assignedTo: baseFilters.assignedTo,
-        waitingForActor: baseFilters.waitingForActor,
-        limit
-      }),
-    [baseFilters, limit, state.channelFilter]
+  const postPage = useMemo(
+    () => filterAndSortPosts(state.rawPosts, { channelFilter: state.channelFilter, sortMode: state.sortMode, limit, offset: state.listOffset }),
+    [limit, state.channelFilter, state.listOffset, state.rawPosts, state.sortMode]
   );
-  const posts = useMemo(
-    () => filterAndSortPosts(state.rawPosts, { channelFilter: state.channelFilter, sortMode: state.sortMode, limit }),
-    [limit, state.channelFilter, state.rawPosts, state.sortMode]
-  );
+  const posts = postPage.items;
   const selectedPost = posts[state.selectedIndex] ?? null;
   const conversationItems = useMemo(
     () => state.bundle ? buildConversationItems(state.bundle, { filterMode: state.conversationFilterMode, sortMode: state.conversationSortMode }) : [],
     [state.bundle, state.conversationFilterMode, state.conversationSortMode]
   );
-  const selectedConversationIndex = useMemo(
+  const absoluteConversationIndex = useMemo(
     () => resolveConversationSelection(conversationItems, state.focusedReplyIndex),
     [conversationItems, state.focusedReplyIndex]
   );
+  const conversationPage = useMemo(
+    () => paginateItems(conversationItems, { limit: state.replyPageSize, offset: offsetForPage(state.replyPage, state.replyPageSize) }),
+    [conversationItems, state.replyPage, state.replyPageSize]
+  );
+  const selectedConversationIndex = useMemo(
+    () => {
+      const pageIndex = conversationPage.items.findIndex((item) => item.replyIndex === state.focusedReplyIndex);
+      return pageIndex >= 0 ? pageIndex : 0;
+    },
+    [conversationPage.items, state.focusedReplyIndex]
+  );
   const now = useMemo(() => new Date(), [state.lastRefreshAt]);
+  const autoRefreshCountdownMs = useMemo(() => {
+    if (!state.autoRefreshEnabled || state.view === "reply" || nextAutoRefreshAtRef.current == null) {
+      return null;
+    }
+
+    return Math.max(0, nextAutoRefreshAtRef.current - autoRefreshNowMs);
+  }, [autoRefreshNowMs, state.autoRefreshEnabled, state.view]);
 
   useEffect(() => {
     bundleRef.current = state.bundle;
@@ -93,6 +113,10 @@ function useBrowseController(
   useEffect(() => {
     selectedIndexRef.current = state.selectedIndex;
   }, [state.selectedIndex]);
+
+  useEffect(() => {
+    listOffsetRef.current = state.listOffset;
+  }, [state.listOffset]);
 
   useEffect(() => {
     channelFilterRef.current = state.channelFilter;
@@ -114,6 +138,14 @@ function useBrowseController(
     replyBodyRef.current = state.replyBody;
   }, [state.replyBody]);
 
+  useEffect(() => {
+    searchQueryRef.current = state.searchQuery;
+  }, [state.searchQuery]);
+
+  useEffect(() => {
+    rawPostsRef.current = state.rawPosts;
+  }, [state.rawPosts]);
+
   const refreshReadProgress = useCallback(() => {
     const element = postContentRef.current;
     if (!element) {
@@ -130,7 +162,11 @@ function useBrowseController(
   }, []);
 
   const refreshData = useCallback(
-    (reason: "initial" | "manual" | "auto" | "reply", focusedId?: string) => {
+    (
+      reason: "initial" | "manual" | "auto" | "reply",
+      focusedId?: string,
+      overrides?: { currentOffset?: number; searchQuery?: string }
+    ) => {
       dispatch({
         type: "patch",
         patch: reason === "initial" ? { loading: true } : { refreshing: true }
@@ -145,8 +181,11 @@ function useBrowseController(
           channelFilter: channelFilterRef.current,
           sortMode: sortModeRef.current,
           limit,
+          currentOffset: overrides?.currentOffset ?? listOffsetRef.current,
           currentIndex: selectedIndexRef.current,
+          currentRawPosts: rawPostsRef.current,
           currentBundle: bundleRef.current,
+          searchQuery: overrides?.searchQuery ?? searchQueryRef.current,
           focusedId: focusedId ?? selectedPostIdRef.current ?? undefined
         });
 
@@ -155,7 +194,9 @@ function useBrowseController(
           patch: {
             rawPosts: result.rawPosts,
             selectedIndex: result.selectedIndex,
+            listOffset: result.listOffset,
             bundle: result.bundle,
+            changedPostIds: result.changedPostIds,
             lastRefreshAt: formatRefreshClock(),
             loading: false,
             refreshing: false,
@@ -177,6 +218,7 @@ function useBrowseController(
               kind: "error",
               text: bundleRef.current ? `Open post is no longer available. ${toMessage(error)}` : toMessage(error)
             },
+            changedPostIds: [],
             loading: false,
             refreshing: false
           }
@@ -189,13 +231,16 @@ function useBrowseController(
   const openPost = useCallback(
     (postId: string) => {
       try {
+        if (session) {
+          postService.markRead(session, [postId]);
+        }
         const nextBundle = postService.getPost(postId);
         dispatch({ type: "openBundle", bundle: nextBundle });
       } catch (error) {
         dispatch({ type: "setNotice", notice: { kind: "error", text: toMessage(error) } });
       }
     },
-    [postService]
+    [postService, session]
   );
 
   const toggleAutoRefresh = useCallback(() => {
@@ -221,14 +266,15 @@ function useBrowseController(
       submitBrowseReply(replyService, {
         postId: state.bundle.post.id,
         body: state.replyBody,
-        actor
+        actor,
+        quote: state.replyQuote
       });
-      dispatch({ type: "patch", patch: { replyBody: "", view: "post" } });
+      dispatch({ type: "patch", patch: { replyBody: "", replyQuote: null, view: "post" } });
       refreshData("reply", state.bundle.post.id);
     } catch (error) {
       dispatch({ type: "setNotice", notice: { kind: "error", text: toMessage(error) } });
     }
-  }, [actor, refreshData, replyService, state.bundle, state.replyBody]);
+  }, [actor, refreshData, replyService, state.bundle, state.replyBody, state.replyQuote]);
 
   const executeDelete = useCallback(() => {
     if (!state.confirmDelete) {
@@ -273,13 +319,23 @@ function useBrowseController(
   }, [initialPostId, openPost, state.loading]);
 
   useEffect(() => {
+    if (state.searchMode) {
+      searchInputRef.current?.focus();
+      return;
+    }
+
+    if (state.gotoPageMode) {
+      gotoPageInputRef.current?.focus();
+      return;
+    }
+
     if (state.view === "reply") {
       replyInputRef.current?.focus();
       return;
     }
 
     rootRef.current?.focus();
-  }, [state.view]);
+  }, [state.gotoPageMode, state.searchMode, state.view]);
 
   useEffect(() => {
     if (state.view === "list") {
@@ -303,7 +359,7 @@ function useBrowseController(
       }
       refreshReadProgress();
     }
-  }, [refreshReadProgress, state.bundle?.post.id, state.view]);
+  }, [refreshReadProgress, state.bundle?.post.id, state.replyPage, state.view]);
 
   useEffect(() => {
     if (state.view === "post" && selectedConversationIndex >= 0) {
@@ -321,27 +377,92 @@ function useBrowseController(
     }
 
     if (conversationItems.length === 0) {
-      dispatch({ type: "patch", patch: { focusedReplyIndex: -1 } });
+      dispatch({ type: "patch", patch: { focusedReplyIndex: -1, replyPage: 1 } });
       return;
     }
 
     const currentExists = conversationItems.some((item) => item.replyIndex === state.focusedReplyIndex);
-    if (!currentExists) {
-      dispatch({ type: "patch", patch: { focusedReplyIndex: conversationItems[0].replyIndex } });
+    const nextFocusedReplyIndex = currentExists ? state.focusedReplyIndex : conversationItems[0].replyIndex;
+    const nextPage = Math.floor(resolveConversationSelection(conversationItems, nextFocusedReplyIndex) / state.replyPageSize) + 1;
+
+    if (!currentExists || nextPage !== state.replyPage) {
+      dispatch({ type: "patch", patch: { focusedReplyIndex: nextFocusedReplyIndex, replyPage: nextPage } });
     }
-  }, [conversationItems, state.focusedReplyIndex, state.view]);
+  }, [conversationItems, state.focusedReplyIndex, state.replyPage, state.replyPageSize, state.view]);
+
+  useEffect(() => {
+    if (postPage.offset !== state.listOffset) {
+      dispatch({ type: "patch", patch: { listOffset: postPage.offset } });
+      return;
+    }
+
+    if (posts.length === 0 && state.selectedIndex !== 0) {
+      dispatch({ type: "patch", patch: { selectedIndex: 0 } });
+      return;
+    }
+
+    if (posts.length > 0 && state.selectedIndex >= posts.length) {
+      dispatch({ type: "patch", patch: { selectedIndex: posts.length - 1 } });
+    }
+  }, [postPage.offset, posts.length, state.listOffset, state.selectedIndex]);
+
+  useEffect(() => {
+    if (!state.autoRefreshEnabled || state.view === "reply") {
+      nextAutoRefreshAtRef.current = null;
+      return;
+    }
+
+    nextAutoRefreshAtRef.current = Date.now() + refreshMs;
+    const interval = setInterval(() => {
+      refreshData("auto");
+      nextAutoRefreshAtRef.current = Date.now() + refreshMs;
+      setAutoRefreshNowMs(Date.now());
+    }, refreshMs);
+
+    return () => clearInterval(interval);
+  }, [refreshData, refreshMs, state.autoRefreshEnabled, state.view]);
 
   useEffect(() => {
     if (!state.autoRefreshEnabled || state.view === "reply") {
       return;
     }
 
-    const interval = setInterval(() => {
-      refreshData("auto");
-    }, refreshMs);
+    setAutoRefreshNowMs(Date.now());
+    const tick = setInterval(() => {
+      setAutoRefreshNowMs(Date.now());
+    }, 1000);
 
-    return () => clearInterval(interval);
-  }, [refreshData, refreshMs, state.autoRefreshEnabled, state.view]);
+    return () => clearInterval(tick);
+  }, [state.autoRefreshEnabled, state.view]);
+
+  const setListPage = useCallback((page: number) => {
+    const nextOffset = clampOffset(offsetForPage(page, limit), postPage.totalCount, limit);
+    dispatch({
+      type: "patch",
+      patch: {
+        listOffset: nextOffset,
+        selectedIndex: 0,
+        notice: { kind: "info", text: `Showing ${page < 1 ? 1 : Math.floor(nextOffset / limit) + 1}/${postPage.totalPages}.` }
+      }
+    });
+  }, [limit, postPage.totalCount, postPage.totalPages]);
+
+  const setReplyPage = useCallback((page: number) => {
+    const nextPage = Math.max(1, Math.min(conversationPage.totalPages, page));
+    const nextPageItems = paginateItems(conversationItems, {
+      limit: state.replyPageSize,
+      offset: offsetForPage(nextPage, state.replyPageSize)
+    }).items;
+    const firstItem = nextPageItems[0] ?? null;
+    dispatch({
+      type: "patch",
+      patch: {
+        replyPage: nextPage,
+        focusedReplyIndex: firstItem?.replyIndex ?? -1,
+        notice: { kind: "info", text: `Conversation page ${nextPage}/${conversationPage.totalPages}.` }
+      }
+    });
+  }, [conversationItems, conversationPage.totalPages, state.replyPageSize]);
 
   const handleKeyPress = useCallback((event: { attributes: { key: KeyLike } }) => {
     const command = resolveBrowseKeyCommand(
@@ -349,10 +470,13 @@ function useBrowseController(
         view: state.view,
         showShortcutsHelp: state.showShortcutsHelp,
         confirmDelete: Boolean(state.confirmDelete),
+        gotoPageMode: state.gotoPageMode,
+        searchMode: state.searchMode,
         replyBody: state.replyBody,
         postPanelFocus: state.postPanelFocus,
         conversationFilterMode: state.conversationFilterMode,
         focusedReplyIndex: state.focusedReplyIndex,
+        canQuoteReply: state.focusedReplyIndex >= 0,
         hasSelectedPost: Boolean(selectedPost),
         hasBundle: Boolean(state.bundle),
         hasRefPost: Boolean(state.bundle?.post.refId),
@@ -382,8 +506,49 @@ function useBrowseController(
       case "cancelDelete":
         dispatch({ type: "patch", patch: { confirmDelete: null, notice: null } });
         return;
+      case "closeGotoPage":
+        dispatch({ type: "patch", patch: { gotoPageMode: null, gotoPageInput: "", notice: null } });
+        return;
+      case "applyGotoPage": {
+        const targetPage = Number(state.gotoPageInput);
+        if (!Number.isInteger(targetPage) || targetPage <= 0) {
+          dispatch({ type: "setNotice", notice: { kind: "error", text: "Page number must be a positive integer." } });
+          return;
+        }
+
+        if (state.gotoPageMode === "list") {
+          setListPage(targetPage);
+        } else {
+          setReplyPage(targetPage);
+        }
+
+        dispatch({ type: "patch", patch: { gotoPageMode: null, gotoPageInput: "" } });
+        return;
+      }
+      case "closeSearch":
+        dispatch({
+          type: "patch",
+          patch: { searchMode: false, searchDraftQuery: state.searchQuery, notice: null }
+        });
+        return;
+      case "applySearch":
+        dispatch({
+          type: "patch",
+          patch: {
+            searchMode: false,
+            searchQuery: state.searchDraftQuery,
+            searchDraftQuery: state.searchDraftQuery,
+            listOffset: 0,
+            selectedIndex: 0
+          }
+        });
+        refreshData("manual", undefined, { currentOffset: 0, searchQuery: state.searchDraftQuery });
+        return;
       case "replyCancel":
         dispatch({ type: "patch", patch: { view: "post", notice: null } });
+        return;
+      case "clearReplyQuote":
+        dispatch({ type: "patch", patch: { replyQuote: null, notice: { kind: "info", text: "Quote cleared." } } });
         return;
       case "copyReplyDraft":
         copyToClipboard(state.replyBody);
@@ -419,6 +584,7 @@ function useBrowseController(
           type: "patch",
           patch: {
             channelFilter: state.channelSelectedIndex === 0 ? "__all__" : channelStats[state.channelSelectedIndex - 1].name,
+            listOffset: 0,
             selectedIndex: 0,
             view: "list",
             notice: null
@@ -434,6 +600,7 @@ function useBrowseController(
           type: "patch",
           patch: {
             channelFilter: next,
+            listOffset: 0,
             selectedIndex: 0,
             notice: { kind: "info", text: next === "__all__" ? "Showing all channels." : `Channel filter: #${next}.` }
           }
@@ -442,11 +609,17 @@ function useBrowseController(
       }
       case "cycleSortMode": {
         const next = nextValue(SORT_MODES, state.sortMode);
-        dispatch({ type: "patch", patch: { sortMode: next, notice: { kind: "info", text: `Sort: ${next}.` } } });
+        dispatch({ type: "patch", patch: { sortMode: next, listOffset: 0, selectedIndex: 0, notice: { kind: "info", text: `Sort: ${next}.` } } });
         return;
       }
       case "listMove":
         dispatch({ type: "patch", patch: { selectedIndex: clampIndex(state.selectedIndex + command.delta, posts.length) } });
+        return;
+      case "listPagePrev":
+        setListPage(postPage.page - 1);
+        return;
+      case "listPageNext":
+        setListPage(postPage.page + 1);
         return;
       case "openSelectedPost":
         if (selectedPost) {
@@ -467,17 +640,39 @@ function useBrowseController(
       case "openChannels":
         dispatch({ type: "patch", patch: { view: "channels", notice: null } });
         return;
+      case "openSearch":
+        dispatch({
+          type: "patch",
+          patch: { searchMode: true, searchDraftQuery: state.searchQuery, notice: null }
+        });
+        return;
+      case "openGotoPage":
+        dispatch({
+          type: "patch",
+          patch: {
+            gotoPageMode: command.mode,
+            gotoPageInput: String(command.mode === "list" ? postPage.page : conversationPage.page),
+            notice: null
+          }
+        });
+        return;
       case "postFocus":
         dispatch({ type: "patch", patch: { postPanelFocus: command.focus } });
         return;
       case "postMoveConversation": {
-        const nextIndex = clampIndex(selectedConversationIndex + command.delta, conversationItems.length);
+        const nextIndex = clampIndex(absoluteConversationIndex + command.delta, conversationItems.length);
         const nextItem = conversationItems[nextIndex];
         if (nextItem) {
           dispatch({ type: "patch", patch: { focusedReplyIndex: nextItem.replyIndex } });
         }
         return;
       }
+      case "postPagePrev":
+        setReplyPage(conversationPage.page - 1);
+        return;
+      case "postPageNext":
+        setReplyPage(conversationPage.page + 1);
+        return;
       case "postScroll":
         scrollBy(postContentRef.current, command.delta);
         refreshReadProgress();
@@ -493,6 +688,12 @@ function useBrowseController(
         }
         return;
       }
+      case "copyContextPack":
+        if (state.bundle) {
+          copyContextPack(state.bundle, conversationPage.items, actor);
+          dispatch({ type: "setNotice", notice: { kind: "info", text: "Copied thread context pack to clipboard." } });
+        }
+        return;
       case "openReferencedPost":
         if (state.bundle?.post.refId) {
           openPost(state.bundle.post.refId);
@@ -537,14 +738,34 @@ function useBrowseController(
       case "startReply":
         dispatch({ type: "startReply" });
         return;
+      case "startReplyWithQuote": {
+        const selectedReply = state.bundle?.replies[state.focusedReplyIndex];
+        if (selectedReply) {
+          const quote: ReplyQuote = {
+            text: selectedReply.body,
+            author: selectedReply.actor ?? "unknown",
+            replyIndex: state.focusedReplyIndex,
+            replyId: selectedReply.id
+          };
+          dispatch({ type: "startReplyWithQuote", quote });
+        }
+        return;
+      }
       case "noop":
         return;
     }
   }, [
+    absoluteConversationIndex,
+    actor,
     channelStats,
     channels,
     conversationItems,
+    conversationPage.items,
+    conversationPage.page,
+    conversationPage.totalPages,
     executeDelete,
+    postPage.page,
+    postPage.totalPages,
     openPost,
     posts.length,
     refreshData,
@@ -552,6 +773,8 @@ function useBrowseController(
     screen,
     selectedConversationIndex,
     selectedPost,
+    setListPage,
+    setReplyPage,
     state
   ]);
 
@@ -567,17 +790,21 @@ function useBrowseController(
     autoRefreshEnabled: state.autoRefreshEnabled,
     refreshMs,
     posts,
+    postPage,
     loading: state.loading,
     refreshing: state.refreshing,
+    autoRefreshCountdownMs,
     channelStats,
     rawPosts: state.rawPosts,
+    changedPostIds: state.changedPostIds,
     channelSelectedIndex: state.channelSelectedIndex,
     channelItemRefs,
     selectedIndex: state.selectedIndex,
     listItemRefs,
     now,
     actor,
-    conversationItems,
+    conversationItems: conversationPage.items,
+    conversationPage,
     conversationFilterMode: state.conversationFilterMode,
     conversationSortMode: state.conversationSortMode,
     focusedReplyRefs,
@@ -586,8 +813,17 @@ function useBrowseController(
     postPanelFocus: state.postPanelFocus,
     readProgressLabel: state.readProgressLabel,
     replyBody: state.replyBody,
+    replyQuote: state.replyQuote,
     replyInputRef,
     onReplyBodyChange: (value: string) => dispatch({ type: "setReplyBody", value }),
+    searchMode: state.searchMode,
+    searchQuery: state.searchDraftQuery,
+    searchInputRef,
+    onSearchQueryChange: (value: string) => dispatch({ type: "patch", patch: { searchDraftQuery: value } }),
+    gotoPageMode: state.gotoPageMode,
+    gotoPageInput: state.gotoPageInput,
+    gotoPageInputRef,
+    onGotoPageInputChange: (value: string) => dispatch({ type: "patch", patch: { gotoPageInput: value.replace(/[^\d]/g, "") } }),
     notice: state.notice,
     selectedConversationIndex,
     showShortcutsHelp: state.showShortcutsHelp,

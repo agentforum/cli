@@ -2,8 +2,8 @@ import React from "react";
 import type { TermElement } from "terminosaurus";
 
 import type { ReadPostBundle } from "../../../../domain/post.js";
-import { describeConversationFilterMode, sanitizeTerminalText, timeAgo } from "../formatters.js";
-import type { BrowseTheme, ConversationFilterMode, ConversationItem, ConversationSortMode, PanelFocus } from "../types.js";
+import { buildPageLabel, describeConversationFilterMode, estimateTokenCount, sanitizeTerminalText, timeAgo } from "../formatters.js";
+import type { BrowseTheme, ConversationFilterMode, ConversationItem, ConversationSortMode, PaginatedItems, PanelFocus } from "../types.js";
 
 export function PostView({
   bundle,
@@ -12,6 +12,7 @@ export function PostView({
   theme,
   focusedIndex,
   conversationItems,
+  conversationPage,
   conversationFilterMode,
   conversationSortMode,
   itemRefs,
@@ -26,6 +27,7 @@ export function PostView({
   theme: BrowseTheme;
   focusedIndex: number;
   conversationItems: ConversationItem[];
+  conversationPage: PaginatedItems<ConversationItem>;
   conversationFilterMode: ConversationFilterMode;
   conversationSortMode: ConversationSortMode;
   itemRefs: React.MutableRefObject<Array<TermElement | null>>;
@@ -40,6 +42,12 @@ export function PostView({
 
   const bodyFocused = focusedIndex === -1;
   const selectedReply = focusedIndex >= 0 ? bundle.replies[focusedIndex] ?? null : null;
+  const tokenEstimate = estimateTokenCount(
+    [
+      bundle.post.body,
+      ...conversationPage.items.filter((item) => item.kind === "reply").map((item) => item.body)
+    ].join("\n\n")
+  );
 
   return (
     <term:div flexDirection="row" padding={[0, 1]} height="100%">
@@ -58,11 +66,17 @@ export function PostView({
             {"Conversation"}
           </term:text>
           <term:text color={theme.muted} flexGrow={1} textAlign="right">
-            {`${conversationItems.length}/${bundle.replies.length + 1}`}
+            {buildPageLabel(
+              conversationPage.page,
+              conversationPage.totalPages,
+              conversationPage.rangeStart,
+              conversationPage.rangeEnd,
+              conversationPage.totalCount
+            )}
           </term:text>
         </term:div>
         <term:text color={theme.muted} marginBottom={1}>
-          {`[f] ${describeConversationFilterMode(conversationFilterMode)}  [s] ${conversationSortMode === "thread" ? "thr" : "new"}`}
+          {`[f] ${describeConversationFilterMode(conversationFilterMode)}  [s] ${conversationSortMode === "thread" ? "thr" : "new"}  [/] pages  [G] goto`}
         </term:text>
 
         {conversationItems.length === 0 ? (
@@ -104,7 +118,7 @@ export function PostView({
         padding={[0, 1]}
       >
         <term:text color={panelFocus === "content" ? theme.accent : theme.fg} fontWeight="bold" marginBottom={1}>
-          {"Content"}
+          {`Content  ~${Math.max(1, Math.round(tokenEstimate / 100) / 10)}k tokens`}
         </term:text>
         {bodyFocused ? (
           <term:div flexDirection="column">

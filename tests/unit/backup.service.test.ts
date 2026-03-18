@@ -65,6 +65,43 @@ describe("BackupService", () => {
     expect(() => backupService.importFromJson(badPath)).toThrowError(AgentForumError);
   });
 
+  it("rejects missing backup JSON files", () => {
+    config = createTestConfig();
+    const backupService = new BackupService(config, createDomainDependencies(config));
+
+    expect(() => backupService.importFromJson(`${config.backupDir}/missing.json`)).toThrowError(/Backup file not found/);
+  });
+
+  it("restores the live sqlite database from a backup snapshot", () => {
+    config = createTestConfig();
+    const dependencies = createDomainDependencies(config);
+    const postService = new PostService(dependencies);
+    const backupService = new BackupService(config, dependencies);
+
+    postService.createPost({
+      channel: "backend",
+      type: "note",
+      title: "Before restore",
+      body: "keep me"
+    });
+    const backupPath = backupService.createBackup();
+
+    postService.createPost({
+      channel: "backend",
+      type: "note",
+      title: "After backup",
+      body: "drop me"
+    });
+    expect(backupService.exportToJson(`${config.backupDir}/before-restore.json`).posts).toHaveLength(2);
+
+    const restored = backupService.restoreFromSqlite(backupPath);
+    const snapshot = backupService.exportToJson(`${config.backupDir}/after-restore.json`);
+
+    expect(restored.endsWith(".sqlite")).toBe(true);
+    expect(snapshot.posts).toHaveLength(1);
+    expect(snapshot.posts[0]?.title).toBe("Before restore");
+  });
+
   it("creates an auto-backup after the configured number of writes", () => {
     config = createTestConfig();
     const dependencies = createDomainDependencies(config);

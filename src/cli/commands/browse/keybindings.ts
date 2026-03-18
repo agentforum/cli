@@ -4,10 +4,13 @@ export type BrowseKeyState = {
   view: ViewMode;
   showShortcutsHelp: boolean;
   confirmDelete: boolean;
+  gotoPageMode: "list" | "thread" | null;
+  searchMode: boolean;
   replyBody: string;
   postPanelFocus: "index" | "content";
   conversationFilterMode: "all" | "original" | "replies";
   focusedReplyIndex: number;
+  canQuoteReply: boolean;
   hasSelectedPost: boolean;
   hasBundle: boolean;
   hasRefPost: boolean;
@@ -25,7 +28,12 @@ export type BrowseKeyCommand =
   | { type: "scrollShortcuts"; delta: number }
   | { type: "confirmDelete" }
   | { type: "cancelDelete" }
+  | { type: "closeGotoPage" }
+  | { type: "applyGotoPage" }
+  | { type: "closeSearch" }
+  | { type: "applySearch" }
   | { type: "replyCancel" }
+  | { type: "clearReplyQuote" }
   | { type: "copyReplyDraft" }
   | { type: "submitReply" }
   | { type: "quit" }
@@ -39,19 +47,27 @@ export type BrowseKeyCommand =
   | { type: "cycleChannelFilter" }
   | { type: "cycleSortMode" }
   | { type: "listMove"; delta: number }
+  | { type: "listPagePrev" }
+  | { type: "listPageNext" }
   | { type: "openSelectedPost" }
   | { type: "deleteSelectedPost" }
   | { type: "openChannels" }
+  | { type: "openSearch" }
+  | { type: "openGotoPage"; mode: "list" | "thread" }
   | { type: "postFocus"; focus: "index" | "content" }
   | { type: "postMoveConversation"; delta: number }
+  | { type: "postPagePrev" }
+  | { type: "postPageNext" }
   | { type: "postScroll"; delta: number }
   | { type: "copySelectedBody" }
+  | { type: "copyContextPack" }
   | { type: "openReferencedPost" }
   | { type: "cycleConversationFilter" }
   | { type: "cycleConversationSort" }
   | { type: "deleteCurrentThread" }
   | { type: "backFromPost" }
-  | { type: "startReply" };
+  | { type: "startReply" }
+  | { type: "startReplyWithQuote" };
 
 export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): BrowseKeyCommand {
   if (isCtrlKey(key, "c")) {
@@ -84,9 +100,32 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
     return { type: "cancelDelete" };
   }
 
+  if (state.gotoPageMode) {
+    if (isEscapeKey(key)) {
+      return { type: "closeGotoPage" };
+    }
+    if (isEnterKey(key)) {
+      return { type: "applyGotoPage" };
+    }
+    return { type: "noop" };
+  }
+
+  if (state.searchMode) {
+    if (isEscapeKey(key)) {
+      return { type: "closeSearch" };
+    }
+    if (isEnterKey(key)) {
+      return { type: "applySearch" };
+    }
+    return { type: "noop" };
+  }
+
   if (state.view === "reply") {
     if (isEscapeKey(key)) {
       return { type: "replyCancel" };
+    }
+    if (isCtrlKey(key, "k")) {
+      return { type: "clearReplyQuote" };
     }
     if (isCtrlKey(key, "y") && state.replyBody.trim()) {
       return { type: "copyReplyDraft" };
@@ -137,6 +176,18 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
   }
 
   if (state.view === "list") {
+    if (isCharacterKey(key, "/")) {
+      return { type: "openSearch" };
+    }
+    if (isCharacterKey(key, "[")) {
+      return { type: "listPagePrev" };
+    }
+    if (isCharacterKey(key, "]")) {
+      return { type: "listPageNext" };
+    }
+    if (isShiftCharacterKey(key, "G")) {
+      return { type: "openGotoPage", mode: "list" };
+    }
     if (isUpKey(key)) {
       return { type: "listMove", delta: -1 };
     }
@@ -156,6 +207,15 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
   }
 
   if (state.view === "post") {
+    if (isCharacterKey(key, "[")) {
+      return { type: "postPagePrev" };
+    }
+    if (isCharacterKey(key, "]")) {
+      return { type: "postPageNext" };
+    }
+    if (isShiftCharacterKey(key, "G")) {
+      return { type: "openGotoPage", mode: "thread" };
+    }
     if (isLeftKey(key)) {
       return { type: "postFocus", focus: "index" };
     }
@@ -181,6 +241,9 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
     if (isCharacterKey(key, "y") && state.hasBundle) {
       return { type: "copySelectedBody" };
     }
+    if (isShiftCharacterKey(key, "X") && state.hasBundle) {
+      return { type: "copyContextPack" };
+    }
     if (isCharacterKey(key, "g") && state.hasRefPost) {
       return { type: "openReferencedPost" };
     }
@@ -198,6 +261,9 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
     }
     if (isCharacterKey(key, "r")) {
       return { type: "startReply" };
+    }
+    if (isShiftCharacterKey(key, "Q") && state.canQuoteReply) {
+      return { type: "startReplyWithQuote" };
     }
   }
 
@@ -242,6 +308,10 @@ export function isPgDownKey(key: KeyLike): boolean {
 
 export function isCharacterKey(key: KeyLike, value: string): boolean {
   return !key.ctrl && !key.alt && !key.meta && (key.name === value || key.sequence === value);
+}
+
+export function isShiftCharacterKey(key: KeyLike, value: string): boolean {
+  return !key.ctrl && !key.alt && !key.meta && key.shift && (key.name === value || key.sequence === value);
 }
 
 export function isCtrlKey(key: KeyLike, value: string): boolean {

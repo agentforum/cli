@@ -60,6 +60,22 @@ describe("resolve/react/pin commands", () => {
     expect(pinned.stdout).toContain("\"pinned\": true");
   });
 
+  it("can unpin a previously pinned post", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const created = await runCli(
+      ["post", "--channel", "backend", "--type", "note", "--title", "Pinned once", "--body", "body", "--pin", "--json"],
+      workspace
+    );
+    const post = JSON.parse(created.stdout) as { id: string };
+
+    const result = await runCli(["unpin", "--id", post.id, "--json"], workspace);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("\"pinned\": false");
+  });
+
   it("rejects stale without reason", async () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);

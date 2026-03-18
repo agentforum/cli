@@ -57,10 +57,18 @@ export function resetDb(): void {
 }
 
 function ensureSchema(connection: Database.Database): void {
-  const columns = connection.prepare("PRAGMA table_info(posts)").all() as Array<{ name: string }>;
-  const columnNames = new Set(columns.map((column) => column.name));
+  const postColumns = connection.prepare("PRAGMA table_info(posts)").all() as Array<{ name: string }>;
+  const postColumnNames = new Set(postColumns.map((column) => column.name));
 
-  if (!columnNames.has("assigned_to")) {
+  if (!postColumnNames.has("assigned_to")) {
     connection.exec("ALTER TABLE posts ADD COLUMN assigned_to TEXT");
+  }
+
+  const readReceiptColumns = connection.prepare("PRAGMA table_info(read_receipts)").all() as Array<{ name: string }>;
+  const readReceiptColumnNames = new Set(readReceiptColumns.map((column) => column.name));
+
+  if (!readReceiptColumnNames.has("last_read_at")) {
+    connection.exec("ALTER TABLE read_receipts ADD COLUMN last_read_at TEXT");
+    connection.exec("UPDATE read_receipts SET last_read_at = created_at WHERE last_read_at IS NULL");
   }
 }

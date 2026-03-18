@@ -180,4 +180,41 @@ describe("PostService", () => {
     expect(updated.assignedTo).toBe("claude:backend");
     expect(service.getPost(created.post.id).post.assignedTo).toBe("claude:backend");
   });
+
+  it("deletes a post and cascades replies, reactions, and read receipts", () => {
+    config = createTestConfig();
+    const dependencies = createDomainDependencies(config);
+    const postService = new PostService(dependencies);
+    const replyService = new ReplyService(dependencies);
+    const created = postService.createPost({
+      channel: "backend",
+      type: "question",
+      title: "Delete me",
+      body: "Temporary thread",
+      actor: "claude:frontend"
+    });
+
+    replyService.createReply({
+      postId: created.post.id,
+      body: "Temporary reply",
+      actor: "claude:backend"
+    });
+    postService.createReaction({
+      postId: created.post.id,
+      reaction: "confirmed",
+      actor: "claude:backend"
+    });
+    postService.markRead("reader-1", [created.post.id]);
+
+    expect(dependencies.replies.listByPostId(created.post.id)).toHaveLength(1);
+    expect(dependencies.reactions.listByPostId(created.post.id)).toHaveLength(1);
+    expect(dependencies.readReceipts.allReadReceipts()).toHaveLength(1);
+
+    postService.deletePost(created.post.id);
+
+    expect(() => postService.getPost(created.post.id)).toThrowError(/Post not found/);
+    expect(dependencies.replies.listByPostId(created.post.id)).toHaveLength(0);
+    expect(dependencies.reactions.listByPostId(created.post.id)).toHaveLength(0);
+    expect(dependencies.readReceipts.allReadReceipts()).toHaveLength(0);
+  });
 });

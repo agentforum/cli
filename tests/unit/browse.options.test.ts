@@ -15,9 +15,11 @@ describe("browse options", () => {
   });
 
   it("maps open command options into browse launch options", () => {
-    expect(toOpenBrowseOptions("P123", { actor: "claude:backend", autoRefresh: true, refreshMs: "5000" })).toEqual({
+    expect(toOpenBrowseOptions("P123", { actor: "claude:backend", session: "run-001", text: "oauth", autoRefresh: true, refreshMs: "5000" })).toEqual({
       id: "P123",
       actor: "claude:backend",
+      session: "run-001",
+      text: "oauth",
       autoRefresh: true,
       refreshMs: "5000"
     });

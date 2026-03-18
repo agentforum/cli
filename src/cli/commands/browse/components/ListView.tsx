@@ -7,12 +7,14 @@ import type { BrowseListPost, BrowseTheme } from "../types.js";
 
 export function ListView({
   posts,
+  changedPostIds,
   selectedIndex,
   listItemRefs,
   now,
   theme
 }: {
   posts: BrowseListPost[];
+  changedPostIds: string[];
   selectedIndex: number;
   listItemRefs: React.MutableRefObject<Array<TermElement | null>>;
   now: Date;
@@ -30,6 +32,7 @@ export function ListView({
   }
 
   const items: React.ReactNode[] = [];
+  const changedSet = new Set(changedPostIds);
 
   for (let index = 0; index < posts.length; index++) {
     const post = posts[index];
@@ -45,6 +48,7 @@ export function ListView({
     const replyActorColor = selected ? theme.selectedFg : theme.success;
     const time = timeAgo(post.lastActivityAt, now);
     const right = `${post.replyCount}\u2709  ${time}`;
+    const changed = changedSet.has(post.id);
 
     if (index > 0) {
       items.push(
@@ -67,6 +71,9 @@ export function ListView({
         <term:div flexDirection="row">
           <term:text color={selected ? theme.accent : theme.muted} whiteSpace="pre">
             {`${pointer} `}
+          </term:text>
+          <term:text color={changed ? (selected ? theme.selectedFg : theme.warning) : mutedFg} whiteSpace="pre">
+            {changed ? "\u25CF " : "  "}
           </term:text>
           <term:text color={statusColor} fontWeight="bold" whiteSpace="pre">
             {`${icon}  `}

@@ -13,12 +13,17 @@ interface ReadOptions {
   severity?: Severity;
   status?: PostStatus;
   tag?: string;
+  text?: string;
   actor?: string;
+  replyActor?: string;
   session?: string;
   since?: string;
+  until?: string;
   pinned?: boolean;
   reaction?: ReactionType;
   limit?: string;
+  page?: string;
+  pageSize?: string;
   afterId?: string;
   unreadFor?: string;
   subscribedFor?: string;
@@ -46,6 +51,7 @@ Examples:
   af read --unread-for run-001 --limit 20     # First 20 unread posts for a session
   af read --id P-123 --mark-read-for run-001  # Read a thread and mark it read
   af read --type finding --severity critical  # Critical findings across all channels
+  af read --text "token refresh" --page 2     # Search title/body/replies
 `
       )
       .option("--id <id>", "Read a single post with replies and reactions")
@@ -54,12 +60,17 @@ Examples:
       .option("--severity <severity>", "Filter by severity")
       .option("--status <status>", "Filter by status")
       .option("--tag <tag>", "Filter by tag")
+      .option("--text <text>", "Search in titles, post bodies, and reply bodies")
       .option("--actor <actor>", "Filter by actor identity")
+      .option("--reply-actor <actor>", "Filter posts that have a reply from a given actor")
       .option("--session <session>", "Filter by session")
       .option("--since <isoDate>", "Filter by ISO date")
+      .option("--until <isoDate>", "Filter up to an ISO date")
       .option("--pinned", "Show only pinned posts")
       .option("--reaction <reaction>", "Filter by reaction type")
       .option("--limit <number>", "Limit number of records")
+      .option("--page <number>", "Read a specific page of results")
+      .option("--page-size <number>", "Page size used together with --page")
       .option("--after-id <postId>", "Read posts created after the given post ID")
       .option("--unread-for <session>", "[session] Return only unread posts for a reader session")
       .option("--subscribed-for <actor>", "[actor] Return only posts matching subscriptions for an actor")
@@ -70,6 +81,11 @@ Examples:
     try {
       const config = readConfig();
       const service = new PostService(createDomainDependencies(config));
+      const page = parsePositiveInteger(options.page, "--page");
+      const pageSize = parsePositiveInteger(options.pageSize, "--page-size");
+      const limit = pageSize ?? parsePositiveInteger(options.limit, "--limit");
+      const effectiveLimit = page ? limit ?? 30 : limit;
+      const offset = page && effectiveLimit ? (page - 1) * effectiveLimit : undefined;
       const entity = options.id
         ? service.getPost(options.id)
         : service.listPosts({
@@ -78,12 +94,16 @@ Examples:
             severity: options.severity,
             status: options.status,
             tag: options.tag,
+            text: options.text,
             actor: options.actor,
+            replyActor: options.replyActor,
             session: options.session,
             since: options.since,
+            until: options.until,
             pinned: options.pinned ? true : undefined,
             reaction: options.reaction,
-            limit: options.limit ? Number(options.limit) : undefined,
+            limit: effectiveLimit,
+            offset,
             afterId: options.afterId,
             unreadForSession: options.unreadFor,
             subscribedForActor: options.subscribedFor,
@@ -109,4 +129,17 @@ Examples:
       handleError(error);
     }
   });
+}
+
+function parsePositiveInteger(rawValue: string | undefined, flag: string): number | undefined {
+  if (!rawValue) {
+    return undefined;
+  }
+
+  const value = Number(rawValue);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${flag} must be a positive integer.`);
+  }
+
+  return value;
 }

@@ -54,4 +54,18 @@ describe("digest command", () => {
     expect(digest.stdout).toContain("BLOCKING");
     expect(digest.stdout).toContain("koywe-web");
   });
+
+  it("filters digest output by --text", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "OAuth rollout", "--body", "Token refresh migration"], workspace);
+    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "Unrelated", "--body", "No matching text"], workspace);
+
+    const digest = await runCli(["digest", "--text", "token refresh", "--compact"], workspace);
+
+    expect(digest.exitCode).toBe(0);
+    expect(digest.stdout).toContain("OAuth rollout");
+    expect(digest.stdout).not.toContain("Unrelated");
+  });
 });

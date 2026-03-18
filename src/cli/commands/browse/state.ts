@@ -1,4 +1,5 @@
-import type { BrowseListPost, BrowseSortMode, BrowseState, ConversationFilterMode, ConversationSortMode, Notice, PanelFocus, ViewMode } from "./types.js";
+import { DEFAULT_REPLY_PAGE_SIZE } from "./types.js";
+import type { BrowseListPost, BrowseState, Notice, ReplyQuote, ViewMode } from "./types.js";
 import type { ReadPostBundle } from "../../../domain/post.js";
 
 type StatePatch = Partial<BrowseState>;
@@ -8,6 +9,7 @@ export type BrowseAction =
   | { type: "setView"; view: ViewMode }
   | { type: "openBundle"; bundle: ReadPostBundle }
   | { type: "startReply" }
+  | { type: "startReplyWithQuote"; quote: ReplyQuote }
   | { type: "returnToList" }
   | { type: "setNotice"; notice: Notice }
   | { type: "confirmDelete"; post: BrowseListPost | null }
@@ -16,14 +18,17 @@ export type BrowseAction =
 export function createInitialBrowseState(params: {
   initialChannelFilter: string;
   initialAutoRefresh: boolean;
+  initialSearchQuery?: string;
 }): BrowseState {
   return {
     view: "list",
     rawPosts: [],
     selectedIndex: 0,
+    listOffset: 0,
     channelSelectedIndex: 0,
     bundle: null,
     replyBody: "",
+    replyQuote: null,
     loading: true,
     refreshing: false,
     notice: null,
@@ -37,8 +42,16 @@ export function createInitialBrowseState(params: {
     postPanelFocus: "index",
     conversationFilterMode: "all",
     conversationSortMode: "thread",
+    replyPage: 1,
+    replyPageSize: DEFAULT_REPLY_PAGE_SIZE,
     readProgressLabel: "[100% read]",
-    showShortcutsHelp: false
+    showShortcutsHelp: false,
+    gotoPageMode: null,
+    gotoPageInput: "",
+    searchMode: false,
+    searchQuery: params.initialSearchQuery ?? "",
+    searchDraftQuery: params.initialSearchQuery ?? "",
+    changedPostIds: []
   };
 }
 
@@ -52,19 +65,36 @@ export function browseReducer(state: BrowseState, action: BrowseAction): BrowseS
       return {
         ...state,
         bundle: action.bundle,
+        listOffset: state.listOffset,
         replyBody: "",
+        replyQuote: null,
         focusedReplyIndex: -1,
         postPanelFocus: "index",
         conversationFilterMode: "all",
         conversationSortMode: "thread",
+        replyPage: 1,
         readProgressLabel: "[100% read]",
         notice: null,
+        gotoPageMode: null,
+        gotoPageInput: "",
         view: "post"
       };
     case "startReply":
       return {
         ...state,
         replyBody: "",
+        replyQuote: null,
+        gotoPageMode: null,
+        gotoPageInput: "",
+        view: "reply"
+      };
+    case "startReplyWithQuote":
+      return {
+        ...state,
+        replyBody: "",
+        replyQuote: action.quote,
+        gotoPageMode: null,
+        gotoPageInput: "",
         view: "reply"
       };
     case "returnToList":
@@ -72,7 +102,9 @@ export function browseReducer(state: BrowseState, action: BrowseAction): BrowseS
         ...state,
         view: "list",
         confirmDelete: null,
-        showShortcutsHelp: false
+        showShortcutsHelp: false,
+        gotoPageMode: null,
+        gotoPageInput: ""
       };
     case "setNotice":
       return { ...state, notice: action.notice };

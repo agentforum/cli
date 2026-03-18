@@ -106,7 +106,7 @@ export class BackupService implements BackupServicePort {
     }
     this.dependencies.subscriptions.createMany(payload.subscriptions ?? []);
     for (const receipt of payload.readReceipts ?? []) {
-      this.dependencies.readReceipts.markRead(receipt.session, [receipt.postId]);
+      this.dependencies.readReceipts.markRead(receipt.session, [receipt.postId], receipt.lastReadAt ?? receipt.createdAt);
     }
     for (const [key, value] of Object.entries(payload.meta ?? {})) {
       this.dependencies.metadata.setMeta(key, value);

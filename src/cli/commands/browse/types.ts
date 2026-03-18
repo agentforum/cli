@@ -7,6 +7,7 @@ import type { PostService } from "../../../domain/post.service.js";
 import type { ReplyService } from "../../../domain/reply.service.js";
 
 export const DEFAULT_REFRESH_MS = 5000;
+export const DEFAULT_REPLY_PAGE_SIZE = 20;
 export const ALL_CHANNELS = "__all__";
 export const SORT_MODES = ["activity", "recent", "title", "channel"] as const;
 export type BrowseSortMode = (typeof SORT_MODES)[number];
@@ -22,9 +23,11 @@ export interface BrowseOptions {
   severity?: Severity;
   status?: PostStatus;
   tag?: string;
+  text?: string;
   pinned?: boolean;
   limit?: string;
   actor?: string;
+  session?: string;
   unreadFor?: string;
   subscribedFor?: string;
   assignedTo?: string;
@@ -37,6 +40,7 @@ export type ViewMode = "list" | "post" | "reply" | "channels";
 export type Notice = { kind: "info" | "error"; text: string } | null;
 export type RefreshReason = "initial" | "manual" | "auto" | "reply";
 export type PanelFocus = "index" | "content";
+export type GotoPageMode = "list" | "thread";
 
 export type KeyLike = {
   name: string;
@@ -79,6 +83,23 @@ export interface ConversationItem {
   replyIndex: number;
 }
 
+export interface ReplyQuote {
+  text: string;
+  author: string;
+  replyIndex: number;
+  replyId: string;
+}
+
+export interface PaginatedItems<T> {
+  items: T[];
+  totalCount: number;
+  totalPages: number;
+  page: number;
+  offset: number;
+  rangeStart: number;
+  rangeEnd: number;
+}
+
 export interface ChannelStats {
   name: string;
   threadCount: number;
@@ -103,18 +124,22 @@ export interface BrowseAppProps {
   initialChannelFilter: string;
   limit: number;
   actor?: string;
+  session?: string;
   refreshMs: number;
   initialAutoRefresh: boolean;
   initialPostId?: string;
+  initialSearchQuery?: string;
 }
 
 export interface BrowseState {
   view: ViewMode;
   rawPosts: BrowseListPost[];
   selectedIndex: number;
+  listOffset: number;
   channelSelectedIndex: number;
   bundle: ReadPostBundle | null;
   replyBody: string;
+  replyQuote: ReplyQuote | null;
   loading: boolean;
   refreshing: boolean;
   notice: Notice;
@@ -128,6 +153,14 @@ export interface BrowseState {
   postPanelFocus: PanelFocus;
   conversationFilterMode: ConversationFilterMode;
   conversationSortMode: ConversationSortMode;
+  replyPage: number;
+  replyPageSize: number;
   readProgressLabel: string;
   showShortcutsHelp: boolean;
+  gotoPageMode: GotoPageMode | null;
+  gotoPageInput: string;
+  searchMode: boolean;
+  searchQuery: string;
+  searchDraftQuery: string;
+  changedPostIds: string[];
 }

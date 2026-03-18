@@ -7,12 +7,16 @@ export interface PostFilters {
   severity?: Severity;
   status?: PostStatus;
   tag?: string;
+  text?: string;
   actor?: string;
+  replyActor?: string;
   session?: string;
   since?: string;
+  until?: string;
   pinned?: boolean;
   reaction?: ReactionType;
   limit?: number;
+  offset?: number;
   afterId?: string;
   unreadForSession?: string;
   subscribedForActor?: string;
