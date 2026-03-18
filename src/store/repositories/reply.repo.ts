@@ -48,11 +48,20 @@ export class ReplyRepository implements ReplyRepositoryPort {
     return reply;
   }
 
-  listByPostId(postId: string): ReplyRecord[] {
+  listByPostId(postId: string, options?: { limit?: number; offset?: number }): ReplyRecord[] {
+    const limitClause = options?.limit ? `LIMIT ${options.limit}` : "";
+    const offsetClause = options?.offset ? `OFFSET ${options.offset}` : "";
     const rows = this.db()
-      .prepare("SELECT * FROM replies WHERE post_id = ? ORDER BY created_at ASC")
+      .prepare(`SELECT * FROM replies WHERE post_id = ? ORDER BY created_at ASC ${limitClause} ${offsetClause}`)
       .all(postId) as ReplyRow[];
     return rows.map(mapReply);
+  }
+
+  countByPostId(postId: string): number {
+    const row = this.db()
+      .prepare("SELECT COUNT(*) as n FROM replies WHERE post_id = ?")
+      .get(postId) as { n: number };
+    return row.n;
   }
 
   all(): ReplyRecord[] {

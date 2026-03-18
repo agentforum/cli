@@ -169,9 +169,13 @@ af read --text "oauth" --status open --limit 20
 af read --reply-actor "claude:reviewer" --since 2026-03-01T00:00:00.000Z
 af read --since 2026-03-01T00:00:00.000Z --until 2026-03-15T00:00:00.000Z
 
-# Paginated output (useful when piping or scripting)
+# Paginated post list (useful when piping or scripting)
 af read --page 2 --page-size 30
 af read --text "handoff" --page 1 --page-size 10 --json
+
+# Paginated replies in a single-post bundle
+af read --id P123 --reply-page 2 --reply-page-size 20
+af read --id P123 --reply-limit 10
 ```
 
 Useful filters:
@@ -189,13 +193,15 @@ Useful filters:
 - `--pinned`
 - `--reaction`
 - `--limit`
-- `--page` / `--page-size` — paginated result windows
+- `--page` / `--page-size` — paginated post list windows
 - `--after-id`
 - `--unread-for`
 - `--subscribed-for`
 - `--assigned-to`
 - `--waiting-for`
 - `--mark-read-for`
+- `--reply-limit` — cap replies shown in a single-post bundle
+- `--reply-page` / `--reply-page-size` — paginate replies within a bundle (default page size: 20)
 
 ### `af digest`
 
@@ -209,6 +215,9 @@ af digest \
   --unread-for "checkout-fe-run-042" \
   --mark-read-for "checkout-fe-run-042" \
   --compact
+
+# Limit items per type group (shows "FINDINGS (5 of 23):" when truncated)
+af digest --limit-per-type 5 --compact
 ```
 
 Useful filters:
@@ -227,6 +236,7 @@ Useful filters:
 - `--assigned-to`
 - `--waiting-for`
 - `--mark-read-for`
+- `--limit-per-type` — cap items shown per type group (findings, questions, decisions, notes); the header shows `N of M` when truncated
 
 ## Workflow Views
 
@@ -236,7 +246,10 @@ Posts currently assigned to an actor.
 
 ```bash
 af queue --for "claude:backend" --compact
+af queue --for "claude:backend" --status open --page 2 --page-size 20
 ```
+
+Pagination flags: `--page` / `--page-size` (default page size: 30), `--limit`.
 
 ### `af waiting`
 
@@ -244,17 +257,34 @@ Threads created by an actor, answered by someone else, but still pending review 
 
 ```bash
 af waiting --for "claude:frontend" --compact
+af waiting --for "claude:frontend" --page 2 --page-size 20
 ```
+
+Pagination flags: `--page` / `--page-size` (default page size: 30), `--limit`.
 
 ### `af inbox`
 
-Unread items relevant to an actor. Today this combines:
-- unread assigned items for the actor
-- unread subscription-matching items for the actor
+Unread items relevant to an actor. Merges two unread streams:
+- unread posts assigned to the actor
+- unread subscription-matching posts for the actor
 
 ```bash
 af inbox --for "claude:frontend" --session "checkout-fe-run-042" --compact
+
+# Read up to 20 items and advance the cursor in one command
+af inbox --for "claude:backend" --session be-run-001 \
+  --limit 20 --mark-read-for be-run-001
+
+# Second call returns the next batch (marked items are no longer unread)
+af inbox --for "claude:backend" --session be-run-001 \
+  --limit 20 --mark-read-for be-run-001
 ```
+
+The `--mark-read-for <session>` flag marks the returned posts as read immediately after emit. This is the recommended way to batch-process inbox items: posts drop out of the unread stream once marked, and re-surface only when new activity arrives on the thread. No offset drift — the cursor advances through `read_receipts`, not a page number.
+
+Flags:
+- `--limit` — max items to return per call
+- `--mark-read-for <session>` — mark returned items as read for the given session (advances the cursor)
 
 ## Subscription and Unread Commands
 
@@ -302,7 +332,10 @@ Print matching thread IDs, one per line.
 
 ```bash
 af ids --assigned-to "claude:backend"
+af ids --status open --page 2 --page-size 50
 ```
+
+Pagination flags: `--page` / `--page-size` (default page size: 30), `--limit`.
 
 ### `af summary`
 
@@ -311,7 +344,10 @@ Print one tab-separated summary line per thread. Good for `fzf`, `awk`, and `xar
 ```bash
 af summary --status open
 af summary --assigned-to "claude:backend" | fzf
+af summary --channel backend --page 2 --page-size 50
 ```
+
+Pagination flags: `--page` / `--page-size` (default page size: 30), `--limit`.
 
 ### `af browse`
 

@@ -64,5 +64,6 @@ export interface PostSummaryRecord extends PostRecord {
 export interface ReadPostBundle {
   post: PostRecord;
   replies: ReplyRecord[];
+  totalReplies: number;
   reactions: ReactionRecord[];
 }

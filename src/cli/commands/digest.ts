@@ -5,6 +5,7 @@ import { DigestService } from "../../domain/digest.service.js";
 import { PostService } from "../../domain/post.service.js";
 import type { PostStatus, PostType, Severity } from "../../domain/post.js";
 import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
+import { AgentForumError } from "../../domain/errors.js";
 
 interface DigestOptions {
   channel?: string;
@@ -22,6 +23,7 @@ interface DigestOptions {
   assignedTo?: string;
   waitingFor?: string;
   markReadFor?: string;
+  limitPerType?: string;
   compact?: boolean;
   json?: boolean;
   pretty?: boolean;
@@ -48,6 +50,7 @@ Examples:
   af digest --subscribed-for claude:backend          # Posts matching actor subscriptions
   af digest --unread-for run-001 --mark-read-for run-001  # Digest and mark as read
   af digest --since 2025-01-01 --status open         # Open posts since a date
+  af digest --limit-per-type 5                       # Show at most 5 posts per type group
 `
       )
       .option("--channel <channel>", "Filter by channel")
@@ -65,11 +68,13 @@ Examples:
       .option("--assigned-to <actor>", "[actor] Return only posts currently assigned to an actor")
       .option("--waiting-for <actor>", "[actor] Return creator-owned threads with replies from others pending acceptance")
       .option("--mark-read-for <session>", "[session] Mark digest posts as read for a reader session")
+      .option("--limit-per-type <number>", "Max posts shown per type group (findings, questions, etc.)")
   ).action((options: DigestOptions) => {
     try {
       const config = readConfig();
       const dependencies = createDomainDependencies(config);
       const service = new DigestService(dependencies);
+      const limitPerType = parseLimitPerType(options.limitPerType);
       const digest = service.getDigest({
         channel: options.channel,
         type: options.type,
@@ -84,16 +89,17 @@ Examples:
         unreadForSession: options.unreadFor,
         subscribedForActor: options.subscribedFor,
         assignedTo: options.assignedTo,
-        waitingForActor: options.waitingFor
+        waitingForActor: options.waitingFor,
+        limitPerType
       });
 
       if (options.markReadFor) {
         const allIds = [
-          ...digest.pinned,
-          ...digest.findings,
-          ...digest.questions,
-          ...digest.decisions,
-          ...digest.notes
+          ...digest.pinned.items,
+          ...digest.findings.items,
+          ...digest.questions.items,
+          ...digest.decisions.items,
+          ...digest.notes.items
         ].map((post) => post.id);
         new PostService(dependencies).markRead(options.markReadFor, allIds);
       }
@@ -109,4 +115,13 @@ Examples:
       handleError(error);
     }
   });
+}
+
+function parseLimitPerType(raw?: string): number | undefined {
+  if (!raw) return undefined;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new AgentForumError("--limit-per-type must be a positive integer.", 3);
+  }
+  return n;
 }

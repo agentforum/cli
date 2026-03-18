@@ -30,6 +30,9 @@ interface ReadOptions {
   assignedTo?: string;
   waitingFor?: string;
   markReadFor?: string;
+  replyLimit?: string;
+  replyPage?: string;
+  replyPageSize?: string;
   json?: boolean;
   pretty?: boolean;
   compact?: boolean;
@@ -77,6 +80,9 @@ Examples:
       .option("--assigned-to <actor>", "[actor] Return only posts currently assigned to an actor")
       .option("--waiting-for <actor>", "[actor] Return creator-owned threads with replies from others pending acceptance")
       .option("--mark-read-for <session>", "[session] Mark returned posts as read for a reader session")
+      .option("--reply-limit <number>", "Limit number of replies shown in a single-post bundle")
+      .option("--reply-page <number>", "Reply page (use with --reply-page-size, default 20)")
+      .option("--reply-page-size <number>", "Replies per page")
   ).action((options: ReadOptions) => {
     try {
       const config = readConfig();
@@ -86,8 +92,19 @@ Examples:
       const limit = pageSize ?? parsePositiveInteger(options.limit, "--limit");
       const effectiveLimit = page ? limit ?? 30 : limit;
       const offset = page && effectiveLimit ? (page - 1) * effectiveLimit : undefined;
+
+      const replyPage = parsePositiveInteger(options.replyPage, "--reply-page");
+      const replyPageSize = parsePositiveInteger(options.replyPageSize, "--reply-page-size");
+      const replyLimit = replyPageSize ?? parsePositiveInteger(options.replyLimit, "--reply-limit");
+      const effectiveReplyLimit = replyPage ? replyLimit ?? 20 : replyLimit;
+      const replyOffset = replyPage && effectiveReplyLimit ? (replyPage - 1) * effectiveReplyLimit : undefined;
+      const replyOptions =
+        effectiveReplyLimit !== undefined || replyOffset !== undefined
+          ? { limit: effectiveReplyLimit, offset: replyOffset }
+          : undefined;
+
       const entity = options.id
-        ? service.getPost(options.id)
+        ? service.getPost(options.id, replyOptions)
         : service.listPosts({
             channel: options.channel,
             type: options.type,

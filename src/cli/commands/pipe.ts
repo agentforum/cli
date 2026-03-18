@@ -22,6 +22,8 @@ interface PipeOptions {
   waitingFor?: string;
   pinned?: boolean;
   limit?: string;
+  page?: string;
+  pageSize?: string;
   json?: boolean;
 }
 
@@ -43,6 +45,8 @@ export function registerPipeCommands(program: Command): void {
     .option("--waiting-for <actor>", "Return creator-owned threads with replies from others pending acceptance")
     .option("--pinned", "Show only pinned posts")
     .option("--limit <number>", "Limit number of posts")
+    .option("--page <number>", "Page number (default page-size: 30)")
+    .option("--page-size <number>", "Page size used with --page")
     .option("--json", "Output JSON")
     .action((options: PipeOptions) => {
       try {
@@ -74,6 +78,8 @@ export function registerPipeCommands(program: Command): void {
     .option("--waiting-for <actor>", "Return creator-owned threads with replies from others pending acceptance")
     .option("--pinned", "Show only pinned posts")
     .option("--limit <number>", "Limit number of posts")
+    .option("--page <number>", "Page number (default page-size: 30)")
+    .option("--page-size <number>", "Page size used with --page")
     .option("--json", "Output JSON")
     .action((options: PipeOptions) => {
       try {
@@ -90,6 +96,10 @@ export function registerPipeCommands(program: Command): void {
 }
 
 function buildPostFilters(options: PipeOptions): PostFilters {
+  const page = parsePositiveInteger(options.page, "--page");
+  const pageSize = parsePositiveInteger(options.pageSize, "--page-size");
+  const effectiveLimit = page ? pageSize ?? 30 : parseLimit(options.limit);
+  const offset = page && effectiveLimit ? (page - 1) * effectiveLimit : undefined;
   return {
     channel: options.channel,
     type: options.type,
@@ -104,7 +114,8 @@ function buildPostFilters(options: PipeOptions): PostFilters {
     assignedTo: options.assignedTo,
     waitingForActor: options.waitingFor,
     pinned: options.pinned ? true : undefined,
-    limit: parseLimit(options.limit)
+    limit: effectiveLimit,
+    offset
   };
 }
 
@@ -149,4 +160,17 @@ function parseLimit(raw?: string): number | undefined {
   }
 
   return limit;
+}
+
+function parsePositiveInteger(rawValue: string | undefined, flag: string): number | undefined {
+  if (!rawValue) {
+    return undefined;
+  }
+
+  const value = Number(rawValue);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new AgentForumError(`${flag} must be a positive integer.`, 3);
+  }
+
+  return value;
 }

@@ -133,7 +133,11 @@ function formatBundlePretty(bundle: ReadPostBundle, options: OutputOptions): str
 
   if (bundle.replies.length > 0) {
     output.push("");
-    output.push(c.bold("Replies"));
+    const replyLabel =
+      bundle.totalReplies > bundle.replies.length
+        ? `Replies (${bundle.replies.length} of ${bundle.totalReplies})`
+        : `Replies (${bundle.totalReplies})`;
+    output.push(c.bold(replyLabel));
     output.push(...bundle.replies.map(formatReply));
   }
 
@@ -162,48 +166,56 @@ function formatDigestPretty(digest: DigestResult, options: OutputOptions): strin
 function formatDigestCompact(digest: DigestResult): string {
   const lines = [`DIGEST ${digest.channel ?? "all"} ${digest.generatedAt}`];
 
-  if (digest.pinned.length > 0) {
+  if (digest.pinned.summary.total > 0) {
     lines.push("");
-    lines.push("PINNED:");
-    lines.push(...digest.pinned.map(formatCompactLine));
+    lines.push(`PINNED (${groupLabel(digest.pinned)}):`);
+    lines.push(...digest.pinned.items.map(formatCompactLine));
   }
 
-  if (digest.findings.length > 0) {
+  if (digest.findings.summary.total > 0) {
     lines.push("");
-    lines.push(`FINDINGS (${digest.findings.length}):`);
-    lines.push(...digest.findings.map(formatCompactLine));
+    lines.push(`FINDINGS (${groupLabel(digest.findings)}):`);
+    lines.push(...digest.findings.items.map(formatCompactLine));
   }
 
-  if (digest.questions.length > 0) {
+  if (digest.questions.summary.total > 0) {
     lines.push("");
-    lines.push(`QUESTIONS (${digest.questions.length}):`);
-    lines.push(...digest.questions.map(formatCompactLine));
+    lines.push(`QUESTIONS (${groupLabel(digest.questions)}):`);
+    lines.push(...digest.questions.items.map(formatCompactLine));
   }
 
-  if (digest.decisions.length > 0) {
+  if (digest.decisions.summary.total > 0) {
     lines.push("");
-    lines.push(`DECISIONS (${digest.decisions.length}):`);
-    lines.push(...digest.decisions.map(formatCompactLine));
+    lines.push(`DECISIONS (${groupLabel(digest.decisions)}):`);
+    lines.push(...digest.decisions.items.map(formatCompactLine));
   }
 
-  if (digest.notes.length > 0) {
+  if (digest.notes.summary.total > 0) {
     lines.push("");
-    lines.push(`NOTES (${digest.notes.length}):`);
-    lines.push(...digest.notes.map(formatCompactLine));
+    lines.push(`NOTES (${groupLabel(digest.notes)}):`);
+    lines.push(...digest.notes.items.map(formatCompactLine));
   }
 
   return `${lines.join("\n")}\n`;
 }
 
-function appendSection(lines: string[], title: string, posts: PostRecord[]): void {
+function groupLabel(group: DigestResult["pinned"]): string {
+  if (group.summary.shown < group.summary.total) {
+    return `${group.summary.shown} of ${group.summary.total}`;
+  }
+  return String(group.summary.total);
+}
+
+function appendSection(lines: string[], title: string, group: DigestResult["pinned"]): void {
   lines.push("");
-  lines.push(`${title}:`);
-  if (posts.length === 0) {
+  const label = group.summary.shown < group.summary.total ? ` (${group.summary.shown} of ${group.summary.total})` : "";
+  lines.push(`${title}${label}:`);
+  if (group.items.length === 0) {
     lines.push("- none");
     return;
   }
 
-  for (const post of posts) {
+  for (const post of group.items) {
     lines.push(`- ${formatCompactLine(post)}`);
   }
 }

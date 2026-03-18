@@ -17,6 +17,9 @@ interface WorkflowOptions {
   tag?: string;
   pinned?: boolean;
   limit?: string;
+  page?: string;
+  pageSize?: string;
+  markReadFor?: string;
   json?: boolean;
   pretty?: boolean;
   compact?: boolean;
@@ -35,6 +38,7 @@ export function registerWorkflowCommands(program: Command): void {
 Example:
   af queue --for claude:backend
   af queue --for claude:backend --status open --compact
+  af queue --for claude:backend --page 2 --page-size 20
 `
       )
       .requiredOption("--for <actor>", "Actor identity, e.g. claude:backend")
@@ -45,6 +49,8 @@ Example:
       .option("--tag <tag>", "Filter by tag")
       .option("--pinned", "Show only pinned posts")
       .option("--limit <number>", "Limit number of posts")
+      .option("--page <number>", "Page number (default page-size: 30)")
+      .option("--page-size <number>", "Page size used with --page")
   ).action((options: WorkflowOptions) => {
     try {
       const service = new PostService(createDomainDependencies(readConfig()));
@@ -67,6 +73,7 @@ still open — i.e. waiting for the creator to review or accept.
 Example:
   af waiting --for claude:frontend
   af waiting --for claude:frontend --channel design --compact
+  af waiting --for claude:frontend --page 2 --page-size 20
 `
       )
       .requiredOption("--for <actor>", "Actor identity, e.g. claude:frontend")
@@ -76,6 +83,8 @@ Example:
       .option("--tag <tag>", "Filter by tag")
       .option("--pinned", "Show only pinned posts")
       .option("--limit <number>", "Limit number of posts")
+      .option("--page <number>", "Page number (default page-size: 30)")
+      .option("--page-size <number>", "Page size used with --page")
   ).action((options: WorkflowOptions) => {
     try {
       const service = new PostService(createDomainDependencies(readConfig()));
@@ -95,9 +104,13 @@ Example:
 Merges two unread streams: posts assigned to --for and posts matching the
 actor's subscriptions. Deduplicates and sorts by pinned status then recency.
 
+Use --mark-read-for to advance the inbox cursor: items marked read drop out
+of the unread stream and reappear only when new activity arrives on the thread.
+
 Example:
   af inbox --for claude:backend --session be-run-001
   af inbox --for claude:backend --session be-run-001 --limit 10 --compact
+  af inbox --for claude:backend --session be-run-001 --limit 20 --mark-read-for be-run-001
 `
       )
       .requiredOption("--for <actor>", "Actor identity, e.g. claude:backend")
@@ -108,10 +121,16 @@ Example:
       .option("--status <status>", "Filter by status")
       .option("--tag <tag>", "Filter by tag")
       .option("--pinned", "Show only pinned posts")
-      .option("--limit <number>", "Limit number of posts")
+      .option("--limit <number>", "Limit number of posts returned")
+      .option(
+        "--mark-read-for <session>",
+        "[session] Mark returned inbox posts as read for a session (advances the cursor)"
+      )
   ).action((options: WorkflowOptions) => {
     try {
-      const service = new PostService(createDomainDependencies(readConfig()));
+      const config = readConfig();
+      const dependencies = createDomainDependencies(config);
+      const service = new PostService(dependencies);
       const baseFilters = {
         ...buildBaseFilters(options),
         unreadForSession: options.session
@@ -129,8 +148,12 @@ Example:
       });
 
       const merged = sortPostsByPriority(dedupePosts([...assigned, ...subscribed]));
-      const limited = options.limit ? merged.slice(0, Number(options.limit)) : merged;
+      const limited = options.limit ? merged.slice(0, parseLimit(options.limit)) : merged;
       emit(limited, normalizeOutput(options));
+
+      if (options.markReadFor) {
+        service.markRead(options.markReadFor, limited.map((p) => p.id));
+      }
     } catch (error) {
       handleError(error);
     }
@@ -138,6 +161,10 @@ Example:
 }
 
 function buildBaseFilters(options: WorkflowOptions): PostFilters {
+  const page = parsePositiveInteger(options.page, "--page");
+  const pageSize = parsePositiveInteger(options.pageSize, "--page-size");
+  const effectiveLimit = page ? pageSize ?? 30 : parseLimit(options.limit);
+  const offset = page && effectiveLimit ? (page - 1) * effectiveLimit : undefined;
   return {
     channel: options.channel,
     type: options.type,
@@ -145,7 +172,8 @@ function buildBaseFilters(options: WorkflowOptions): PostFilters {
     status: options.status,
     tag: options.tag,
     pinned: options.pinned ? true : undefined,
-    limit: parseLimit(options.limit)
+    limit: effectiveLimit,
+    offset
   };
 }
 
@@ -189,4 +217,17 @@ function parseLimit(raw?: string): number | undefined {
   }
 
   return limit;
+}
+
+function parsePositiveInteger(rawValue: string | undefined, flag: string): number | undefined {
+  if (!rawValue) {
+    return undefined;
+  }
+
+  const value = Number(rawValue);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new AgentForumError(`${flag} must be a positive integer.`, 3);
+  }
+
+  return value;
 }

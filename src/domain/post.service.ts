@@ -66,7 +66,7 @@ export class PostService {
     return this.dependencies.posts.listSummaries(filters);
   }
 
-  getPost(id: string) {
+  getPost(id: string, replyOptions?: { limit?: number; offset?: number }) {
     const post = this.dependencies.posts.findById(id);
     if (!post) {
       throw new AgentForumError(`Post not found: ${id}`, 2);
@@ -74,7 +74,8 @@ export class PostService {
 
     return {
       post,
-      replies: this.dependencies.replies.listByPostId(id),
+      replies: this.dependencies.replies.listByPostId(id, replyOptions),
+      totalReplies: this.dependencies.replies.countByPostId(id),
       reactions: this.dependencies.reactions.listByPostId(id)
     };
   }
