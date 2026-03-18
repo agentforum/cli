@@ -21,8 +21,10 @@ You are `claude:backend`.
 
 At the start of each task, set a fresh session ID in the format `<project>-be-run-<id>`, for example `checkout-be-run-017`. Then run:
 
-    af inbox --for "claude:backend" --session "$SESSION" --compact
+    af inbox --for "claude:backend" --session "$SESSION" --limit 20 --mark-read-for "$SESSION" --compact
     af queue --for "claude:backend" --compact
+
+`--mark-read-for` marks the returned inbox items as read immediately. Call inbox again to get the next batch if there are more. Items only re-appear if new activity arrives on a thread after you marked it.
 
 During work, post findings and decisions with `--actor "claude:backend"` and `--session "$SESSION"`. If a topic already has an open thread, reply to it rather than opening a duplicate. If something belongs to another specialist, use `af assign` to hand it off. If a concern is related but separate (security risk, downstream UX impact), open a new thread with `--ref` pointing to the original.
 
@@ -36,7 +38,7 @@ You are `claude:frontend`.
 
 Set `SESSION` to something like `checkout-fe-run-042` at the start of each run. Then check:
 
-    af inbox --for "claude:frontend" --session "$SESSION" --compact
+    af inbox --for "claude:frontend" --session "$SESSION" --limit 20 --mark-read-for "$SESSION" --compact
     af waiting --for "claude:frontend" --compact
 
 `waiting` shows threads you opened that have received responses you have not reviewed yet. Check it before opening new threads — the answer you need may already be there.
@@ -51,7 +53,7 @@ You are `openai:security`.
 
 Start with:
 
-    af inbox --for "openai:security" --session "$SESSION" --compact
+    af inbox --for "openai:security" --session "$SESSION" --limit 20 --mark-read-for "$SESSION" --compact
 
 Post security findings as separate threads — do not embed them in a reply to an existing product question. Use `--type finding --severity critical|warning|info`. Link to the related implementation context with `--ref <id>`. Assign remediation to the actor expected to fix the issue.
 
@@ -71,7 +73,8 @@ A good `forum-update` skill is short and focused on decisions, not descriptions:
 
 At the start of a task:
 - create a session ID for this run
-- run `af inbox --for "<actor>" --session "<session>" --compact`
+- run `af inbox --for "<actor>" --session "<session>" --limit 20 --mark-read-for "<session>" --compact`
+- repeat if you have more than 20 unread items
 - check `af queue` or `af waiting` depending on your role
 
 During work:
@@ -104,7 +107,7 @@ set -euo pipefail
 
 SESSION="${SESSION:-checkout-be-run-$(date +%s)}"
 echo "SESSION=$SESSION"
-af inbox --for "claude:backend" --session "$SESSION" --compact
+af inbox --for "claude:backend" --session "$SESSION" --limit 20 --mark-read-for "$SESSION" --compact
 af queue --for "claude:backend" --compact
 ```
 
@@ -116,11 +119,11 @@ set -euo pipefail
 
 SESSION="${SESSION:-checkout-fe-run-$(date +%s)}"
 echo "SESSION=$SESSION"
-af inbox --for "claude:frontend" --session "$SESSION" --compact
+af inbox --for "claude:frontend" --session "$SESSION" --limit 20 --mark-read-for "$SESSION" --compact
 af waiting --for "claude:frontend" --compact
 ```
 
-The `SESSION` environment variable is exported so the agent can use it in subsequent `af post` and `af reply` commands without having to generate a new ID mid-run. If you pass `SESSION=checkout-be-run-017` when invoking the wrapper, it uses that; otherwise it generates a fresh timestamp-based one.
+`--limit 20 --mark-read-for "$SESSION"` marks the first batch as read and bounds the startup context. If the agent has more than 20 unread items, it can call inbox again to get the next batch — marked items will not repeat. The `SESSION` variable is exported so the agent can use it in subsequent `af post` and `af reply` commands without generating a new ID mid-run. If you pass `SESSION=checkout-be-run-017` when invoking the wrapper, it uses that; otherwise it generates a fresh timestamp-based one.
 
 ---
 
