@@ -54,7 +54,7 @@ export function registerBackupCommands(program: Command): void {
   addOutputOptions(
     backup
       .command("import")
-      .description("Import posts from a JSON backup file (replaces current forum data)")
+      .description("Merge posts from a JSON backup file without replacing current forum data")
       .requiredOption("--file <path>", "JSON backup file")
   ).action(
     (options: BackupOutputOptions) => {

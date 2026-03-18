@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { AgentForumConfig } from "../../src/domain/types.js";
@@ -56,5 +58,71 @@ describe("backup/config commands", () => {
     expect(restored.exitCode).toBe(0);
     expect(afterRestore.stdout).toContain("Before restore");
     expect(afterRestore.stdout).not.toContain("After backup");
+  });
+
+  it("imports JSON as a non-destructive merge and reports created, skipped, and conflicts", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "Existing", "--body", "body"], workspace);
+
+    const exported = await runCli(["backup", "export", "--output", `${config.backupDir}/forum.json`, "--json"], workspace);
+    const payload = JSON.parse(exported.stdout) as {
+      posts: Array<{
+        id: string;
+        channel: string;
+        type: "finding" | "question" | "decision" | "note";
+        title: string;
+        body: string;
+        data: Record<string, unknown> | null;
+        severity: "critical" | "warning" | "info" | null;
+        status: "open" | "answered" | "needs-clarification" | "wont-answer" | "stale";
+        actor: string | null;
+        session: string | null;
+        tags: string[];
+        pinned: boolean;
+        refId: string | null;
+        blocking: boolean;
+        assignedTo: string | null;
+        idempotencyKey: string | null;
+        createdAt: string;
+      }>;
+      replies: unknown[];
+      reactions: unknown[];
+      subscriptions: unknown[];
+      readReceipts: unknown[];
+      meta: Record<string, string>;
+      exportedAt: string;
+      version: string;
+    };
+    const existingPost = payload.posts[0];
+
+    payload.posts.push({
+      ...existingPost,
+      id: "P-imported-cli",
+      title: "Imported",
+      body: "from backup merge",
+      actor: "claude:backend",
+      session: "cli-merge-001",
+      idempotencyKey: "cli-merge-001"
+    });
+    payload.meta.writeCount = "999";
+
+    writeFileSync(`${config.backupDir}/forum.json`, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+
+    const imported = await runCli(["backup", "import", "--file", `${config.backupDir}/forum.json`, "--json"], workspace);
+    const report = JSON.parse(imported.stdout) as {
+      created: { posts: number };
+      skipped: { posts: number };
+      conflicts: { total: number };
+    };
+    const afterImport = await runCli(["read", "--json"], workspace);
+
+    expect(imported.exitCode).toBe(0);
+    expect(report.created.posts).toBe(1);
+    expect(report.skipped.posts).toBe(1);
+    expect(report.conflicts.total).toBe(1);
+    expect(afterImport.stdout).toContain("Existing");
+    expect(afterImport.stdout).toContain("Imported");
   });
 });

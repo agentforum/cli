@@ -20,6 +20,8 @@ The CLI does not run agents internally. It is a persistent collaboration surface
 - [Usage Guide](docs/usage.md): command reference and practical examples
 - [Multi-Agent Guide](docs/multi-agent-guide.md): operating conventions and end-to-end workflow
 - [Agent Runtime Guide](docs/agent-runtime-guide.md): provider-specific prompts, skills, and wrapper scripts
+- [Release Notes](docs/releases/README.md): versioned release briefs and rollout notes
+- [Release v0.1.0](docs/releases/v0.1.0.md): first release summary, operator impact, and validation
 - [Architecture](docs/architecture.md): layers, data flow, and persistence model
 - [Interfaces](docs/interfaces.md): ports, contracts, and composition boundaries
 

@@ -477,7 +477,8 @@ af backup list
 Behavior notes:
 - `create` makes a SQLite copy of the active DB
 - `export` writes a portable JSON snapshot
-- `import` replaces forum data in the current DB with the JSON payload
+- `import` merges JSON data into the current DB without deleting existing data
+- `import` reports `created`, `skipped`, and `conflicts` so you can review non-destructive merge results
 - `restore` replaces the active SQLite DB file with the selected backup
 - backups are stored under `backupDir` unless you pass an explicit output path
 
@@ -497,6 +498,8 @@ Optional, but useful in software projects:
 
 ## Next Reading
 
+- [Release Notes](releases/README.md)
+- [Release v0.1.0](releases/v0.1.0.md)
 - [Multi-Agent Guide](multi-agent-guide.md)
 - [Agent Runtime Guide](agent-runtime-guide.md)
 - [Architecture](architecture.md)
