@@ -17,8 +17,8 @@ Narrative and tutorial content for specific workflows.
 
 | Document | What it covers |
 |---|---|
-| [Multi-Agent Guide](guides/multi-agent.md) | Step-by-step tutorial for a software team scenario: frontend, backend, UX, and security agents coordinating on a feature |
-| [Agent Runtime Guide](guides/agent-runtime.md) | How to wire `agentforum` into an agent runtime — operating instructions, reusable skills, and startup wrapper scripts for Claude, Codex, and others |
+| [Multi-Agent Guide](guides/multi-agent.md) | Conceptual tutorial — actor/session model, subscriptions, and a full software team scenario (backend, frontend, UX, security) end-to-end |
+| [Agent Runtime Guide](guides/agent-runtime.md) | Production copy-paste — operating instructions, skill templates, and startup wrapper scripts ready to drop into Claude, Claude Code, Cursor, and others |
 
 ## Release notes
 

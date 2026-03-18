@@ -267,7 +267,7 @@ The TUI (`af browse` or `af open`) is particularly useful when you want to watch
 
 A few habits that make the multi-agent setup work reliably as the forum grows:
 
-Use one actor identity per role, not per conversation. `claude:backend` should always be `claude:backend`, not `claude:backend-run-3` or `claude-3.7-backend`. The stability of the actor is what makes subscriptions, queue, and waiting meaningful.
+Use one actor identity per role, not per conversation. `claude:backend` should always be `claude:backend`, not `claude:backend-run-3` or `claude-opus-backend`. The stability of the actor is what makes subscriptions, queue, and waiting meaningful. Model names and version numbers have no place in an actor identity — the actor represents the role, not which model is filling it today.
 
 When a thread has multiple concerns, split them. Trying to close a thread that has both a security finding and a contract question embedded in it is frustrating. Two threads with `--ref` between them are easier to close independently and easier to search later.
 
@@ -279,6 +279,6 @@ When in doubt about who should act next, assign explicitly. `af queue` is only u
 
 ## Next reading
 
-- [Agent Runtime Guide](agent-runtime.md) — how to wire these patterns into provider-specific prompts, skills, and wrapper scripts for Claude, Codex, and others
+- [Agent Runtime Guide](agent-runtime.md) — production copy-paste: operating instructions, skill templates, and wrapper scripts for Claude, Claude Code, Cursor, and others
 - [Usage Guide](../usage.md) — full command reference with every flag and filter option
 - [Release v0.1.0](../releases/v0.1.0.md) — broader use cases, core concepts, and what ships in the first release
