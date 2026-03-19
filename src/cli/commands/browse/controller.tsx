@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { TermElement, TermInput } from "terminosaurus";
 import { useScreen } from "terminosaurus/react";
+import pkg from "../../../../package.json" with { type: "json" };
 
 import type { ReadPostBundle } from "../../../domain/post.js";
 import type { BrowseAppProps, BrowseListPost, BrowseSortMode, KeyLike, ReplyQuote } from "./types.js";
-import { CONVERSATION_FILTER_MODES, CONVERSATION_SORT_MODES, SORT_MODES } from "./types.js";
+import { CONVERSATION_FILTER_MODES, CONVERSATION_SORT_MODES, LIST_DISPLAY_MODES, SORT_MODES } from "./types.js";
 import { BrowseScreen } from "./components/BrowseScreen.js";
 import { copyContextPack, copyToClipboard } from "./clipboard.js";
 import { submitBrowseReply, refreshBrowseData } from "./data.js";
@@ -24,6 +25,9 @@ import {
 } from "./selectors.js";
 import { browseReducer, clampIndex, createInitialBrowseState, cycleThemeIndex } from "./state.js";
 import { THEMES } from "./theme.js";
+
+const INFO_NOTICE_TTL_MS = 2500;
+const MIN_REFRESH_VISIBLE_MS = 600;
 
 export function BrowseApp(props: BrowseAppProps) {
   const screen = useScreen();
@@ -58,6 +62,9 @@ function useBrowseController(
   const rawPostsRef = useRef<BrowseListPost[]>([]);
   const initialOpenAttemptedRef = useRef(false);
   const nextAutoRefreshAtRef = useRef<number | null>(null);
+  const noticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshRequestIdRef = useRef(0);
   const [autoRefreshNowMs, setAutoRefreshNowMs] = useState(() => Date.now());
 
   const [state, dispatch] = useReducer(
@@ -94,6 +101,7 @@ function useBrowseController(
     [conversationPage.items, state.focusedReplyIndex]
   );
   const now = useMemo(() => new Date(), [state.lastRefreshAt]);
+  const terminalWidth = process.stdout.columns ?? 120;
   const autoRefreshCountdownMs = useMemo(() => {
     if (!state.autoRefreshEnabled || state.view === "reply" || nextAutoRefreshAtRef.current == null) {
       return null;
@@ -161,12 +169,61 @@ function useBrowseController(
     });
   }, []);
 
+  const clearTransientTimers = useCallback(() => {
+    if (noticeTimeoutRef.current) {
+      clearTimeout(noticeTimeoutRef.current);
+      noticeTimeoutRef.current = null;
+    }
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+  }, []);
+
+  const showTransientNotice = useCallback((notice: NonNullable<ReturnType<typeof createInitialBrowseState>["notice"]>, ttlMs = INFO_NOTICE_TTL_MS) => {
+    if (noticeTimeoutRef.current) {
+      clearTimeout(noticeTimeoutRef.current);
+    }
+
+    dispatch({ type: "setNotice", notice });
+    noticeTimeoutRef.current = setTimeout(() => {
+      noticeTimeoutRef.current = null;
+      if (noticeRef.current?.kind === notice.kind && noticeRef.current.text === notice.text) {
+        dispatch({ type: "setNotice", notice: null });
+      }
+    }, ttlMs);
+  }, []);
+
+  const finishRefresh = useCallback((requestId: number, patch: Partial<ReturnType<typeof createInitialBrowseState>>, delayMs: number) => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+
+    const applyPatch = () => {
+      if (refreshRequestIdRef.current !== requestId) {
+        return;
+      }
+      refreshTimeoutRef.current = null;
+      dispatch({ type: "patch", patch: patch as never });
+    };
+
+    if (delayMs <= 0) {
+      applyPatch();
+      return;
+    }
+
+    refreshTimeoutRef.current = setTimeout(applyPatch, delayMs);
+  }, []);
+
   const refreshData = useCallback(
     (
       reason: "initial" | "manual" | "auto" | "reply",
       focusedId?: string,
       overrides?: { currentOffset?: number; searchQuery?: string }
     ) => {
+      const requestId = ++refreshRequestIdRef.current;
+      const startedAt = Date.now();
       dispatch({
         type: "patch",
         patch: reason === "initial" ? { loading: true } : { refreshing: true }
@@ -189,43 +246,43 @@ function useBrowseController(
           focusedId: focusedId ?? selectedPostIdRef.current ?? undefined
         });
 
-        dispatch({
-          type: "patch",
-          patch: {
-            rawPosts: result.rawPosts,
-            selectedIndex: result.selectedIndex,
-            listOffset: result.listOffset,
-            bundle: result.bundle,
-            changedPostIds: result.changedPostIds,
-            lastRefreshAt: formatRefreshClock(),
-            loading: false,
-            refreshing: false,
-            notice: reason === "manual"
-              ? { kind: "info", text: "Feed refreshed." }
-              : reason === "reply" && focusedId
-                ? { kind: "info", text: `Reply posted to ${focusedId}.` }
-                : noticeRef.current
-          }
-        });
+        const patch = {
+          rawPosts: result.rawPosts,
+          selectedIndex: result.selectedIndex,
+          listOffset: result.listOffset,
+          bundle: result.bundle,
+          changedPostIds: result.changedPostIds,
+          lastRefreshAt: formatRefreshClock(),
+          loading: false,
+          refreshing: false,
+          notice: noticeRef.current
+        };
+        const delayMs = reason === "initial" ? 0 : Math.max(0, MIN_REFRESH_VISIBLE_MS - (Date.now() - startedAt));
+        finishRefresh(requestId, patch, delayMs);
+
+        if (reason === "manual") {
+          showTransientNotice({ kind: "info", text: "Feed refreshed." });
+        } else if (reason === "reply" && focusedId) {
+          showTransientNotice({ kind: "info", text: `Reply posted to ${focusedId}.` });
+        }
       } catch (error) {
-        dispatch({
-          type: "patch",
-          patch: {
-            bundle: bundleRef.current ? null : null,
-            view: bundleRef.current ? "list" : viewRef.current,
-            replyBody: bundleRef.current ? "" : replyBodyRef.current,
-            notice: {
-              kind: "error",
-              text: bundleRef.current ? `Open post is no longer available. ${toMessage(error)}` : toMessage(error)
-            },
-            changedPostIds: [],
-            loading: false,
-            refreshing: false
-          }
-        });
+        const patch = {
+          bundle: bundleRef.current ? null : null,
+          view: bundleRef.current ? "list" : viewRef.current,
+          replyBody: bundleRef.current ? "" : replyBodyRef.current,
+          notice: {
+            kind: "error" as const,
+            text: bundleRef.current ? `Open post is no longer available. ${toMessage(error)}` : toMessage(error)
+          },
+          changedPostIds: [],
+          loading: false,
+          refreshing: false
+        };
+        const delayMs = reason === "initial" ? 0 : Math.max(0, MIN_REFRESH_VISIBLE_MS - (Date.now() - startedAt));
+        finishRefresh(requestId, patch, delayMs);
       }
     },
-    [baseFilters, limit, postService]
+    [baseFilters, finishRefresh, limit, postService, showTransientNotice]
   );
 
   const openPost = useCallback(
@@ -248,14 +305,22 @@ function useBrowseController(
     dispatch({
       type: "patch",
       patch: {
-        autoRefreshEnabled: next,
-        notice: {
-          kind: "info",
-          text: next ? `Auto refresh enabled (${refreshMs % 1000 === 0 ? `${refreshMs / 1000}s` : `${refreshMs}ms`}).` : "Auto refresh paused."
-        }
+        autoRefreshEnabled: next
       }
     });
-  }, [refreshMs, state.autoRefreshEnabled]);
+    showTransientNotice({
+      kind: "info",
+      text: next ? `Auto refresh enabled.` : "Auto refresh paused."
+    });
+  }, [showTransientNotice, state.autoRefreshEnabled]);
+
+  const clearNotice = useCallback(() => {
+    if (noticeTimeoutRef.current) {
+      clearTimeout(noticeTimeoutRef.current);
+      noticeTimeoutRef.current = null;
+    }
+    dispatch({ type: "setNotice", notice: null });
+  }, []);
 
   const submitReply = useCallback(() => {
     if (!state.bundle) {
@@ -308,6 +373,12 @@ function useBrowseController(
   useEffect(() => {
     refreshData("initial");
   }, [refreshData]);
+
+  useEffect(() => {
+    return () => {
+      clearTransientTimers();
+    };
+  }, [clearTransientTimers]);
 
   useEffect(() => {
     if (!initialPostId || state.loading || initialOpenAttemptedRef.current) {
@@ -441,11 +512,11 @@ function useBrowseController(
       type: "patch",
       patch: {
         listOffset: nextOffset,
-        selectedIndex: 0,
-        notice: { kind: "info", text: `Showing ${page < 1 ? 1 : Math.floor(nextOffset / limit) + 1}/${postPage.totalPages}.` }
+        selectedIndex: 0
       }
     });
-  }, [limit, postPage.totalCount, postPage.totalPages]);
+    showTransientNotice({ kind: "info", text: `Showing ${page < 1 ? 1 : Math.floor(nextOffset / limit) + 1}/${postPage.totalPages}.` });
+  }, [limit, postPage.totalCount, postPage.totalPages, showTransientNotice]);
 
   const setReplyPage = useCallback((page: number) => {
     const nextPage = Math.max(1, Math.min(conversationPage.totalPages, page));
@@ -458,11 +529,11 @@ function useBrowseController(
       type: "patch",
       patch: {
         replyPage: nextPage,
-        focusedReplyIndex: firstItem?.replyIndex ?? -1,
-        notice: { kind: "info", text: `Conversation page ${nextPage}/${conversationPage.totalPages}.` }
+        focusedReplyIndex: firstItem?.replyIndex ?? -1
       }
     });
-  }, [conversationItems, conversationPage.totalPages, state.replyPageSize]);
+    showTransientNotice({ kind: "info", text: `Conversation page ${nextPage}/${conversationPage.totalPages}.` });
+  }, [conversationItems, conversationPage.totalPages, showTransientNotice, state.replyPageSize]);
 
   const handleKeyPress = useCallback((event: { attributes: { key: KeyLike } }) => {
     const command = resolveBrowseKeyCommand(
@@ -504,10 +575,12 @@ function useBrowseController(
         executeDelete();
         return;
       case "cancelDelete":
-        dispatch({ type: "patch", patch: { confirmDelete: null, notice: null } });
+        dispatch({ type: "patch", patch: { confirmDelete: null } });
+        clearNotice();
         return;
       case "closeGotoPage":
-        dispatch({ type: "patch", patch: { gotoPageMode: null, gotoPageInput: "", notice: null } });
+        dispatch({ type: "patch", patch: { gotoPageMode: null, gotoPageInput: "" } });
+        clearNotice();
         return;
       case "applyGotoPage": {
         const targetPage = Number(state.gotoPageInput);
@@ -528,8 +601,9 @@ function useBrowseController(
       case "closeSearch":
         dispatch({
           type: "patch",
-          patch: { searchMode: false, searchDraftQuery: state.searchQuery, notice: null }
+          patch: { searchMode: false, searchDraftQuery: state.searchQuery }
         });
+        clearNotice();
         return;
       case "applySearch":
         dispatch({
@@ -545,14 +619,16 @@ function useBrowseController(
         refreshData("manual", undefined, { currentOffset: 0, searchQuery: state.searchDraftQuery });
         return;
       case "replyCancel":
-        dispatch({ type: "patch", patch: { view: "post", notice: null } });
+        dispatch({ type: "patch", patch: { view: "post" } });
+        clearNotice();
         return;
       case "clearReplyQuote":
-        dispatch({ type: "patch", patch: { replyQuote: null, notice: { kind: "info", text: "Quote cleared." } } });
+        dispatch({ type: "patch", patch: { replyQuote: null } });
+        showTransientNotice({ kind: "info", text: "Quote cleared." });
         return;
       case "copyReplyDraft":
         copyToClipboard(state.replyBody);
-        dispatch({ type: "setNotice", notice: { kind: "info", text: "Copied reply draft to clipboard." } });
+        showTransientNotice({ kind: "info", text: "Copied reply draft to clipboard." });
         return;
       case "submitReply":
         if (state.replyBody.trim()) {
@@ -564,12 +640,19 @@ function useBrowseController(
         return;
       case "cycleTheme": {
         const next = cycleThemeIndex(state.themeIndex, THEMES.length);
-        dispatch({ type: "patch", patch: { themeIndex: next, notice: { kind: "info", text: `Theme: ${THEMES[next].name}` } } });
+        dispatch({ type: "patch", patch: { themeIndex: next } });
+        showTransientNotice({ kind: "info", text: `Theme: ${THEMES[next].name}` });
         return;
       }
       case "toggleAutoRefresh":
         toggleAutoRefresh();
         return;
+      case "cycleListDisplayMode": {
+        const next = nextValue(LIST_DISPLAY_MODES, state.listDisplayMode);
+        dispatch({ type: "patch", patch: { listDisplayMode: next } });
+        showTransientNotice({ kind: "info", text: `List view: ${next}.` });
+        return;
+      }
       case "manualRefresh":
         refreshData("manual");
         return;
@@ -586,13 +669,14 @@ function useBrowseController(
             channelFilter: state.channelSelectedIndex === 0 ? "__all__" : channelStats[state.channelSelectedIndex - 1].name,
             listOffset: 0,
             selectedIndex: 0,
-            view: "list",
-            notice: null
+            view: "list"
           }
         });
+        clearNotice();
         return;
       case "channelsBack":
-        dispatch({ type: "patch", patch: { view: "list", notice: null } });
+        dispatch({ type: "patch", patch: { view: "list" } });
+        clearNotice();
         return;
       case "cycleChannelFilter": {
         const next = nextChannelFilter(channels, state.channelFilter);
@@ -601,15 +685,16 @@ function useBrowseController(
           patch: {
             channelFilter: next,
             listOffset: 0,
-            selectedIndex: 0,
-            notice: { kind: "info", text: next === "__all__" ? "Showing all channels." : `Channel filter: #${next}.` }
+            selectedIndex: 0
           }
         });
+        showTransientNotice({ kind: "info", text: next === "__all__" ? "Showing all channels." : `Channel filter: #${next}.` });
         return;
       }
       case "cycleSortMode": {
         const next = nextValue(SORT_MODES, state.sortMode);
-        dispatch({ type: "patch", patch: { sortMode: next, listOffset: 0, selectedIndex: 0, notice: { kind: "info", text: `Sort: ${next}.` } } });
+        dispatch({ type: "patch", patch: { sortMode: next, listOffset: 0, selectedIndex: 0 } });
+        showTransientNotice({ kind: "info", text: `Sort: ${next}.` });
         return;
       }
       case "listMove":
@@ -638,23 +723,25 @@ function useBrowseController(
         }
         return;
       case "openChannels":
-        dispatch({ type: "patch", patch: { view: "channels", notice: null } });
+        dispatch({ type: "patch", patch: { view: "channels" } });
+        clearNotice();
         return;
       case "openSearch":
         dispatch({
           type: "patch",
-          patch: { searchMode: true, searchDraftQuery: state.searchQuery, notice: null }
+          patch: { searchMode: true, searchDraftQuery: state.searchQuery }
         });
+        clearNotice();
         return;
       case "openGotoPage":
         dispatch({
           type: "patch",
           patch: {
             gotoPageMode: command.mode,
-            gotoPageInput: String(command.mode === "list" ? postPage.page : conversationPage.page),
-            notice: null
+            gotoPageInput: String(command.mode === "list" ? postPage.page : conversationPage.page)
           }
         });
+        clearNotice();
         return;
       case "postFocus":
         dispatch({ type: "patch", patch: { postPanelFocus: command.focus } });
@@ -684,14 +771,14 @@ function useBrowseController(
         if (text) {
           copyToClipboard(text);
           const label = state.focusedReplyIndex === -1 ? "post body" : `reply ${state.focusedReplyIndex + 1}`;
-          dispatch({ type: "setNotice", notice: { kind: "info", text: `Copied ${label} to clipboard.` } });
+          showTransientNotice({ kind: "info", text: `Copied ${label} to clipboard.` });
         }
         return;
       }
       case "copyContextPack":
         if (state.bundle) {
           copyContextPack(state.bundle, conversationPage.items, actor);
-          dispatch({ type: "setNotice", notice: { kind: "info", text: "Copied thread context pack to clipboard." } });
+          showTransientNotice({ kind: "info", text: "Copied thread context pack to clipboard." });
         }
         return;
       case "openReferencedPost":
@@ -701,12 +788,14 @@ function useBrowseController(
         return;
       case "cycleConversationFilter": {
         const next = nextValue(CONVERSATION_FILTER_MODES, state.conversationFilterMode);
-        dispatch({ type: "patch", patch: { conversationFilterMode: next, notice: { kind: "info", text: `Conversation filter: ${next}.` } } });
+        dispatch({ type: "patch", patch: { conversationFilterMode: next } });
+        showTransientNotice({ kind: "info", text: `Conversation filter: ${next}.` });
         return;
       }
       case "cycleConversationSort": {
         const next = nextValue(CONVERSATION_SORT_MODES, state.conversationSortMode);
-        dispatch({ type: "patch", patch: { conversationSortMode: next, notice: { kind: "info", text: `Conversation sort: ${next}.` } } });
+        dispatch({ type: "patch", patch: { conversationSortMode: next } });
+        showTransientNotice({ kind: "info", text: `Conversation sort: ${next}.` });
         return;
       }
       case "deleteCurrentThread":
@@ -730,10 +819,11 @@ function useBrowseController(
         return;
       case "backFromPost":
         if (state.focusedReplyIndex >= 0 && state.conversationFilterMode === "all") {
-          dispatch({ type: "patch", patch: { focusedReplyIndex: -1, notice: null } });
+          dispatch({ type: "patch", patch: { focusedReplyIndex: -1 } });
         } else {
-          dispatch({ type: "patch", patch: { view: "list", notice: null } });
+          dispatch({ type: "patch", patch: { view: "list" } });
         }
+        clearNotice();
         return;
       case "startReply":
         dispatch({ type: "startReply" });
@@ -811,6 +901,7 @@ function useBrowseController(
     postScrollRef,
     postContentRef,
     postPanelFocus: state.postPanelFocus,
+    listDisplayMode: state.listDisplayMode,
     readProgressLabel: state.readProgressLabel,
     replyBody: state.replyBody,
     replyQuote: state.replyQuote,
@@ -827,7 +918,9 @@ function useBrowseController(
     notice: state.notice,
     selectedConversationIndex,
     showShortcutsHelp: state.showShortcutsHelp,
-    shortcutsScrollRef
+    shortcutsScrollRef,
+    appVersion: pkg.version,
+    terminalWidth
   };
 }
 

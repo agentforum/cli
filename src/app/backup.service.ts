@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 
 import type { AgentForumConfig } from "../config/types.js";
@@ -45,7 +45,7 @@ export class BackupService implements BackupServicePort {
     ensureDirectory(this.config.backupDir);
     getSqlite(this.config);
 
-    const filename = outputPath ?? join(this.config.backupDir, `${new Date().toISOString().replaceAll(":", "-")}.sqlite`);
+    const filename = outputPath ?? nextBackupPath(this.config.backupDir);
     copyFileSync(this.config.dbPath, filename);
     this.dependencies.metadata.setMeta("lastBackupPath", filename);
     this.dependencies.metadata.setMeta("lastBackupAt", new Date().toISOString());
@@ -289,9 +289,29 @@ export class BackupService implements BackupServicePort {
 
     resetDb();
     ensureDirectory(this.config.backupDir);
+    removeSqliteSidecars(this.config.dbPath);
     copyFileSync(filePath, this.config.dbPath);
     return basename(filePath);
   }
+}
+
+function removeSqliteSidecars(dbPath: string): void {
+  for (const suffix of ["-wal", "-shm", "-journal"]) {
+    rmSync(`${dbPath}${suffix}`, { force: true });
+  }
+}
+
+function nextBackupPath(backupDir: string): string {
+  const base = join(backupDir, `${new Date().toISOString().replaceAll(":", "-")}`);
+  let candidate = `${base}.sqlite`;
+  let attempt = 1;
+
+  while (existsSync(candidate)) {
+    candidate = `${base}-${attempt}.sqlite`;
+    attempt += 1;
+  }
+
+  return candidate;
 }
 
 type ImportEntity = keyof Omit<BackupImportCounts, "total">;

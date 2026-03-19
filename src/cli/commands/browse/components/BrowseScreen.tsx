@@ -60,6 +60,7 @@ export function BrowseScreen({
   postScrollRef,
   postContentRef,
   postPanelFocus,
+  listDisplayMode,
   readProgressLabel,
   replyBody,
   replyQuote,
@@ -76,7 +77,9 @@ export function BrowseScreen({
   notice,
   selectedConversationIndex,
   showShortcutsHelp,
-  shortcutsScrollRef
+  shortcutsScrollRef,
+  appVersion,
+  terminalWidth
 }: {
   rootRef: React.MutableRefObject<TermElement | null>;
   onKeyPress: (event: { attributes: { key: { name: string; sequence: string; ctrl: boolean; alt: boolean; meta: boolean; shift: boolean } } }) => void;
@@ -110,6 +113,7 @@ export function BrowseScreen({
   postScrollRef: React.MutableRefObject<TermElement | null>;
   postContentRef: React.MutableRefObject<TermElement | null>;
   postPanelFocus: "index" | "content";
+  listDisplayMode: "compact" | "semantic";
   readProgressLabel: string;
   replyBody: string;
   replyQuote: ReplyQuote | null;
@@ -127,13 +131,15 @@ export function BrowseScreen({
   selectedConversationIndex: number;
   showShortcutsHelp: boolean;
   shortcutsScrollRef: React.MutableRefObject<TermElement | null>;
+  appVersion: string;
+  terminalWidth: number;
 }) {
   return (
     <term:div
       ref={rootRef}
       width="100%"
       height="100%"
-      padding={[1, 2]}
+      padding={[1, 1]}
       flexDirection="column"
       backgroundColor={theme.bg}
       color={theme.fg}
@@ -152,6 +158,7 @@ export function BrowseScreen({
         postsLength={postPage.totalCount}
         theme={theme}
         refreshing={refreshing}
+        terminalWidth={terminalWidth}
       />
 
       {view === "post" && bundle ? (
@@ -183,6 +190,7 @@ export function BrowseScreen({
             listItemRefs={listItemRefs}
             now={now}
             theme={theme}
+            displayMode={listDisplayMode}
           />
         ) : view === "post" ? (
           <PostView
@@ -200,6 +208,7 @@ export function BrowseScreen({
             contentScrollRef={postContentRef}
             panelFocus={postPanelFocus}
             readProgressLabel={readProgressLabel}
+            terminalWidth={terminalWidth}
           />
         ) : (
           <ReplyComposer
@@ -227,6 +236,9 @@ export function BrowseScreen({
         selectedConversationIndex={selectedConversationIndex}
         conversationItemsLength={conversationPage.totalCount}
         conversationPage={conversationPage}
+        listDisplayMode={listDisplayMode}
+        appVersion={appVersion}
+        terminalWidth={terminalWidth}
       />
 
       {searchMode ? (

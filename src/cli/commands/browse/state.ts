@@ -35,6 +35,7 @@ export function createInitialBrowseState(params: {
     autoRefreshEnabled: params.initialAutoRefresh,
     lastRefreshAt: "not yet",
     channelFilter: params.initialChannelFilter,
+    listDisplayMode: "compact",
     sortMode: "activity",
     themeIndex: 0,
     confirmDelete: null,

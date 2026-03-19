@@ -1,7 +1,7 @@
 import React from "react";
 
-import { buildBrowseHint, buildPageLabel, noticeColor, sanitizeTerminalText } from "../formatters.js";
-import type { BrowseTheme, Notice, PaginatedItems, ViewMode, BrowseListPost, ConversationItem } from "../types.js";
+import { buildBrowseHint, buildPageLabel, describeListDisplayMode, excerpt, noticeColor, sanitizeTerminalText } from "../formatters.js";
+import type { BrowseTheme, Notice, PaginatedItems, ViewMode, BrowseListPost, ConversationItem, ListDisplayMode } from "../types.js";
 
 export function FooterBar({
   notice,
@@ -15,7 +15,10 @@ export function FooterBar({
   bundleOpen,
   selectedConversationIndex,
   conversationItemsLength,
-  conversationPage
+  conversationPage,
+  listDisplayMode,
+  appVersion,
+  terminalWidth
 }: {
   notice: Notice;
   theme: BrowseTheme;
@@ -29,25 +32,33 @@ export function FooterBar({
   selectedConversationIndex: number;
   conversationItemsLength: number;
   conversationPage: PaginatedItems<ConversationItem>;
+  listDisplayMode: ListDisplayMode;
+  appVersion: string;
+  terminalWidth: number;
 }) {
+  const compact = terminalWidth < 110;
+  const leftText = sanitizeTerminalText(notice?.text ?? buildBrowseHint(view, postsLength));
+  const rightText = `${
+    view === "list"
+      ? `${buildPageLabel(postPage.page, postPage.totalPages, postPage.rangeStart, postPage.rangeEnd, postsLength)}  |  ${postsLength > 0 ? `${selectedIndex + 1}/${Math.max(postPage.items.length, 1)}` : "0/0"}  |  `
+      : view === "post" && bundleOpen
+        ? `${buildPageLabel(
+          conversationPage.page,
+          conversationPage.totalPages,
+          conversationPage.rangeStart,
+          conversationPage.rangeEnd,
+          conversationItemsLength
+        )}  |  ${selectedConversationIndex + 1}/${Math.max(conversationPage.items.length, 1)}  |  `
+        : ""
+  }v${appVersion}  |  ? shortcuts  |  v ${describeListDisplayMode(listDisplayMode)}  |  t theme  |  a auto  |  Ctrl+C exit`;
+
   return (
-    <term:div border="modern" borderColor={theme.muted} padding={[0, 1]} marginTop={1} flexDirection="row">
+    <term:div border="modern" borderColor={theme.muted} padding={[0, 1]} marginTop={1} flexDirection="column">
       <term:text color={noticeColor(notice) ?? theme.fg}>
-        {sanitizeTerminalText(notice?.text ?? buildBrowseHint(view, postsLength))}
+        {excerpt(leftText, compact ? Math.max(24, terminalWidth - 8) : 140)}
       </term:text>
-      <term:text color={theme.muted} flexGrow={1} textAlign="right">
-        {view === "list"
-          ? `${buildPageLabel(postPage.page, postPage.totalPages, postPage.rangeStart, postPage.rangeEnd, postsLength)}  |  ${postsLength > 0 ? `${selectedIndex + 1}/${Math.max(postPage.items.length, 1)}` : "0/0"}  |  `
-          : view === "post" && bundleOpen
-            ? `${buildPageLabel(
-              conversationPage.page,
-              conversationPage.totalPages,
-              conversationPage.rangeStart,
-              conversationPage.rangeEnd,
-              conversationItemsLength
-            )}  |  ${selectedConversationIndex + 1}/${Math.max(conversationPage.items.length, 1)}  |  `
-            : ""}
-        {" ? shortcuts  |  t theme  |  a auto  |  Ctrl+C exit"}
+      <term:text color={theme.muted}>
+        {excerpt(rightText, compact ? Math.max(24, terminalWidth - 8) : 140)}
       </term:text>
     </term:div>
   );

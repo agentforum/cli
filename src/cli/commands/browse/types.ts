@@ -9,6 +9,8 @@ import type { ReplyService } from "../../../domain/reply.service.js";
 export const DEFAULT_REFRESH_MS = 5000;
 export const DEFAULT_REPLY_PAGE_SIZE = 20;
 export const ALL_CHANNELS = "__all__";
+export const LIST_DISPLAY_MODES = ["compact", "semantic"] as const;
+export type ListDisplayMode = (typeof LIST_DISPLAY_MODES)[number];
 export const SORT_MODES = ["activity", "recent", "title", "channel"] as const;
 export type BrowseSortMode = (typeof SORT_MODES)[number];
 export const CONVERSATION_SORT_MODES = ["thread", "recent"] as const;
@@ -146,6 +148,7 @@ export interface BrowseState {
   autoRefreshEnabled: boolean;
   lastRefreshAt: string;
   channelFilter: string;
+  listDisplayMode: ListDisplayMode;
   sortMode: BrowseSortMode;
   themeIndex: number;
   confirmDelete: BrowseListPost | null;

@@ -58,7 +58,7 @@ export function ReplyComposer({
         </term:div>
       ) : (
         <term:text color={theme.muted} marginBottom={1}>
-          {"No quote selected. Press Shift+Q from a reply to quote it here."}
+          {"No quote selected. Press Q from a reply to quote it here."}
         </term:text>
       )}
       <term:text color={theme.accent} fontWeight="bold" marginBottom={0}>

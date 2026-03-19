@@ -1,6 +1,6 @@
 import type { PostFilters } from "../../../domain/filters.js";
 import type { ReadPostBundle } from "../../../domain/post.js";
-import type { BrowseSortMode, ConversationFilterMode, ConversationSortMode, Notice, ViewMode } from "./types.js";
+import type { BrowseSortMode, ConversationFilterMode, ConversationSortMode, ListDisplayMode, Notice, ViewMode } from "./types.js";
 import { ALL_CHANNELS } from "./types.js";
 
 const TERMINAL_TEXT_REPLACEMENTS: Record<string, string> = {
@@ -33,12 +33,8 @@ export function sanitizeTerminalText(text: string): string {
 }
 
 export function describeRefreshMs(refreshMs: number): string {
-  if (refreshMs % 1000 === 0) {
-    const seconds = refreshMs / 1000;
-    return seconds === 1 ? "1s" : `${seconds}s`;
-  }
-
-  return `${refreshMs}ms`;
+  const seconds = Math.max(1, Math.ceil(refreshMs / 1000));
+  return seconds === 1 ? "1s" : `${seconds}s`;
 }
 
 export function buildAutoRefreshLabel(autoRefreshEnabled: boolean, refreshMs: number, remainingMs?: number | null): string {
@@ -94,6 +90,21 @@ export function statusIcon(status: string): string {
   }
 }
 
+export function reactionIcon(reaction: string): string {
+  switch (reaction) {
+    case "confirmed":
+      return "+";
+    case "contradicts":
+      return "!";
+    case "acting-on":
+      return ">";
+    case "needs-human":
+      return "@";
+    default:
+      return "*";
+  }
+}
+
 export function buildBrowseHint(
   view: ViewMode,
   postCount: number
@@ -111,10 +122,19 @@ export function buildBrowseHint(
   }
 
   if (postCount === 0) {
-    return "u refresh  |  c channel  |  o sort  |  / search  |  Tab channels  |  ? shortcuts";
+    return "u refresh  |  c channel  |  o sort  |  v list view  |  / search  |  Tab channels  |  ? shortcuts";
   }
 
-  return "\u2191\u2193 navigate  |  Enter open  |  [/] pages  |  G goto  |  / search  |  c channel";
+  return "\u2191\u2193 navigate  |  Enter open  |  [/] pages  |  G goto  |  / search  |  c channel  |  v list view";
+}
+
+export function describeListDisplayMode(mode: ListDisplayMode): string {
+  switch (mode) {
+    case "compact":
+      return "compact";
+    case "semantic":
+      return "semantic";
+  }
 }
 
 export function timeAgo(isoDate: string, now?: Date): string {

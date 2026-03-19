@@ -39,9 +39,10 @@ function findConfigResult(cwd: string): { result: ReturnType<ReturnType<typeof c
 }
 
 export function loadConfig(cwd = process.cwd()): AgentForumConfig {
-  const home = homedir();
   const { result } = findConfigResult(cwd);
-  const configDir = result ? dirname(result.filepath) : home;
+  // Without a config file, built-in defaults should stay workspace-scoped so
+  // ad-hoc use writes into the current repo instead of the user's home dir.
+  const configDir = result ? dirname(result.filepath) : cwd;
 
   const config = {
     ...DEFAULT_CONFIG,

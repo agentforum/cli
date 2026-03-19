@@ -1,9 +1,9 @@
 import React from "react";
 
 import type { ReadPostBundle } from "../../../../domain/post.js";
+import { excerpt, reactionIcon, sanitizeTerminalText, timeAgo } from "../formatters.js";
 import { getPostTypeTone, getStatusTone, severityColor } from "../theme.js";
 import type { BrowseTheme } from "../types.js";
-import { timeAgo } from "../formatters.js";
 import { StatusBadge } from "./StatusBadge.js";
 
 export function PostContextBar({
@@ -31,6 +31,19 @@ export function PostContextBar({
   const session = isBody ? bundle.post.session : reply?.session ?? null;
   const tags = bundle.post.tags;
   const label = isBody ? "Original post" : `Reply ${focusedReplyIndex + 1}/${bundle.replies.length}`;
+  const metaLine = [
+    sanitizeTerminalText(label),
+    sanitizeTerminalText(who),
+    session ? `[${sanitizeTerminalText(session)}]` : null,
+    when,
+    bundle.post.assignedTo ? `owner ${sanitizeTerminalText(bundle.post.assignedTo)}` : null
+  ].filter(Boolean).join("  |  ");
+  const tagLine = tags.length > 0 ? tags.map((tag) => `#${sanitizeTerminalText(tag)}`).join(" ") : null;
+  const refLine = bundle.post.refId ? `[g] open ref ${sanitizeTerminalText(bundle.post.refId)}` : null;
+  const idemLine = bundle.post.idempotencyKey ? `idem: ${sanitizeTerminalText(bundle.post.idempotencyKey)}` : null;
+  const reactionsLine = bundle.reactions.length > 0
+    ? bundle.reactions.map((reaction) => `${reactionIcon(reaction.reaction)} ${sanitizeTerminalText(reaction.reaction)} (${sanitizeTerminalText(reaction.actor ?? "unknown")})`).join("  |  ")
+    : null;
 
   return (
     <term:div border="rounded" borderColor={theme.accent} padding={[0, 1]} marginBottom={0} flexDirection="column">
@@ -53,32 +66,29 @@ export function PostContextBar({
             {"BLOCKING"}
           </term:text>
         ) : null}
-        <term:text color={theme.fg} fontWeight="bold" whiteSpace="pre">
-          {`${label}  `}
-        </term:text>
-        <term:text color={theme.success} fontWeight="bold">{who}</term:text>
-        {session ? (
-          <term:text color={theme.muted} whiteSpace="pre">{` [${session}]`}</term:text>
-        ) : null}
-        <term:text color={theme.muted} whiteSpace="pre">{`  \u00B7  ${when}`}</term:text>
-        {bundle.post.assignedTo ? (
-          <term:text color={theme.accent} whiteSpace="pre">{`  \u00B7  owner ${bundle.post.assignedTo}`}</term:text>
-        ) : null}
-        {tags.length > 0 ? (
-          <term:text color={theme.warning} whiteSpace="pre">{`  \u00B7  ${tags.map((tag) => `#${tag}`).join(" ")}`}</term:text>
-        ) : null}
       </term:div>
-      {bundle.post.refId || bundle.post.idempotencyKey ? (
-        <term:div flexDirection="row">
-          {bundle.post.refId ? (
-            <term:text color={theme.accent} whiteSpace="pre">{`ref: ${bundle.post.refId}`}</term:text>
-          ) : null}
-          {bundle.post.idempotencyKey ? (
-            <term:text color={theme.muted} whiteSpace="pre">
-              {`${bundle.post.refId ? "  \u00B7  " : ""}idem: ${bundle.post.idempotencyKey}`}
-            </term:text>
-          ) : null}
-        </term:div>
+      <term:text color={theme.fg} fontWeight="bold">
+        {excerpt(metaLine, 160)}
+      </term:text>
+      {tagLine ? (
+        <term:text color={theme.warning}>
+          {excerpt(tagLine, 160)}
+        </term:text>
+      ) : null}
+      {refLine ? (
+        <term:text color={theme.accent}>
+          {excerpt(refLine, 160)}
+        </term:text>
+      ) : null}
+      {reactionsLine ? (
+        <term:text color={theme.warning}>
+          {excerpt(`reactions: ${reactionsLine}`, 160)}
+        </term:text>
+      ) : null}
+      {idemLine ? (
+        <term:text color={theme.muted}>
+          {excerpt(idemLine, 160)}
+        </term:text>
       ) : null}
     </term:div>
   );

@@ -15,7 +15,7 @@ export function StatusBadge({
       marginRight={1}
       fontWeight="bold"
     >
-      {label}
+      {` ${label} `}
     </term:text>
   );
 }

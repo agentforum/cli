@@ -46,6 +46,7 @@ describe("browse formatters", () => {
   it("formats time, labels, and status helpers", () => {
     const now = new Date("2026-03-13T14:00:00.000Z");
     expect(describeRefreshMs(5000)).toBe("5s");
+    expect(describeRefreshMs(1500)).toBe("2s");
     expect(buildAutoRefreshLabel(true, 5000, 3000)).toBe("auto 5s  |  next 3s");
     expect(buildAutoRefreshLabel(false, 5000, 3000)).toBe("auto off");
     expect(describeSortMode("channel")).toBe("channel (A-Z)");

@@ -1,9 +1,10 @@
 import React from "react";
 import type { TermElement } from "terminosaurus";
 
-import { sanitizeTerminalText, statusIcon, timeAgo } from "../formatters.js";
+import { excerpt, sanitizeTerminalText, statusIcon, timeAgo } from "../formatters.js";
 import { getPostTypeTone, getStatusTone, severityColor } from "../theme.js";
-import type { BrowseListPost, BrowseTheme } from "../types.js";
+import type { BrowseListPost, BrowseTheme, ListDisplayMode } from "../types.js";
+import { StatusBadge } from "./StatusBadge.js";
 
 export function ListView({
   posts,
@@ -11,7 +12,8 @@ export function ListView({
   selectedIndex,
   listItemRefs,
   now,
-  theme
+  theme,
+  displayMode
 }: {
   posts: BrowseListPost[];
   changedPostIds: string[];
@@ -19,6 +21,7 @@ export function ListView({
   listItemRefs: React.MutableRefObject<Array<TermElement | null>>;
   now: Date;
   theme: BrowseTheme;
+  displayMode: ListDisplayMode;
 }) {
   if (posts.length === 0) {
     return (
@@ -47,7 +50,7 @@ export function ListView({
     const channelColor = selected ? theme.selectedFg : theme.accent;
     const replyActorColor = selected ? theme.selectedFg : theme.success;
     const time = timeAgo(post.lastActivityAt, now);
-    const right = `${post.replyCount}\u2709  ${time}`;
+    const right = `${post.replyCount}r  ${post.reactionCount}*  ${time}`;
     const changed = changedSet.has(post.id);
 
     if (index > 0) {
@@ -79,45 +82,132 @@ export function ListView({
             {`${icon}  `}
           </term:text>
           <term:text color={fg} fontWeight="bold">
-            {sanitizeTerminalText(post.title)}
+            {excerpt(sanitizeTerminalText(post.title), 72)}
           </term:text>
           <term:text color={mutedFg} flexGrow={1} textAlign="right" whiteSpace="pre">
-            {right}
+            {displayMode === "compact" ? right : time}
           </term:text>
         </term:div>
-        <term:div flexDirection="row" whiteSpace="pre">
-          <term:text whiteSpace="pre" color={mutedFg}>{"     "}</term:text>
-          <term:text color={typeColor}>{post.type}</term:text>
-          {post.severity ? (
-            <>
-              <term:text color={mutedFg} whiteSpace="pre">{" \u00B7 "}</term:text>
-              <term:text color={selected ? theme.selectedFg : severityColor(post.severity)} fontWeight="bold">
-                {post.severity.toUpperCase()}
+
+        {displayMode === "compact" ? (
+          <>
+            <term:div flexDirection="row" marginTop={0}>
+              <term:text whiteSpace="pre" color={mutedFg}>{"     "}</term:text>
+              <StatusBadge
+                label={post.type}
+                tone={selected ? { color: theme.selectedFg, backgroundColor: theme.muted } : getPostTypeTone(post.type)}
+              />
+              <StatusBadge
+                label={post.status}
+                tone={selected ? { color: theme.selectedFg, backgroundColor: theme.muted } : getStatusTone(post.status)}
+              />
+              {post.severity ? (
+                <term:text
+                  color={selected ? theme.selectedFg : "black"}
+                  backgroundColor={selected ? theme.muted : severityColor(post.severity)}
+                  padding={[0, 1]}
+                  marginRight={1}
+                  fontWeight="bold"
+                >
+                  {` ${post.severity.toUpperCase()} `}
+                </term:text>
+              ) : null}
+              {post.blocking ? (
+                <term:text
+                  color={selected ? theme.selectedFg : "white"}
+                  backgroundColor={selected ? theme.muted : "red"}
+                  padding={[0, 1]}
+                  marginRight={1}
+                  fontWeight="bold"
+                >
+                  {" BLOCKING "}
+                </term:text>
+              ) : null}
+              <term:text color={channelColor}>{`#${post.channel}`}</term:text>
+              <term:text color={mutedFg} whiteSpace="pre">{`  by ${post.actor ?? "unknown"}`}</term:text>
+              {post.assignedTo ? (
+                <term:text color={theme.accent} whiteSpace="pre">{`  -> ${post.assignedTo}`}</term:text>
+              ) : null}
+            </term:div>
+            {post.lastReplyExcerpt ? (
+              <term:div flexDirection="row" whiteSpace="pre">
+                <term:text color={mutedFg} whiteSpace="pre">{"     \u2514 "}</term:text>
+                <term:text color={replyActorColor} fontWeight="bold">{post.lastReplyActor ?? "?"}</term:text>
+                <term:text color={mutedFg} whiteSpace="pre">{`: ${excerpt(sanitizeTerminalText(post.lastReplyExcerpt), 90)}`}</term:text>
+              </term:div>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <term:div flexDirection="row">
+              <term:text color={mutedFg} whiteSpace="pre">{"     state "}</term:text>
+              <StatusBadge
+                label={post.status}
+                tone={selected ? { color: theme.selectedFg, backgroundColor: theme.muted } : getStatusTone(post.status)}
+              />
+              {post.blocking ? (
+                <term:text
+                  color={selected ? theme.selectedFg : "white"}
+                  backgroundColor={selected ? theme.muted : "red"}
+                  padding={[0, 1]}
+                  marginRight={1}
+                  fontWeight="bold"
+                >
+                  {" BLOCKING "}
+                </term:text>
+              ) : null}
+            </term:div>
+            <term:div flexDirection="row">
+              <term:text color={mutedFg} whiteSpace="pre">{"     kind  "}</term:text>
+              <StatusBadge
+                label={post.type}
+                tone={selected ? { color: theme.selectedFg, backgroundColor: theme.muted } : getPostTypeTone(post.type)}
+              />
+              {post.severity ? (
+                <term:text
+                  color={selected ? theme.selectedFg : "black"}
+                  backgroundColor={selected ? theme.muted : severityColor(post.severity)}
+                  padding={[0, 1]}
+                  marginRight={1}
+                  fontWeight="bold"
+                >
+                  {` ${post.severity.toUpperCase()} `}
+                </term:text>
+              ) : null}
+            </term:div>
+            <term:div flexDirection="row">
+              <term:text color={mutedFg} whiteSpace="pre">{"     tags  "}</term:text>
+              <term:text color={post.tags.length > 0 ? channelColor : mutedFg}>
+                {post.tags.length > 0 ? post.tags.map((tag) => `#${tag}`).join(" ") : "(none)"}
               </term:text>
-            </>
-          ) : null}
-          {post.blocking ? (
-            <>
-              <term:text color={mutedFg} whiteSpace="pre">{" \u00B7 "}</term:text>
-              <term:text color={selected ? theme.selectedFg : "red"} fontWeight="bold">
-                {"BLOCKING"}
+            </term:div>
+            <term:div flexDirection="row">
+              <term:text color={mutedFg} whiteSpace="pre">{"     owner "}</term:text>
+              <term:text color={post.assignedTo ? theme.accent : mutedFg}>
+                {post.assignedTo ?? "(unassigned)"}
               </term:text>
-            </>
-          ) : null}
-          <term:text color={mutedFg} whiteSpace="pre">{" \u00B7 "}</term:text>
-          <term:text color={channelColor}>{`#${post.channel}`}</term:text>
-          <term:text color={mutedFg} whiteSpace="pre">{` \u00B7 by ${post.actor ?? "unknown"}`}</term:text>
-          {post.assignedTo ? (
-            <term:text color={mutedFg} whiteSpace="pre">{` \u00B7 owner ${post.assignedTo}`}</term:text>
-          ) : null}
-        </term:div>
-        {post.lastReplyExcerpt ? (
-          <term:div flexDirection="row" whiteSpace="pre">
-            <term:text color={mutedFg} whiteSpace="pre">{"     \u2514 "}</term:text>
-            <term:text color={replyActorColor} fontWeight="bold">{post.lastReplyActor ?? "?"}</term:text>
-            <term:text color={mutedFg} whiteSpace="pre">{`: ${sanitizeTerminalText(post.lastReplyExcerpt)}`}</term:text>
-          </term:div>
-        ) : null}
+            </term:div>
+            <term:div flexDirection="row">
+              <term:text color={mutedFg} whiteSpace="pre">{"     author "}</term:text>
+              <term:text color={fg}>
+                {post.actor ?? "unknown"}
+              </term:text>
+            </term:div>
+            {post.lastReplyExcerpt ? (
+              <term:div flexDirection="row">
+                <term:text color={mutedFg} whiteSpace="pre">{"     last  "}</term:text>
+                <term:text color={replyActorColor} fontWeight="bold">{post.lastReplyActor ?? "?"}</term:text>
+                <term:text color={mutedFg} whiteSpace="pre">{`: ${excerpt(sanitizeTerminalText(post.lastReplyExcerpt), 84)}`}</term:text>
+              </term:div>
+            ) : null}
+            <term:div flexDirection="row">
+              <term:text color={mutedFg} whiteSpace="pre">{"     info  "}</term:text>
+              <term:text color={mutedFg}>
+                {`${post.replyCount} replies   ${post.reactionCount} reactions   #${post.channel}`}
+              </term:text>
+            </term:div>
+          </>
+        )}
       </term:div>
     );
   }

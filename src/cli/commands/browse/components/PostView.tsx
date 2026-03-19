@@ -2,7 +2,7 @@ import React from "react";
 import type { TermElement } from "terminosaurus";
 
 import type { ReadPostBundle } from "../../../../domain/post.js";
-import { buildPageLabel, describeConversationFilterMode, estimateTokenCount, sanitizeTerminalText, timeAgo } from "../formatters.js";
+import { buildPageLabel, describeConversationFilterMode, estimateTokenCount, reactionIcon, sanitizeTerminalText, timeAgo } from "../formatters.js";
 import type { BrowseTheme, ConversationFilterMode, ConversationItem, ConversationSortMode, PaginatedItems, PanelFocus } from "../types.js";
 
 export function PostView({
@@ -19,7 +19,8 @@ export function PostView({
   indexScrollRef,
   contentScrollRef,
   panelFocus,
-  readProgressLabel
+  readProgressLabel,
+  terminalWidth
 }: {
   bundle: ReadPostBundle | null;
   actor?: string;
@@ -35,6 +36,7 @@ export function PostView({
   contentScrollRef: React.MutableRefObject<TermElement | null>;
   panelFocus: PanelFocus;
   readProgressLabel: string;
+  terminalWidth: number;
 }) {
   if (!bundle) {
     return <term:text>Select a post to open it.</term:text>;
@@ -42,6 +44,7 @@ export function PostView({
 
   const bodyFocused = focusedIndex === -1;
   const selectedReply = focusedIndex >= 0 ? bundle.replies[focusedIndex] ?? null : null;
+  const compact = terminalWidth < 110;
   const tokenEstimate = estimateTokenCount(
     [
       bundle.post.body,
@@ -50,33 +53,33 @@ export function PostView({
   );
 
   return (
-    <term:div flexDirection="row" padding={[0, 1]} height="100%">
+    <term:div flexDirection={compact ? "column" : "row"} padding={[0, 0]} height="100%">
       <term:div
         ref={indexScrollRef}
-        width={24}
+        width={compact ? "100%" : 24}
+        height={compact ? 8 : "100%"}
         flexShrink={0}
         overflow="scroll"
         border="rounded"
         borderColor={panelFocus === "index" ? theme.accent : theme.muted}
         padding={[0, 1]}
-        marginRight={1}
+        marginRight={compact ? 0 : 1}
+        marginBottom={compact ? 1 : 0}
       >
-        <term:div flexDirection="row" marginBottom={0}>
-          <term:text color={panelFocus === "index" ? theme.accent : theme.fg} fontWeight="bold">
-            {"Conversation"}
-          </term:text>
-          <term:text color={theme.muted} flexGrow={1} textAlign="right">
-            {buildPageLabel(
-              conversationPage.page,
-              conversationPage.totalPages,
-              conversationPage.rangeStart,
-              conversationPage.rangeEnd,
-              conversationPage.totalCount
-            )}
-          </term:text>
-        </term:div>
+        <term:text color={panelFocus === "index" ? theme.accent : theme.fg} fontWeight="bold" marginBottom={0}>
+          {"Conversation"}
+        </term:text>
+        <term:text color={theme.muted}>
+          {buildPageLabel(
+            conversationPage.page,
+            conversationPage.totalPages,
+            conversationPage.rangeStart,
+            conversationPage.rangeEnd,
+            conversationPage.totalCount
+          )}
+        </term:text>
         <term:text color={theme.muted} marginBottom={1}>
-          {`[f] ${describeConversationFilterMode(conversationFilterMode)}  [s] ${conversationSortMode === "thread" ? "thr" : "new"}  [/] pages  [G] goto`}
+          {`[f] ${describeConversationFilterMode(conversationFilterMode)}  [s] ${conversationSortMode === "thread" ? "thr" : "new"}`}
         </term:text>
 
         {conversationItems.length === 0 ? (
@@ -125,8 +128,11 @@ export function PostView({
             <term:text color={theme.accent} fontWeight="bold" marginBottom={0}>
               {"Original post"}
             </term:text>
+            <term:text color={theme.success}>
+              {sanitizeTerminalText(bundle.post.actor ?? actor ?? "unknown")}
+            </term:text>
             <term:text color={theme.muted} marginBottom={1}>
-              {`${bundle.post.actor ?? actor ?? "unknown"}${bundle.post.session ? ` [${bundle.post.session}]` : ""}  \u00B7  ${timeAgo(bundle.post.createdAt, now)}`}
+              {`${bundle.post.session ? `[${sanitizeTerminalText(bundle.post.session)}]  |  ` : ""}${timeAgo(bundle.post.createdAt, now)}`}
             </term:text>
             <term:text whiteSpace="preWrap" color={theme.fg}>
               {sanitizeTerminalText(bundle.post.body)}
@@ -142,7 +148,7 @@ export function PostView({
                   {"Reactions"}
                 </term:text>
                 <term:text color={theme.warning}>
-                  {bundle.reactions.map((reaction) => `${reaction.reaction} (${reaction.actor ?? "unknown"})`).join("  \u00B7  ")}
+                  {bundle.reactions.map((reaction) => `${reactionIcon(reaction.reaction)} ${reaction.reaction} (${reaction.actor ?? "unknown"})`).join("  \u00B7  ")}
                 </term:text>
               </>
             ) : null}
@@ -152,8 +158,11 @@ export function PostView({
             <term:text color={theme.accent} fontWeight="bold" marginBottom={0}>
               {`Reply ${focusedIndex + 1}`}
             </term:text>
+            <term:text color={theme.success}>
+              {sanitizeTerminalText(selectedReply.actor ?? "unknown")}
+            </term:text>
             <term:text color={theme.muted} marginBottom={1}>
-              {`${selectedReply.actor ?? "unknown"}${selectedReply.session ? ` [${selectedReply.session}]` : ""}  \u00B7  ${timeAgo(selectedReply.createdAt, now)}`}
+              {`${selectedReply.session ? `[${sanitizeTerminalText(selectedReply.session)}]  |  ` : ""}${timeAgo(selectedReply.createdAt, now)}`}
             </term:text>
             <term:text whiteSpace="preWrap" color={theme.fg}>
               {sanitizeTerminalText(selectedReply.body)}

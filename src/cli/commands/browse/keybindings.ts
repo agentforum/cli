@@ -40,6 +40,7 @@ export type BrowseKeyCommand =
   | { type: "toggleShortcuts" }
   | { type: "cycleTheme" }
   | { type: "toggleAutoRefresh" }
+  | { type: "cycleListDisplayMode" }
   | { type: "manualRefresh" }
   | { type: "channelsMove"; delta: number }
   | { type: "channelsSelect" }
@@ -147,6 +148,9 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
   }
   if (isCharacterKey(key, "a")) {
     return { type: "toggleAutoRefresh" };
+  }
+  if (isCharacterKey(key, "v")) {
+    return { type: "cycleListDisplayMode" };
   }
   if (isCharacterKey(key, "u")) {
     return { type: "manualRefresh" };
@@ -307,11 +311,27 @@ export function isPgDownKey(key: KeyLike): boolean {
 }
 
 export function isCharacterKey(key: KeyLike, value: string): boolean {
-  return !key.ctrl && !key.alt && !key.meta && (key.name === value || key.sequence === value);
+  if (key.ctrl || key.alt || key.meta) {
+    return false;
+  }
+
+  if (key.sequence.length === 1) {
+    return key.sequence === value;
+  }
+
+  return key.name === value || key.sequence === value;
 }
 
 export function isShiftCharacterKey(key: KeyLike, value: string): boolean {
-  return !key.ctrl && !key.alt && !key.meta && key.shift && (key.name === value || key.sequence === value);
+  if (key.ctrl || key.alt || key.meta) {
+    return false;
+  }
+
+  const normalized = value.toLowerCase();
+  const keyName = key.name.toLowerCase();
+  const keySequence = key.sequence.toLowerCase();
+
+  return (key.shift && (keyName === normalized || keySequence === normalized)) || key.name === value || key.sequence === value;
 }
 
 export function isCtrlKey(key: KeyLike, value: string): boolean {

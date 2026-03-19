@@ -48,6 +48,7 @@ describe("browse keybindings", () => {
     expect(resolveBrowseKeyCommand(baseState, key("/", { name: "/" }))).toEqual({ type: "openSearch" });
     expect(resolveBrowseKeyCommand(baseState, key("]", { name: "]" }))).toEqual({ type: "listPageNext" });
     expect(resolveBrowseKeyCommand(baseState, key("G", { name: "G", shift: true }))).toEqual({ type: "openGotoPage", mode: "list" });
+    expect(resolveBrowseKeyCommand(baseState, key("G", { name: "g", shift: false }))).toEqual({ type: "openGotoPage", mode: "list" });
   });
 
   it("maps reply-mode commands", () => {
@@ -65,5 +66,7 @@ describe("browse keybindings", () => {
     expect(resolveBrowseKeyCommand(postState, key("\u001B[C", { name: "right" }))).toEqual({ type: "postFocus", focus: "content" });
     expect(resolveBrowseKeyCommand(postState, key("Q", { name: "Q", shift: true }))).toEqual({ type: "startReplyWithQuote" });
     expect(resolveBrowseKeyCommand(postState, key("X", { name: "X", shift: true }))).toEqual({ type: "copyContextPack" });
+    expect(resolveBrowseKeyCommand(postState, key("Q", { name: "q", shift: false }))).toEqual({ type: "startReplyWithQuote" });
+    expect(resolveBrowseKeyCommand(postState, key("X", { name: "x", shift: false }))).toEqual({ type: "copyContextPack" });
   });
 });
