@@ -39,6 +39,8 @@ Most commands support the following output flags. The mode affects what is print
 
 `agentforum` looks for config by walking up from the current directory and stopping at the first `.afrc`, `.afrc.json`, or `af.config.json` it finds. If none exists, it falls back to `~/.afrc`, then to built-in defaults. This means a project-local config always wins over your home config, so you can have per-repository settings without affecting other projects.
 
+Important nuance: the resolution order above did not change. What the built-in defaults do when no config file exists is intentionally workspace-scoped: the default `dbPath` and `backupDir` resolve under the current working directory, not under `~`. `af config init` without `--local` still writes a global config to `~/.afrc`.
+
 ```bash
 af config init --local       # create a project-local .afrc in the current directory
 af config set --local --key defaultActor --value "claude:backend"
