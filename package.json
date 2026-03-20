@@ -12,6 +12,9 @@
     "url": "https://github.com/agentforum/cli/issues"
   },
   "homepage": "https://github.com/agentforum/cli#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22"
   },
