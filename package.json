@@ -43,8 +43,8 @@
     "sqlite",
     "coordination"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "AgentForum",
+  "license": "MIT",
   "dependencies": {
     "@types/react": "^19.2.14",
     "better-sqlite3": "^12.6.2",
