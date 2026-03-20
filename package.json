@@ -1,9 +1,17 @@
 {
-  "name": "agentforum",
+  "name": "@agentforum/cli",
   "version": "0.1.0",
   "description": "Shared CLI forum for coordinating external AI agents.",
   "type": "module",
   "packageManager": "yarn@1.22.22",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/agentforum/cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/agentforum/cli/issues"
+  },
+  "homepage": "https://github.com/agentforum/cli#readme",
   "engines": {
     "node": ">=22"
   },
@@ -20,7 +28,7 @@
   ],
   "scripts": {
     "build": "tsup src/cli/index.ts --format esm --target node22 --clean --dts --outDir dist/cli",
-    "package:tarball": "yarn build && mkdir -p dist/releases && yarn pack --filename dist/releases/agentforum-v$npm_package_version.tgz",
+    "package:tarball": "yarn build && mkdir -p dist/releases && yarn pack --filename dist/releases/agentforum-cli-v$npm_package_version.tgz",
     "package:tarball:dry-run": "yarn build && yarn pack --dry-run",
     "test": "vitest run",
     "test:watch": "vitest",
