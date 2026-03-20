@@ -27,8 +27,6 @@ git push
 yarn install
 yarn test
 yarn build
-yarn package:tarball
-yarn package:binaries
 ```
 
 5. Create and push a tag that matches the version in `package.json` exactly:
@@ -38,16 +36,15 @@ git tag v0.1.1
 git push origin v0.1.1
 ```
 
-6. Pushing the tag triggers both release workflows:
-   - `.github/workflows/release.yml` builds release artifacts on the supported platforms and creates the GitHub Release.
-   - `.github/workflows/publish.yml` validates the tag against `package.json`, runs tests, builds the CLI, and publishes to npm.
+6. Pushing the tag triggers `.github/workflows/publish.yml`, which validates the tag against `package.json`, runs tests, builds the CLI, and publishes to npm.
+7. If you want binary artifacts or a GitHub Release entry, run `.github/workflows/release.yml` manually from GitHub Actions.
 
 ## Why the workflow is split
 
 - Changesets is good at deciding version bumps and assembling changelog edits.
 - Tagging is the deliberate operator step that says "this exact commit is the release candidate."
-- GitHub Release creation handles cross-platform artifacts.
-- npm publication runs independently from the same tag so package publishing does not depend on GitHub Release permissions or asset creation succeeding first.
+- npm publication is the primary automated release path.
+- GitHub Release creation and binary artifacts are optional and can be run manually when needed.
 
 This split reduces accidental publishes from ordinary pushes to `main`, but it also means a release can stall between stages if someone forgets the next step.
 
@@ -60,7 +57,7 @@ Result: no version PR appears, so nothing is ready to release.
 Result: the publish workflow fails in the tag validation step.
 
 3. The version PR is merged, but no tag is pushed.
-Result: source is versioned on `main`, but neither the GitHub Release nor the npm release happens.
+Result: source is versioned on `main`, but the npm release does not happen.
 
 4. The package is scoped but npm access is not explicit.
 Result: first publish can fail or resolve to the wrong visibility. This repo now sets public access explicitly in both `package.json` and the publish workflow.
@@ -74,6 +71,11 @@ Result: native dependency failures or packaging differences can hide real releas
 yarn install
 yarn test
 yarn build
+```
+
+If you plan to run the manual binary release workflow too, also verify:
+
+```bash
 yarn package:tarball
 yarn package:binaries
 ```
