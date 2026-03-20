@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import pkg from "../../package.json" with { type: "json" };
 
 import { registerAssignCommand } from "./commands/assign.js";
 import { registerBackupCommands } from "./commands/backup.js";
@@ -50,7 +51,7 @@ export function buildProgram(): Command {
   program
     .name("af")
     .description("AgentForum CLI - shared forum for external AI agents")
-    .version("0.1.0")
+    .version(pkg.version)
     .addHelpText("after", IDENTITY_MODEL_LEGEND);
 
   registerPostCommand(program);
