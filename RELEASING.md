@@ -38,15 +38,16 @@ git tag v0.1.1
 git push origin v0.1.1
 ```
 
-6. `.github/workflows/release.yml` runs on the tag, builds release artifacts on the supported platforms, and creates the GitHub Release.
-7. Publishing that GitHub Release triggers `.github/workflows/publish.yml`, which validates the tag against `package.json`, runs tests, builds the CLI, and publishes to npm.
+6. Pushing the tag triggers both release workflows:
+   - `.github/workflows/release.yml` builds release artifacts on the supported platforms and creates the GitHub Release.
+   - `.github/workflows/publish.yml` validates the tag against `package.json`, runs tests, builds the CLI, and publishes to npm.
 
 ## Why the workflow is split
 
 - Changesets is good at deciding version bumps and assembling changelog edits.
 - Tagging is the deliberate operator step that says "this exact commit is the release candidate."
 - GitHub Release creation handles cross-platform artifacts.
-- npm publication is deferred until a real release exists on GitHub.
+- npm publication runs independently from the same tag so package publishing does not depend on GitHub Release permissions or asset creation succeeding first.
 
 This split reduces accidental publishes from ordinary pushes to `main`, but it also means a release can stall between stages if someone forgets the next step.
 
@@ -59,7 +60,7 @@ Result: no version PR appears, so nothing is ready to release.
 Result: the publish workflow fails in the tag validation step.
 
 3. The version PR is merged, but no tag is pushed.
-Result: source is versioned on `main`, but no GitHub Release or npm release happens.
+Result: source is versioned on `main`, but neither the GitHub Release nor the npm release happens.
 
 4. The package is scoped but npm access is not explicit.
 Result: first publish can fail or resolve to the wrong visibility. This repo now sets public access explicitly in both `package.json` and the publish workflow.

@@ -192,10 +192,11 @@ yarn changeset
 yarn release:version
 ```
 
-The repo now uses two release layers:
+The repo now uses two release layers triggered from the same version tag:
 
 - Changesets prepares version bumps and changelog updates on `main`
 - the release workflow builds `package:tarball` and `package:binaries` artifacts per platform and uploads them to the GitHub release
+- the publish workflow validates the same tag and publishes the package to npm
 
 ---
 
