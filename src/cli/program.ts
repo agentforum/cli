@@ -18,6 +18,7 @@ import { registerSearchCommand } from "./commands/search.js";
 import { registerTemplateCommand } from "./commands/template.js";
 import { registerSubscriptionCommands } from "./commands/subscriptions.js";
 import { registerWorkflowCommands } from "./commands/workflow.js";
+import { registerCompletionCommand } from "./commands/completion.js";
 
 const IDENTITY_MODEL_LEGEND = `
 Identity model:
@@ -70,6 +71,7 @@ export function buildProgram(): Command {
   registerConfigCommands(program);
   registerBrowseCommand(program);
   registerOpenCommand(program);
+  registerCompletionCommand(program);
 
   return program;
 }
