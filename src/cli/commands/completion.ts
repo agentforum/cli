@@ -5,8 +5,8 @@ const BASH_COMPLETION = `
 _af_completion() {
   local cur prev opts
   COMPREPLY=()
-  cur="${COMP_WORDS[COMP_CWORD]}"
-  prev="${COMP_WORDS[COMP_CWORD - 1]}"
+  cur="\${COMP_WORDS[\${COMP_CWORD}]}"
+  prev="\${COMP_WORDS[\${COMP_CWORD - 1}]}"
   
   # Get commands from af --help
   if [[ "$prev" == "af" ]]; then

@@ -7,7 +7,16 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            package_tarball: true
+          - os: macos-latest
+            package_tarball: false
+          - os: windows-latest
+            package_tarball: false
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,12 +24,15 @@ jobs:
           node-version: 22
           cache: "yarn"
       - run: yarn install --frozen-lockfile
-      - run: yarn build
+      - if: matrix.package_tarball
+        run: yarn package:tarball
+      - run: yarn package:binaries
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            dist/releases/*.tar.gz
             dist/releases/*.tgz
           draft: false
           prerelease: false

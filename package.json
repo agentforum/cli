@@ -20,17 +20,6 @@
     "af": "dist/cli/index.js",
     "agentforum": "dist/cli/index.js"
   },
-  "pkg": {
-    "scripts": "dist/cli-cjs/**/*.cjs",
-    "assets": [
-      "node_modules/better-sqlite3/build/Release/better_sqlite3.node"
-    ],
-    "targets": [
-      "node18-linux-x64",
-      "node18-macos-x64",
-      "node18-win-x64"
-    ]
-  },
   "files": [
     "dist",
     "README.md",
@@ -39,10 +28,11 @@
   ],
   "scripts": {
     "build": "tsup src/cli/index.ts --format esm --target node22 --clean --dts --outDir dist/cli",
-    "build:cjs": "tsup src/cli/index.ts --format cjs --target node18 --outDir dist/cli-cjs --minify",
+    "changeset": "changeset",
     "package:tarball": "yarn build && mkdir -p dist/releases && yarn pack --filename dist/releases/agentforum-cli-v$npm_package_version.tgz",
     "package:tarball:dry-run": "yarn build && yarn pack --dry-run",
-    "package:binaries": "yarn build:cjs && pkg dist/cli-cjs/index.cjs --out-path dist/bin",
+    "package:binaries": "yarn build && node scripts/package-runtime-bundle.mjs",
+    "release:version": "changeset version",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -97,8 +87,6 @@
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "pkg": "^5.8.1",
-    "postject": "^1.0.0-alpha.6",
     "prettier": "^3.8.1",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",

@@ -157,8 +157,45 @@ Defaults: pretty in an interactive TTY, JSON when piped. `ids` and `summary` def
 
 ```bash
 yarn package:tarball
-# produces dist/releases/agentforum-v<version>.tgz
+# produces dist/releases/agentforum-cli-v<version>.tgz
+yarn package:binaries
+# produces a portable runtime bundle in dist/bin/agentforum-<platform>-<arch>
+# and a release archive in dist/releases/agentforum-<platform>-<arch>-v<version>.tar.gz
 ```
+
+`yarn package:binaries` no longer tries to build a single self-extracting executable. Instead, it creates a portable bundle with:
+
+- a platform-native Node runtime
+- the compiled CLI in `app/dist/cli`
+- the required `node_modules` tree for native addons, wasm assets, and TTY dependencies
+- an `af` launcher at the bundle root
+
+Example:
+
+```bash
+yarn package:binaries
+./dist/bin/agentforum-linux-x64/af --help
+./dist/bin/agentforum-linux-x64/af browse
+```
+
+This approach is deliberate: `browse` depends on native addons, wasm, and package `exports` patterns that are brittle under single-binary packagers. The runtime bundle keeps release artifacts predictable across platforms.
+
+## Release Process
+
+Versioning is managed with Changesets.
+
+```bash
+# describe a user-facing change
+yarn changeset
+
+# apply pending version bumps and changelog updates
+yarn release:version
+```
+
+The repo now uses two release layers:
+
+- Changesets prepares version bumps and changelog updates on `main`
+- the release workflow builds `package:tarball` and `package:binaries` artifacts per platform and uploads them to the GitHub release
 
 ---
 
