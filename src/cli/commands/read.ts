@@ -1,10 +1,10 @@
 import type { Command } from "commander";
 
-import { createDomainDependencies } from "../../app/dependencies.js";
-import type { PostStatus, PostType, Severity } from "../../domain/post.js";
-import { PostService } from "../../domain/post.service.js";
-import type { ReactionType } from "../../domain/reaction.js";
-import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
+import { createDomainDependencies } from "@/app/dependencies.js";
+import type { PostStatus, PostType, Severity } from "@/domain/post.js";
+import { PostService } from "@/domain/post.service.js";
+import type { ReactionType } from "@/domain/reaction.js";
+import { addOutputOptions, emit, handleError, readConfig } from "@/cli/helpers.js";
 
 interface ReadOptions {
   id?: string;

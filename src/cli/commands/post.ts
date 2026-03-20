@@ -1,8 +1,8 @@
 import type { Command } from "commander";
 
-import { createDomainDependencies } from "../../app/dependencies.js";
-import type { PostType, Severity } from "../../domain/post.js";
-import { PostService } from "../../domain/post.service.js";
+import { createDomainDependencies } from "@/app/dependencies.js";
+import type { PostType, Severity } from "@/domain/post.js";
+import { PostService } from "@/domain/post.service.js";
 import {
   addOutputOptions,
   emit,
@@ -12,7 +12,7 @@ import {
   resolveActor,
   resolveChannel,
   normalizeTags,
-} from "../helpers.js";
+} from "@/cli/helpers.js";
 
 interface PostOptions {
   channel?: string;

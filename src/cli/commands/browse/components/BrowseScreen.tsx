@@ -1,8 +1,8 @@
 import React from "react";
 import type { TermElement, TermInput } from "terminosaurus";
 
-import type { ReadPostBundle } from "../../../../domain/post.js";
-import { sanitizeTerminalText } from "../formatters.js";
+import type { ReadPostBundle } from "@/domain/post.js";
+import { sanitizeTerminalText } from "@/cli/commands/browse/formatters.js";
 import type {
   BrowseListPost,
   BrowseTheme,
@@ -15,7 +15,7 @@ import type {
   PaginatedItems,
   ReplyQuote,
   ViewMode,
-} from "../types.js";
+} from "@/cli/commands/browse/types.js";
 import { ChannelsView } from "./ChannelsView.js";
 import { FooterBar } from "./FooterBar.js";
 import { GotoPageModal } from "./GotoPageModal.js";

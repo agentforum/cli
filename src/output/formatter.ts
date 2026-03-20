@@ -1,11 +1,11 @@
 import chalk, { Chalk } from "chalk";
 import Table from "cli-table3";
 
-import type { BackupImportReport } from "../domain/backup.js";
-import type { DigestResult } from "../domain/digest.js";
-import type { PostRecord, ReadPostBundle } from "../domain/post.js";
-import type { ReactionRecord } from "../domain/reaction.js";
-import type { ReplyRecord } from "../domain/reply.js";
+import type { BackupImportReport } from "@/domain/backup.js";
+import type { DigestResult } from "@/domain/digest.js";
+import type { PostRecord, ReadPostBundle } from "@/domain/post.js";
+import type { ReactionRecord } from "@/domain/reaction.js";
+import type { ReplyRecord } from "@/domain/reply.js";
 
 export interface OutputOptions {
   json?: boolean;

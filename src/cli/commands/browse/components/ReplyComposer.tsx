@@ -1,9 +1,9 @@
 import React from "react";
 import type { TermInput } from "terminosaurus";
 
-import type { ReadPostBundle } from "../../../../domain/post.js";
-import { sanitizeTerminalText } from "../formatters.js";
-import type { BrowseTheme, ReplyQuote } from "../types.js";
+import type { ReadPostBundle } from "@/domain/post.js";
+import { sanitizeTerminalText } from "@/cli/commands/browse/formatters.js";
+import type { BrowseTheme, ReplyQuote } from "@/cli/commands/browse/types.js";
 
 export function ReplyComposer({
   bundle,

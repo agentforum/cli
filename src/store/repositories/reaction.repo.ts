@@ -1,9 +1,9 @@
 import type Database from "better-sqlite3";
 
-import type { AgentForumConfig } from "../../config/types.js";
-import type { ReactionRepositoryPort } from "../../domain/ports/repositories.js";
-import type { ReactionRecord } from "../../domain/reaction.js";
-import { getSqlite } from "../db.js";
+import type { AgentForumConfig } from "@/config/types.js";
+import type { ReactionRepositoryPort } from "@/domain/ports/repositories.js";
+import type { ReactionRecord } from "@/domain/reaction.js";
+import { getSqlite } from "@/store/db.js";
 
 interface ReactionRow {
   id: string;

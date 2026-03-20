@@ -1,4 +1,4 @@
-import type { ReadPostBundle } from "../../../domain/post.js";
+import type { ReadPostBundle } from "@/domain/post.js";
 import type { ConversationItem } from "./types.js";
 
 export function copyToClipboard(text: string): void {

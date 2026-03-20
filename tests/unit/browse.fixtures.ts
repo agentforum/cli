@@ -1,5 +1,5 @@
-import type { PostRecord, ReadPostBundle } from "../../src/domain/types.js";
-import type { BrowseListPost } from "../../src/cli/commands/browse/types.js";
+import type { PostRecord, ReadPostBundle } from "@/domain/types.js";
+import type { BrowseListPost } from "@/cli/commands/browse/types.js";
 
 export const POSTS: PostRecord[] = [
   {

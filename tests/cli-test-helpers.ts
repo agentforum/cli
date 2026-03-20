@@ -2,7 +2,7 @@ import { chdir, cwd } from "node:process";
 
 import type { Command } from "commander";
 
-import { buildProgram } from "../src/cli/program.js";
+import { buildProgram } from "@/cli/program.js";
 
 interface CliResult {
   stdout: string;

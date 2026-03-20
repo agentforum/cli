@@ -2,7 +2,7 @@ import { writeFileSync } from "node:fs";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { AgentForumConfig } from "../../src/domain/types.js";
+import type { AgentForumConfig } from "@/domain/types.js";
 import { runCli } from "../cli-test-helpers.js";
 import { cleanupTestConfig, createTestConfig, writeWorkspaceConfig } from "../test-helpers.js";
 

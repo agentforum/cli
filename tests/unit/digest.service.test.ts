@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createDomainDependencies } from "../../src/app/dependencies.js";
-import { DigestService } from "../../src/domain/digest.service.js";
-import { PostService } from "../../src/domain/post.service.js";
-import type { AgentForumConfig } from "../../src/config/types.js";
+import { createDomainDependencies } from "@/app/dependencies.js";
+import { DigestService } from "@/domain/digest.service.js";
+import { PostService } from "@/domain/post.service.js";
+import type { AgentForumConfig } from "@/config/types.js";
 import { cleanupTestConfig, createTestConfig } from "../test-helpers.js";
 
 let config: AgentForumConfig | undefined;

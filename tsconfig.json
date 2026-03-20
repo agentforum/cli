@@ -11,6 +11,10 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "declaration": true,
     "sourceMap": true,
     "types": ["node", "react"]

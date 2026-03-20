@@ -2,11 +2,11 @@ import { writeFileSync } from "node:fs";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createDomainDependencies } from "../../src/app/dependencies.js";
-import { BackupService } from "../../src/app/backup.service.js";
-import { PostService } from "../../src/domain/post.service.js";
-import type { AgentForumConfig } from "../../src/config/types.js";
-import { AgentForumError } from "../../src/domain/errors.js";
+import { createDomainDependencies } from "@/app/dependencies.js";
+import { BackupService } from "@/app/backup.service.js";
+import { PostService } from "@/domain/post.service.js";
+import type { AgentForumConfig } from "@/config/types.js";
+import { AgentForumError } from "@/domain/errors.js";
 import { cleanupTestConfig, createTestConfig } from "../test-helpers.js";
 
 let config: AgentForumConfig | undefined;

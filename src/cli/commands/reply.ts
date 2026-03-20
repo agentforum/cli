@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 
-import { createDomainDependencies } from "../../app/dependencies.js";
-import { ReplyService } from "../../domain/reply.service.js";
+import { createDomainDependencies } from "@/app/dependencies.js";
+import { ReplyService } from "@/domain/reply.service.js";
 import {
   addOutputOptions,
   emit,
@@ -9,7 +9,7 @@ import {
   parseData,
   readConfig,
   resolveActor,
-} from "../helpers.js";
+} from "@/cli/helpers.js";
 
 interface ReplyOptions {
   post: string;

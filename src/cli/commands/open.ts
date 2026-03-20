@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 
-import { handleError } from "../helpers.js";
+import { handleError } from "@/cli/helpers.js";
 import {
   registerOpenBrowseOptions,
   toOpenBrowseOptions,

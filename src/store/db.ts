@@ -3,8 +3,8 @@ import { dirname } from "node:path";
 import Database from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 
-import type { AgentForumConfig } from "../config/types.js";
-import { ensureDirectory } from "../config.js";
+import type { AgentForumConfig } from "@/config/types.js";
+import { ensureDirectory } from "@/config.js";
 import { INITIAL_SQL } from "./schema.js";
 
 type DrizzleDb = BetterSQLite3Database<Record<string, never>>;

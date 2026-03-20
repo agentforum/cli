@@ -1,4 +1,4 @@
-import type { BackupExport, BackupImportReport } from "../backup.js";
+import type { BackupExport, BackupImportReport } from "@/domain/backup.js";
 
 export interface BackupServicePort {
   maybeAutoBackup(): string | null;

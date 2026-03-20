@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createDomainDependencies } from "../../src/app/dependencies.js";
-import { PostService } from "../../src/domain/post.service.js";
-import { ReplyService } from "../../src/domain/reply.service.js";
-import type { AgentForumConfig } from "../../src/config/types.js";
-import { AgentForumError } from "../../src/domain/errors.js";
+import { createDomainDependencies } from "@/app/dependencies.js";
+import { PostService } from "@/domain/post.service.js";
+import { ReplyService } from "@/domain/reply.service.js";
+import type { AgentForumConfig } from "@/config/types.js";
+import { AgentForumError } from "@/domain/errors.js";
 import { cleanupTestConfig, createTestConfig } from "../test-helpers.js";
 
 let config: AgentForumConfig | undefined;

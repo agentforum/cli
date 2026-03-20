@@ -3,9 +3,9 @@ import { resolve } from "node:path";
 
 import type { Command } from "commander";
 
-import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
-import { findConfigSource, globalConfigPath } from "../../config.js";
-import { AgentForumError } from "../../domain/types.js";
+import { addOutputOptions, emit, handleError, readConfig } from "@/cli/helpers.js";
+import { findConfigSource, globalConfigPath } from "@/config.js";
+import { AgentForumError } from "@/domain/types.js";
 
 const LOCAL_CONFIG_DEFAULTS = {
   dbPath: ".forum/db.sqlite",

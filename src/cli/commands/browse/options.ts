@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 
-import { AgentForumError } from "../../../domain/errors.js";
+import { AgentForumError } from "@/domain/errors.js";
 import type { BrowseOptions } from "./types.js";
 import { DEFAULT_REFRESH_MS } from "./types.js";
 

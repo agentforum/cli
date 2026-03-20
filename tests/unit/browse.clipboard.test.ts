@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { copyContextPack, copyToClipboard } from "../../src/cli/commands/browse/clipboard.js";
+import { copyContextPack, copyToClipboard } from "@/cli/commands/browse/clipboard.js";
 import { BUNDLE } from "./browse.fixtures.js";
-import type { ConversationItem } from "../../src/cli/commands/browse/types.js";
+import type { ConversationItem } from "@/cli/commands/browse/types.js";
 
 const visibleItems: ConversationItem[] = [
   {

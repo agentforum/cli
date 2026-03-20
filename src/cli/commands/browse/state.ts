@@ -1,6 +1,6 @@
 import { DEFAULT_REPLY_PAGE_SIZE } from "./types.js";
 import type { BrowseListPost, BrowseState, Notice, ReplyQuote, ViewMode } from "./types.js";
-import type { ReadPostBundle } from "../../../domain/post.js";
+import type { ReadPostBundle } from "@/domain/post.js";
 
 type StatePatch = Partial<BrowseState>;
 

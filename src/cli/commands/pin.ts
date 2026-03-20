@@ -1,8 +1,8 @@
 import type { Command } from "commander";
 
-import { createDomainDependencies } from "../../app/dependencies.js";
-import { PostService } from "../../domain/post.service.js";
-import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
+import { createDomainDependencies } from "@/app/dependencies.js";
+import { PostService } from "@/domain/post.service.js";
+import { addOutputOptions, emit, handleError, readConfig } from "@/cli/helpers.js";
 
 interface PinOptions {
   id: string;

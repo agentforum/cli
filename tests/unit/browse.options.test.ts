@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  parseLimit,
-  parseRefreshMs,
-  toOpenBrowseOptions,
-} from "../../src/cli/commands/browse/options.js";
-import { DEFAULT_REFRESH_MS } from "../../src/cli/commands/browse/types.js";
+import { parseLimit, parseRefreshMs, toOpenBrowseOptions } from "@/cli/commands/browse/options.js";
+import { DEFAULT_REFRESH_MS } from "@/cli/commands/browse/types.js";
 
 describe("browse options", () => {
   it("parses the default limit and refresh interval", () => {

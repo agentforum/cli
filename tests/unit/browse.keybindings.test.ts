@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveBrowseKeyCommand } from "../../src/cli/commands/browse/keybindings.js";
+import { resolveBrowseKeyCommand } from "@/cli/commands/browse/keybindings.js";
 
 const baseState = {
   view: "list" as const,

@@ -1,4 +1,4 @@
-export type { AgentForumConfig } from "../config/types.js";
+export type { AgentForumConfig } from "@/config/types.js";
 export * from "./backup.js";
 export * from "./digest.js";
 export * from "./errors.js";

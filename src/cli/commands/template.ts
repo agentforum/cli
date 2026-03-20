@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 
-import { handleError } from "../helpers.js";
-import { TEMPLATE_TEXT } from "../../output/templates.js";
+import { handleError } from "@/cli/helpers.js";
+import { TEMPLATE_TEXT } from "@/output/templates.js";
 
 export function registerTemplateCommand(program: Command): void {
   program

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { formatEntity, resolveOutputMode } from "../../src/output/formatter.js";
+import { formatEntity, resolveOutputMode } from "@/output/formatter.js";
 
 const POST = {
   id: "P-123",

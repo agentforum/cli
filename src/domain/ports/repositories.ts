@@ -1,8 +1,8 @@
-import type { PostFilters } from "../filters.js";
-import type { PostRecord, PostStatus, PostSummaryRecord } from "../post.js";
-import type { ReactionRecord } from "../reaction.js";
-import type { ReplyRecord } from "../reply.js";
-import type { SubscriptionRecord } from "../subscription.js";
+import type { PostFilters } from "@/domain/filters.js";
+import type { PostRecord, PostStatus, PostSummaryRecord } from "@/domain/post.js";
+import type { ReactionRecord } from "@/domain/reaction.js";
+import type { ReplyRecord } from "@/domain/reply.js";
+import type { SubscriptionRecord } from "@/domain/subscription.js";
 
 export interface PostRepositoryPort {
   create(post: PostRecord): PostRecord;

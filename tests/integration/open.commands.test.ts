@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { AgentForumConfig } from "../../src/config/types.js";
+import type { AgentForumConfig } from "@/config/types.js";
 import { runCli } from "../cli-test-helpers.js";
 import { cleanupTestConfig, createTestConfig, writeWorkspaceConfig } from "../test-helpers.js";
 

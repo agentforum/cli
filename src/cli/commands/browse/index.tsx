@@ -2,12 +2,12 @@ import React from "react";
 import type { Command } from "commander";
 import { render } from "terminosaurus/react";
 
-import { createDomainDependencies } from "../../../app/dependencies.js";
-import { AgentForumError } from "../../../domain/errors.js";
+import { createDomainDependencies } from "@/app/dependencies.js";
+import { AgentForumError } from "@/domain/errors.js";
 import type { BrowseOptions } from "./types.js";
-import { PostService } from "../../../domain/post.service.js";
-import { ReplyService } from "../../../domain/reply.service.js";
-import { handleError, readConfig, resolveActor } from "../../helpers.js";
+import { PostService } from "@/domain/post.service.js";
+import { ReplyService } from "@/domain/reply.service.js";
+import { handleError, readConfig, resolveActor } from "@/cli/helpers.js";
 import { BrowseApp } from "./controller.js";
 import { registerBrowseOptions, parseLimit, parseRefreshMs } from "./options.js";
 import { ALL_CHANNELS } from "./types.js";

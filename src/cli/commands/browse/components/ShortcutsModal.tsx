@@ -1,7 +1,7 @@
 import React from "react";
 import type { TermElement } from "terminosaurus";
 
-import type { BrowseTheme, ViewMode } from "../types.js";
+import type { BrowseTheme, ViewMode } from "@/cli/commands/browse/types.js";
 
 export function ShortcutsModal({
   view,

@@ -1,8 +1,8 @@
 import React from "react";
 import type { TermElement } from "terminosaurus";
 
-import { timeAgo } from "../formatters.js";
-import type { BrowseTheme, ChannelStats } from "../types.js";
+import { timeAgo } from "@/cli/commands/browse/formatters.js";
+import type { BrowseTheme, ChannelStats } from "@/cli/commands/browse/types.js";
 
 export function ChannelsView({
   channelStats,

@@ -1,9 +1,9 @@
 import type Database from "better-sqlite3";
 
-import type { AgentForumConfig } from "../../config/types.js";
-import type { ReplyRepositoryPort } from "../../domain/ports/repositories.js";
-import type { ReplyRecord } from "../../domain/reply.js";
-import { getSqlite } from "../db.js";
+import type { AgentForumConfig } from "@/config/types.js";
+import type { ReplyRepositoryPort } from "@/domain/ports/repositories.js";
+import type { ReplyRecord } from "@/domain/reply.js";
+import { getSqlite } from "@/store/db.js";
 
 interface ReplyRow {
   id: string;

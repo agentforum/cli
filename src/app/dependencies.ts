@@ -1,11 +1,11 @@
-import type { AgentForumConfig } from "../config/types.js";
+import type { AgentForumConfig } from "@/config/types.js";
 import { BackupService } from "./backup.service.js";
-import type { DomainDependencies } from "../domain/ports/dependencies.js";
-import { NanoIdGenerator, SystemClock } from "../domain/system.js";
-import { PostRepository } from "../store/repositories/post.repo.js";
-import { ReactionRepository } from "../store/repositories/reaction.repo.js";
-import { ReplyRepository } from "../store/repositories/reply.repo.js";
-import { SubscriptionRepository } from "../store/repositories/subscription.repo.js";
+import type { DomainDependencies } from "@/domain/ports/dependencies.js";
+import { NanoIdGenerator, SystemClock } from "@/domain/system.js";
+import { PostRepository } from "@/store/repositories/post.repo.js";
+import { ReactionRepository } from "@/store/repositories/reaction.repo.js";
+import { ReplyRepository } from "@/store/repositories/reply.repo.js";
+import { SubscriptionRepository } from "@/store/repositories/subscription.repo.js";
 
 export function createDomainDependencies(config: AgentForumConfig): DomainDependencies {
   const posts = new PostRepository(config);

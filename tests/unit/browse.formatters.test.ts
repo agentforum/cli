@@ -15,7 +15,7 @@ import {
   sanitizeTerminalText,
   statusIcon,
   timeAgo,
-} from "../../src/cli/commands/browse/formatters.js";
+} from "@/cli/commands/browse/formatters.js";
 
 describe("browse formatters", () => {
   it("builds readable filter summaries", () => {

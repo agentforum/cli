@@ -1,9 +1,9 @@
 import type { Command } from "commander";
 
-import { createDomainDependencies } from "../../app/dependencies.js";
-import type { PostStatus } from "../../domain/post.js";
-import { PostService } from "../../domain/post.service.js";
-import { addOutputOptions, emit, handleError, readConfig, resolveActor } from "../helpers.js";
+import { createDomainDependencies } from "@/app/dependencies.js";
+import type { PostStatus } from "@/domain/post.js";
+import { PostService } from "@/domain/post.service.js";
+import { addOutputOptions, emit, handleError, readConfig, resolveActor } from "@/cli/helpers.js";
 
 interface ResolveOptions {
   id: string;

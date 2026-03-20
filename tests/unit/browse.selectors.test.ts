@@ -5,7 +5,7 @@ import {
   CONVERSATION_FILTER_MODES,
   CONVERSATION_SORT_MODES,
   SORT_MODES,
-} from "../../src/cli/commands/browse/types.js";
+} from "@/cli/commands/browse/types.js";
 import {
   buildBaseBrowseFilters,
   buildBrowseFilters,
@@ -22,7 +22,7 @@ import {
   resolveConversationSelection,
   resolvePageOffsetForId,
   resolveSelectedIndex,
-} from "../../src/cli/commands/browse/selectors.js";
+} from "@/cli/commands/browse/selectors.js";
 import { BUNDLE, POSTS, toBrowsePost } from "./browse.fixtures.js";
 
 describe("browse selectors", () => {

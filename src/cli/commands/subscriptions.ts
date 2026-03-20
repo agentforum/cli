@@ -1,9 +1,9 @@
 import type { Command } from "commander";
 
-import { createDomainDependencies } from "../../app/dependencies.js";
-import { PostService } from "../../domain/post.service.js";
-import { SubscriptionService } from "../../domain/subscription.service.js";
-import { addOutputOptions, emit, handleError, normalizeTags, readConfig } from "../helpers.js";
+import { createDomainDependencies } from "@/app/dependencies.js";
+import { PostService } from "@/domain/post.service.js";
+import { SubscriptionService } from "@/domain/subscription.service.js";
+import { addOutputOptions, emit, handleError, normalizeTags, readConfig } from "@/cli/helpers.js";
 
 interface ActorOptions {
   actor: string;

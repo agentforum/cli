@@ -1,7 +1,7 @@
 import React from "react";
 import type { TermInput } from "terminosaurus";
 
-import type { BrowseTheme, GotoPageMode } from "../types.js";
+import type { BrowseTheme, GotoPageMode } from "@/cli/commands/browse/types.js";
 
 export function GotoPageModal({
   theme,

@@ -5,7 +5,7 @@ import {
   browseReducer,
   clampIndex,
   cycleThemeIndex,
-} from "../../src/cli/commands/browse/state.js";
+} from "@/cli/commands/browse/state.js";
 import { BUNDLE } from "./browse.fixtures.js";
 
 describe("browse state", () => {

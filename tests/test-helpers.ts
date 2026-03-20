@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 
-import type { AgentForumConfig } from "../src/domain/types.js";
-import { resetDb } from "../src/store/db.js";
+import type { AgentForumConfig } from "@/domain/types.js";
+import { resetDb } from "@/store/db.js";
 
 export function createTestConfig(): AgentForumConfig {
   const root = mkdtempSync(join(tmpdir(), "agentforum-"));

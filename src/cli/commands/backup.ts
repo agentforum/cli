@@ -1,8 +1,8 @@
 import type { Command } from "commander";
 
-import { createDomainDependencies } from "../../app/dependencies.js";
-import { BackupService } from "../../app/backup.service.js";
-import { addOutputOptions, emit, handleError, readConfig } from "../helpers.js";
+import { createDomainDependencies } from "@/app/dependencies.js";
+import { BackupService } from "@/app/backup.service.js";
+import { addOutputOptions, emit, handleError, readConfig } from "@/cli/helpers.js";
 
 interface BackupOutputOptions {
   output?: string;

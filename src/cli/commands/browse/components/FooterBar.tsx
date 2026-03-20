@@ -7,7 +7,7 @@ import {
   excerpt,
   noticeColor,
   sanitizeTerminalText,
-} from "../formatters.js";
+} from "@/cli/commands/browse/formatters.js";
 import type {
   BrowseTheme,
   Notice,
@@ -16,7 +16,7 @@ import type {
   BrowseListPost,
   ConversationItem,
   ListDisplayMode,
-} from "../types.js";
+} from "@/cli/commands/browse/types.js";
 
 export function FooterBar({
   notice,

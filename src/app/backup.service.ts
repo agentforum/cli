@@ -8,25 +8,25 @@ import {
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
 
-import type { AgentForumConfig } from "../config/types.js";
-import { ensureDirectory } from "../config.js";
+import type { AgentForumConfig } from "@/config/types.js";
+import { ensureDirectory } from "@/config.js";
 import type {
   BackupExport,
   BackupImportConflict,
   BackupImportCounts,
   BackupImportReport,
-} from "../domain/backup.js";
-import { AgentForumError } from "../domain/errors.js";
-import type { BackupServicePort } from "../domain/ports/backup.js";
-import type { MetadataRepositoryPort } from "../domain/ports/metadata.js";
+} from "@/domain/backup.js";
+import { AgentForumError } from "@/domain/errors.js";
+import type { BackupServicePort } from "@/domain/ports/backup.js";
+import type { MetadataRepositoryPort } from "@/domain/ports/metadata.js";
 import type {
   PostRepositoryPort,
   ReactionRepositoryPort,
   ReplyRepositoryPort,
   SubscriptionRepositoryPort,
-} from "../domain/ports/repositories.js";
-import type { ReadReceiptRepositoryPort } from "../domain/ports/read-receipts.js";
-import { getSqlite, resetDb } from "../store/db.js";
+} from "@/domain/ports/repositories.js";
+import type { ReadReceiptRepositoryPort } from "@/domain/ports/read-receipts.js";
+import { getSqlite, resetDb } from "@/store/db.js";
 
 interface BackupServiceDependencies {
   posts: PostRepositoryPort;

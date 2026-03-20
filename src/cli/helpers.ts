@@ -1,9 +1,9 @@
 import type { Command } from "commander";
 
-import { findConfigSource, getDefaultActor, getDefaultChannel, loadConfig } from "../config.js";
-import type { AgentForumConfig } from "../config/types.js";
-import { AgentForumError } from "../domain/errors.js";
-import { formatEntity, type OutputOptions } from "../output/formatter.js";
+import { findConfigSource, getDefaultActor, getDefaultChannel, loadConfig } from "@/config.js";
+import type { AgentForumConfig } from "@/config/types.js";
+import { AgentForumError } from "@/domain/errors.js";
+import { formatEntity, type OutputOptions } from "@/output/formatter.js";
 
 export function addOutputOptions(command: Command): Command {
   return command

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { refreshBrowseData, toBrowseListPost } from "../../src/cli/commands/browse/data.js";
+import { refreshBrowseData, toBrowseListPost } from "@/cli/commands/browse/data.js";
 import { BUNDLE, POSTS } from "./browse.fixtures.js";
 
 describe("browse data adapter", () => {

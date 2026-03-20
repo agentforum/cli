@@ -1,1 +1,1 @@
-export { BackupService } from "../app/backup.service.js";
+export { BackupService } from "@/app/backup.service.js";

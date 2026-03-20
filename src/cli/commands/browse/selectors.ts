@@ -1,11 +1,5 @@
-import type { PostFilters } from "../../../domain/filters.js";
-import type {
-  PostRecord,
-  PostStatus,
-  PostType,
-  ReadPostBundle,
-  Severity,
-} from "../../../domain/types.js";
+import type { PostFilters } from "@/domain/filters.js";
+import type { PostRecord, PostStatus, PostType, ReadPostBundle, Severity } from "@/domain/types.js";
 import type {
   BrowseListPost,
   BrowseSortMode,

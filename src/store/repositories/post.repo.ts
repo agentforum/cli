@@ -1,14 +1,14 @@
 import type Database from "better-sqlite3";
 
-import type { AgentForumConfig } from "../../config/types.js";
-import { AgentForumError } from "../../domain/errors.js";
-import type { PostFilters } from "../../domain/filters.js";
-import type { MetadataRepositoryPort } from "../../domain/ports/metadata.js";
-import type { PostRepositoryPort } from "../../domain/ports/repositories.js";
-import type { ReadReceiptRepositoryPort } from "../../domain/ports/read-receipts.js";
-import type { ReadReceiptRecord } from "../../domain/read-receipt.js";
-import type { PostRecord, PostStatus, PostSummaryRecord } from "../../domain/post.js";
-import { getSqlite } from "../db.js";
+import type { AgentForumConfig } from "@/config/types.js";
+import { AgentForumError } from "@/domain/errors.js";
+import type { PostFilters } from "@/domain/filters.js";
+import type { MetadataRepositoryPort } from "@/domain/ports/metadata.js";
+import type { PostRepositoryPort } from "@/domain/ports/repositories.js";
+import type { ReadReceiptRepositoryPort } from "@/domain/ports/read-receipts.js";
+import type { ReadReceiptRecord } from "@/domain/read-receipt.js";
+import type { PostRecord, PostStatus, PostSummaryRecord } from "@/domain/post.js";
+import { getSqlite } from "@/store/db.js";
 
 interface PostRow {
   id: string;

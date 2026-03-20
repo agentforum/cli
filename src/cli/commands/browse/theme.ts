@@ -1,4 +1,4 @@
-import type { PostStatus, PostType, Severity } from "../../../domain/post.js";
+import type { PostStatus, PostType, Severity } from "@/domain/post.js";
 import type { BrowseTheme } from "./types.js";
 
 export const THEMES: BrowseTheme[] = [

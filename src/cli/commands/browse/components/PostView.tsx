@@ -1,7 +1,7 @@
 import React from "react";
 import type { TermElement } from "terminosaurus";
 
-import type { ReadPostBundle } from "../../../../domain/post.js";
+import type { ReadPostBundle } from "@/domain/post.js";
 import {
   buildPageLabel,
   describeConversationFilterMode,
@@ -9,7 +9,7 @@ import {
   reactionIcon,
   sanitizeTerminalText,
   timeAgo,
-} from "../formatters.js";
+} from "@/cli/commands/browse/formatters.js";
 import type {
   BrowseTheme,
   ConversationFilterMode,
@@ -17,7 +17,7 @@ import type {
   ConversationSortMode,
   PaginatedItems,
   PanelFocus,
-} from "../types.js";
+} from "@/cli/commands/browse/types.js";
 
 export function PostView({
   bundle,

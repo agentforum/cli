@@ -3,7 +3,7 @@ import type { TermElement, TermInput } from "terminosaurus";
 import { useScreen } from "terminosaurus/react";
 import pkg from "../../../../package.json" with { type: "json" };
 
-import type { ReadPostBundle } from "../../../domain/post.js";
+import type { ReadPostBundle } from "@/domain/post.js";
 import type {
   BrowseAppProps,
   BrowseListPost,

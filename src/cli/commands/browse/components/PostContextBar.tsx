@@ -1,9 +1,14 @@
 import React from "react";
 
-import type { ReadPostBundle } from "../../../../domain/post.js";
-import { excerpt, reactionIcon, sanitizeTerminalText, timeAgo } from "../formatters.js";
-import { getPostTypeTone, getStatusTone, severityColor } from "../theme.js";
-import type { BrowseTheme } from "../types.js";
+import type { ReadPostBundle } from "@/domain/post.js";
+import {
+  excerpt,
+  reactionIcon,
+  sanitizeTerminalText,
+  timeAgo,
+} from "@/cli/commands/browse/formatters.js";
+import { getPostTypeTone, getStatusTone, severityColor } from "@/cli/commands/browse/theme.js";
+import type { BrowseTheme } from "@/cli/commands/browse/types.js";
 import { StatusBadge } from "./StatusBadge.js";
 
 export function PostContextBar({

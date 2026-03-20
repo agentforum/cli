@@ -1,6 +1,6 @@
-import type { PostFilters, PostSummaryRecord, ReadPostBundle } from "../../../domain/types.js";
-import type { PostService } from "../../../domain/post.service.js";
-import type { ReplyService } from "../../../domain/reply.service.js";
+import type { PostFilters, PostSummaryRecord, ReadPostBundle } from "@/domain/types.js";
+import type { PostService } from "@/domain/post.service.js";
+import type { ReplyService } from "@/domain/reply.service.js";
 import type { BrowseListPost, BrowseSortMode, ReplyQuote } from "./types.js";
 import { excerpt } from "./formatters.js";
 import {

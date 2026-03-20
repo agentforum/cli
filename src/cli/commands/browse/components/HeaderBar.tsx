@@ -1,8 +1,13 @@
 import React from "react";
 
-import type { ReadPostBundle } from "../../../../domain/post.js";
-import { breadcrumb, buildAutoRefreshLabel, describeSortMode, excerpt } from "../formatters.js";
-import type { BrowseTheme } from "../types.js";
+import type { ReadPostBundle } from "@/domain/post.js";
+import {
+  breadcrumb,
+  buildAutoRefreshLabel,
+  describeSortMode,
+  excerpt,
+} from "@/cli/commands/browse/formatters.js";
+import type { BrowseTheme } from "@/cli/commands/browse/types.js";
 
 export function HeaderBar({
   view,

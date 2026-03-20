@@ -1,9 +1,14 @@
 import React from "react";
 import type { TermElement } from "terminosaurus";
 
-import { excerpt, sanitizeTerminalText, statusIcon, timeAgo } from "../formatters.js";
-import { getPostTypeTone, getStatusTone, severityColor } from "../theme.js";
-import type { BrowseListPost, BrowseTheme, ListDisplayMode } from "../types.js";
+import {
+  excerpt,
+  sanitizeTerminalText,
+  statusIcon,
+  timeAgo,
+} from "@/cli/commands/browse/formatters.js";
+import { getPostTypeTone, getStatusTone, severityColor } from "@/cli/commands/browse/theme.js";
+import type { BrowseListPost, BrowseTheme, ListDisplayMode } from "@/cli/commands/browse/types.js";
 import { StatusBadge } from "./StatusBadge.js";
 
 export function ListView({

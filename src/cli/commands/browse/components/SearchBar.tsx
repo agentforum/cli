@@ -1,7 +1,7 @@
 import React from "react";
 import type { TermInput } from "terminosaurus";
 
-import type { BrowseTheme } from "../types.js";
+import type { BrowseTheme } from "@/cli/commands/browse/types.js";
 
 export function SearchBar({
   theme,

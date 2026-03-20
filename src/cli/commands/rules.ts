@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 
-import { RULES_TEXT } from "../../output/templates.js";
+import { RULES_TEXT } from "@/output/templates.js";
 
 export function registerRulesCommand(program: Command): void {
   program

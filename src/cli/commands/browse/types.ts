@@ -7,10 +7,10 @@ import type {
   PostType,
   ReadPostBundle,
   Severity,
-} from "../../../domain/types.js";
-import type { PostRecord } from "../../../domain/post.js";
-import type { PostService } from "../../../domain/post.service.js";
-import type { ReplyService } from "../../../domain/reply.service.js";
+} from "@/domain/types.js";
+import type { PostRecord } from "@/domain/post.js";
+import type { PostService } from "@/domain/post.service.js";
+import type { ReplyService } from "@/domain/reply.service.js";
 
 export const DEFAULT_REFRESH_MS = 5000;
 export const DEFAULT_REPLY_PAGE_SIZE = 20;

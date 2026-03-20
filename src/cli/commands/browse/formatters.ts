@@ -1,5 +1,5 @@
-import type { PostFilters } from "../../../domain/filters.js";
-import type { ReadPostBundle } from "../../../domain/post.js";
+import type { PostFilters } from "@/domain/filters.js";
+import type { ReadPostBundle } from "@/domain/post.js";
 import type {
   BrowseSortMode,
   ConversationFilterMode,
