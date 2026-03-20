@@ -26,7 +26,7 @@ describe("PostService", () => {
         channel: "backend",
         type: "finding",
         title: "Missing severity",
-        body: "This should fail."
+        body: "This should fail.",
       })
     ).toThrowError(AgentForumError);
   });
@@ -41,7 +41,7 @@ describe("PostService", () => {
       title: "Contact DTO changed",
       body: "phoneNumber is now required.",
       severity: "critical",
-      idempotencyKey: "contacts-v1"
+      idempotencyKey: "contacts-v1",
     });
 
     const second = service.createPost({
@@ -50,7 +50,7 @@ describe("PostService", () => {
       title: "Contact DTO changed",
       body: "phoneNumber is now required.",
       severity: "critical",
-      idempotencyKey: "contacts-v1"
+      idempotencyKey: "contacts-v1",
     });
 
     expect(first.duplicated).toBe(false);
@@ -67,10 +67,15 @@ describe("PostService", () => {
       title: "PATCH behavior",
       body: "Is phoneNumber required?",
       blocking: true,
-      actor: "claude:frontend"
+      actor: "claude:frontend",
     });
 
-    const updated = service.resolvePost(created.post.id, "answered", "Only required on POST.", "claude:frontend");
+    const updated = service.resolvePost(
+      created.post.id,
+      "answered",
+      "Only required on POST.",
+      "claude:frontend"
+    );
     const bundle = service.getPost(created.post.id);
 
     expect(updated.status).toBe("answered");
@@ -86,13 +91,13 @@ describe("PostService", () => {
       type: "finding",
       title: "New error code",
       body: "CONTACT_PHONE_INVALID added.",
-      severity: "warning"
+      severity: "warning",
     });
 
     const result = service.createReaction({
       postId: created.post.id,
       reaction: "confirmed",
-      actor: "claude:frontend"
+      actor: "claude:frontend",
     });
 
     const bundle = service.getPost(created.post.id);
@@ -108,12 +113,14 @@ describe("PostService", () => {
       type: "question",
       title: "PATCH behavior",
       body: "Is phoneNumber required?",
-      actor: "claude:frontend"
+      actor: "claude:frontend",
     });
 
     service.resolvePost(created.post.id, "wont-answer", "Not applicable");
 
-    expect(() => service.resolvePost(created.post.id, "answered", "Actually yes", "claude:frontend")).toThrowError(AgentForumError);
+    expect(() =>
+      service.resolvePost(created.post.id, "answered", "Actually yes", "claude:frontend")
+    ).toThrowError(AgentForumError);
   });
 
   it("allows only the original author to mark a thread as answered", () => {
@@ -124,7 +131,7 @@ describe("PostService", () => {
       type: "question",
       title: "PATCH behavior",
       body: "Is phoneNumber required?",
-      actor: "claude:frontend"
+      actor: "claude:frontend",
     });
 
     expect(() =>
@@ -142,7 +149,7 @@ describe("PostService", () => {
       type: "question",
       title: "PATCH behavior",
       body: "Is phoneNumber required?",
-      actor: "claude:frontend"
+      actor: "claude:frontend",
     });
 
     const bundleBefore = postService.getPost(created.post.id);
@@ -151,7 +158,7 @@ describe("PostService", () => {
     replyService.createReply({
       postId: created.post.id,
       body: "Please share the failing payload.",
-      actor: "claude:backend"
+      actor: "claude:backend",
     });
 
     const updated = postService.resolvePost(
@@ -172,7 +179,7 @@ describe("PostService", () => {
       type: "question",
       title: "Owner?",
       body: "Who is taking this?",
-      actor: "claude:frontend"
+      actor: "claude:frontend",
     });
 
     const updated = service.assignPost(created.post.id, "claude:backend");
@@ -191,18 +198,18 @@ describe("PostService", () => {
       type: "question",
       title: "Delete me",
       body: "Temporary thread",
-      actor: "claude:frontend"
+      actor: "claude:frontend",
     });
 
     replyService.createReply({
       postId: created.post.id,
       body: "Temporary reply",
-      actor: "claude:backend"
+      actor: "claude:backend",
     });
     postService.createReaction({
       postId: created.post.id,
       reaction: "confirmed",
-      actor: "claude:backend"
+      actor: "claude:backend",
     });
     postService.markRead("reader-1", [created.post.id]);
 

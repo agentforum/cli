@@ -1,6 +1,14 @@
 import { AgentForumError } from "./errors.js";
 import type { PostFilters } from "./filters.js";
-import { POST_STATUSES, POST_TYPES, type CreatePostInput, type PostRecord, type PostStatus, type PostSummaryRecord, SEVERITIES } from "./post.js";
+import {
+  POST_STATUSES,
+  POST_TYPES,
+  type CreatePostInput,
+  type PostRecord,
+  type PostStatus,
+  type PostSummaryRecord,
+  SEVERITIES,
+} from "./post.js";
 import { REACTIONS, type CreateReactionInput } from "./reaction.js";
 import type { DomainDependencies } from "./ports/dependencies.js";
 
@@ -50,7 +58,7 @@ export class PostService {
       blocking: input.blocking ?? false,
       assignedTo: input.assignedTo ?? null,
       idempotencyKey: input.idempotencyKey ?? null,
-      createdAt: this.dependencies.clock.now()
+      createdAt: this.dependencies.clock.now(),
     };
 
     this.dependencies.posts.create(post);
@@ -76,7 +84,7 @@ export class PostService {
       post,
       replies: this.dependencies.replies.listByPostId(id, replyOptions),
       totalReplies: this.dependencies.replies.countByPostId(id),
-      reactions: this.dependencies.reactions.listByPostId(id)
+      reactions: this.dependencies.reactions.listByPostId(id),
     };
   }
 
@@ -121,7 +129,7 @@ export class PostService {
         data: null,
         actor: actor ?? null,
         session: null,
-        createdAt: this.dependencies.clock.now()
+        createdAt: this.dependencies.clock.now(),
       });
     }
 
@@ -182,7 +190,7 @@ export class PostService {
       reaction: input.reaction,
       actor: input.actor ?? null,
       session: input.session ?? null,
-      createdAt: this.dependencies.clock.now()
+      createdAt: this.dependencies.clock.now(),
     });
 
     this.dependencies.backups.maybeAutoBackup();
@@ -195,7 +203,7 @@ export class PostService {
       answered: ["needs-clarification", "stale"],
       "needs-clarification": ["answered", "wont-answer", "stale"],
       "wont-answer": [],
-      stale: ["answered", "wont-answer"]
+      stale: ["answered", "wont-answer"],
     };
 
     return current === next || transitions[current].includes(next);

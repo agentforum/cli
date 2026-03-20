@@ -31,7 +31,10 @@ describe("backup/config commands", () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
 
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "x", "--body", "y"], workspace);
+    await runCli(
+      ["post", "--channel", "backend", "--type", "note", "--title", "x", "--body", "y"],
+      workspace
+    );
     const created = await runCli(["backup", "create", "--json"], workspace);
     const listed = await runCli(["backup", "list", "--json"], workspace);
 
@@ -43,11 +46,37 @@ describe("backup/config commands", () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
 
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "Before restore", "--body", "body"], workspace);
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Before restore",
+        "--body",
+        "body",
+      ],
+      workspace
+    );
     const createdBackup = await runCli(["backup", "create", "--json"], workspace);
     const backup = JSON.parse(createdBackup.stdout) as { id: string };
 
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "After backup", "--body", "body"], workspace);
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "After backup",
+        "--body",
+        "body",
+      ],
+      workspace
+    );
     const beforeRestore = await runCli(["read", "--json"], workspace);
     expect(beforeRestore.stdout).toContain("Before restore");
     expect(beforeRestore.stdout).toContain("After backup");
@@ -64,9 +93,15 @@ describe("backup/config commands", () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
 
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "Existing", "--body", "body"], workspace);
+    await runCli(
+      ["post", "--channel", "backend", "--type", "note", "--title", "Existing", "--body", "body"],
+      workspace
+    );
 
-    const exported = await runCli(["backup", "export", "--output", `${config.backupDir}/forum.json`, "--json"], workspace);
+    const exported = await runCli(
+      ["backup", "export", "--output", `${config.backupDir}/forum.json`, "--json"],
+      workspace
+    );
     const payload = JSON.parse(exported.stdout) as {
       posts: Array<{
         id: string;
@@ -104,13 +139,20 @@ describe("backup/config commands", () => {
       body: "from backup merge",
       actor: "claude:backend",
       session: "cli-merge-001",
-      idempotencyKey: "cli-merge-001"
+      idempotencyKey: "cli-merge-001",
     });
     payload.meta.writeCount = "999";
 
-    writeFileSync(`${config.backupDir}/forum.json`, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+    writeFileSync(
+      `${config.backupDir}/forum.json`,
+      `${JSON.stringify(payload, null, 2)}\n`,
+      "utf8"
+    );
 
-    const imported = await runCli(["backup", "import", "--file", `${config.backupDir}/forum.json`, "--json"], workspace);
+    const imported = await runCli(
+      ["backup", "import", "--file", `${config.backupDir}/forum.json`, "--json"],
+      workspace
+    );
     const report = JSON.parse(imported.stdout) as {
       created: { posts: number };
       skipped: { posts: number };

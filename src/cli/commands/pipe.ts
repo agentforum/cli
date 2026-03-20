@@ -42,7 +42,10 @@ export function registerPipeCommands(program: Command): void {
     .option("--unread-for <session>", "Return only unread posts for a session")
     .option("--subscribed-for <actor>", "Return only posts matching subscriptions for an actor")
     .option("--assigned-to <actor>", "Return only posts currently assigned to an actor")
-    .option("--waiting-for <actor>", "Return creator-owned threads with replies from others pending acceptance")
+    .option(
+      "--waiting-for <actor>",
+      "Return creator-owned threads with replies from others pending acceptance"
+    )
     .option("--pinned", "Show only pinned posts")
     .option("--limit <number>", "Limit number of posts")
     .option("--page <number>", "Page number (default page-size: 30)")
@@ -50,9 +53,17 @@ export function registerPipeCommands(program: Command): void {
     .option("--json", "Output JSON")
     .action((options: PipeOptions) => {
       try {
-        const posts = new PostService(createDomainDependencies(readConfig())).listPosts(buildPostFilters(options));
+        const posts = new PostService(createDomainDependencies(readConfig())).listPosts(
+          buildPostFilters(options)
+        );
         if (options.json) {
-          process.stdout.write(`${JSON.stringify(posts.map((post) => post.id), null, 2)}\n`);
+          process.stdout.write(
+            `${JSON.stringify(
+              posts.map((post) => post.id),
+              null,
+              2
+            )}\n`
+          );
           return;
         }
         process.stdout.write(`${posts.map((post) => post.id).join("\n")}\n`);
@@ -75,7 +86,10 @@ export function registerPipeCommands(program: Command): void {
     .option("--unread-for <session>", "Return only unread posts for a session")
     .option("--subscribed-for <actor>", "Return only posts matching subscriptions for an actor")
     .option("--assigned-to <actor>", "Return only posts currently assigned to an actor")
-    .option("--waiting-for <actor>", "Return creator-owned threads with replies from others pending acceptance")
+    .option(
+      "--waiting-for <actor>",
+      "Return creator-owned threads with replies from others pending acceptance"
+    )
     .option("--pinned", "Show only pinned posts")
     .option("--limit <number>", "Limit number of posts")
     .option("--page <number>", "Page number (default page-size: 30)")
@@ -83,7 +97,9 @@ export function registerPipeCommands(program: Command): void {
     .option("--json", "Output JSON")
     .action((options: PipeOptions) => {
       try {
-        const posts = new PostService(createDomainDependencies(readConfig())).listPosts(buildPostFilters(options));
+        const posts = new PostService(createDomainDependencies(readConfig())).listPosts(
+          buildPostFilters(options)
+        );
         if (options.json) {
           process.stdout.write(`${JSON.stringify(posts.map(toSummaryRow), null, 2)}\n`);
           return;
@@ -98,7 +114,7 @@ export function registerPipeCommands(program: Command): void {
 function buildPostFilters(options: PipeOptions): PostFilters {
   const page = parsePositiveInteger(options.page, "--page");
   const pageSize = parsePositiveInteger(options.pageSize, "--page-size");
-  const effectiveLimit = page ? pageSize ?? 30 : parseLimit(options.limit);
+  const effectiveLimit = page ? (pageSize ?? 30) : parseLimit(options.limit);
   const offset = page && effectiveLimit ? (page - 1) * effectiveLimit : undefined;
   return {
     channel: options.channel,
@@ -115,7 +131,7 @@ function buildPostFilters(options: PipeOptions): PostFilters {
     waitingForActor: options.waitingFor,
     pinned: options.pinned ? true : undefined,
     limit: effectiveLimit,
-    offset
+    offset,
   };
 }
 
@@ -128,7 +144,7 @@ function toSummaryRow(post: PostRecord) {
     severity: post.severity,
     actor: post.actor,
     assignedTo: post.assignedTo,
-    title: post.title
+    title: post.title,
   };
 }
 
@@ -141,7 +157,7 @@ function toSummaryLine(post: PostRecord): string {
     post.severity ?? "-",
     post.actor ?? "-",
     post.assignedTo ?? "-",
-    sanitize(post.title)
+    sanitize(post.title),
   ].join("\t");
 }
 

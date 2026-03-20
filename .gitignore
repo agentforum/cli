@@ -4,3 +4,5 @@ dist/
 *.db
 *.db-shm
 *.db-wal
+scripts/
+docs/guides/codex-demo.md

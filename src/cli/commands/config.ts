@@ -13,7 +13,7 @@ const LOCAL_CONFIG_DEFAULTS = {
   defaultChannel: "general",
   autoBackup: true,
   autoBackupInterval: 50,
-  dateFormat: "iso"
+  dateFormat: "iso",
 };
 
 const GLOBAL_CONFIG_DEFAULTS = {
@@ -22,7 +22,7 @@ const GLOBAL_CONFIG_DEFAULTS = {
   defaultChannel: "general",
   autoBackup: true,
   autoBackupInterval: 50,
-  dateFormat: "iso"
+  dateFormat: "iso",
 };
 
 interface OutputOptions {
@@ -55,7 +55,7 @@ export function registerConfigCommands(program: Command): void {
           `Current contents:`,
           JSON.stringify(existing, null, 2),
           ``,
-          `Run with --overwrite to replace it.`
+          `Run with --overwrite to replace it.`,
         ].join("\n");
         throw new AgentForumError(hint, 5);
       }
@@ -75,7 +75,10 @@ export function registerConfigCommands(program: Command): void {
     config.command("show").description("Show the resolved active configuration")
   ).action((options: OutputOptions) => {
     try {
-      emit(readConfig({ silent: true }), { ...toOutputOptions(options), json: options.json ?? true });
+      emit(readConfig({ silent: true }), {
+        ...toOutputOptions(options),
+        json: options.json ?? true,
+      });
     } catch (error) {
       handleError(error);
     }
@@ -120,7 +123,7 @@ export function registerConfigCommands(program: Command): void {
             "No config file found. Using built-in defaults.",
             "  Run `af config init` to create a global config (~/.afrc).",
             "  Run `af config init --local` to create a project-specific config (.afrc).",
-            ""
+            "",
           ].join("\n")
         );
       }
@@ -130,7 +133,7 @@ export function registerConfigCommands(program: Command): void {
           configFile: source.scope === "default" ? "(none — using defaults)" : source.filepath,
           scope: source.scope,
           dbPath: cfg.dbPath,
-          backupDir: cfg.backupDir
+          backupDir: cfg.backupDir,
         },
         { ...toOutputOptions(options), pretty: options.pretty ?? !options.json }
       );
@@ -146,7 +149,7 @@ function toOutputOptions(options: OutputOptions) {
     pretty: options.pretty,
     compact: options.compact,
     quiet: options.quiet,
-    noColor: options.color === false
+    noColor: options.color === false,
   };
 }
 

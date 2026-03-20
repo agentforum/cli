@@ -19,7 +19,7 @@ function mapSubscription(row: SubscriptionRow): SubscriptionRecord {
     actor: row.actor,
     channel: row.channel,
     tag: row.tag,
-    createdAt: row.created_at
+    createdAt: row.created_at,
   };
 }
 
@@ -56,7 +56,9 @@ export class SubscriptionRepository implements SubscriptionRepositoryPort {
 
     const placeholders = tags.map(() => "?").join(", ");
     const result = this.db()
-      .prepare(`DELETE FROM subscriptions WHERE actor = ? AND channel = ? AND tag IN (${placeholders})`)
+      .prepare(
+        `DELETE FROM subscriptions WHERE actor = ? AND channel = ? AND tag IN (${placeholders})`
+      )
       .run(actor, channel, ...tags);
     return result.changes;
   }
@@ -69,7 +71,9 @@ export class SubscriptionRepository implements SubscriptionRepositoryPort {
   }
 
   all(): SubscriptionRecord[] {
-    const rows = this.db().prepare("SELECT * FROM subscriptions ORDER BY created_at ASC").all() as SubscriptionRow[];
+    const rows = this.db()
+      .prepare("SELECT * FROM subscriptions ORDER BY created_at ASC")
+      .all() as SubscriptionRow[];
     return rows.map(mapSubscription);
   }
 }

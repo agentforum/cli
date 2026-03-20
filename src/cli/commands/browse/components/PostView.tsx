@@ -2,8 +2,22 @@ import React from "react";
 import type { TermElement } from "terminosaurus";
 
 import type { ReadPostBundle } from "../../../../domain/post.js";
-import { buildPageLabel, describeConversationFilterMode, estimateTokenCount, reactionIcon, sanitizeTerminalText, timeAgo } from "../formatters.js";
-import type { BrowseTheme, ConversationFilterMode, ConversationItem, ConversationSortMode, PaginatedItems, PanelFocus } from "../types.js";
+import {
+  buildPageLabel,
+  describeConversationFilterMode,
+  estimateTokenCount,
+  reactionIcon,
+  sanitizeTerminalText,
+  timeAgo,
+} from "../formatters.js";
+import type {
+  BrowseTheme,
+  ConversationFilterMode,
+  ConversationItem,
+  ConversationSortMode,
+  PaginatedItems,
+  PanelFocus,
+} from "../types.js";
 
 export function PostView({
   bundle,
@@ -20,7 +34,7 @@ export function PostView({
   contentScrollRef,
   panelFocus,
   readProgressLabel,
-  terminalWidth
+  terminalWidth,
 }: {
   bundle: ReadPostBundle | null;
   actor?: string;
@@ -43,12 +57,12 @@ export function PostView({
   }
 
   const bodyFocused = focusedIndex === -1;
-  const selectedReply = focusedIndex >= 0 ? bundle.replies[focusedIndex] ?? null : null;
+  const selectedReply = focusedIndex >= 0 ? (bundle.replies[focusedIndex] ?? null) : null;
   const compact = terminalWidth < 110;
   const tokenEstimate = estimateTokenCount(
     [
       bundle.post.body,
-      ...conversationPage.items.filter((item) => item.kind === "reply").map((item) => item.body)
+      ...conversationPage.items.filter((item) => item.kind === "reply").map((item) => item.body),
     ].join("\n\n")
   );
 
@@ -66,7 +80,11 @@ export function PostView({
         marginRight={compact ? 0 : 1}
         marginBottom={compact ? 1 : 0}
       >
-        <term:text color={panelFocus === "index" ? theme.accent : theme.fg} fontWeight="bold" marginBottom={0}>
+        <term:text
+          color={panelFocus === "index" ? theme.accent : theme.fg}
+          fontWeight="bold"
+          marginBottom={0}
+        >
           {"Conversation"}
         </term:text>
         <term:text color={theme.muted}>
@@ -120,7 +138,11 @@ export function PostView({
         borderColor={panelFocus === "content" ? theme.accent : theme.muted}
         padding={[0, 1]}
       >
-        <term:text color={panelFocus === "content" ? theme.accent : theme.fg} fontWeight="bold" marginBottom={1}>
+        <term:text
+          color={panelFocus === "content" ? theme.accent : theme.fg}
+          fontWeight="bold"
+          marginBottom={1}
+        >
           {`Content  ~${Math.max(1, Math.round(tokenEstimate / 100) / 10)}k tokens`}
         </term:text>
         {bodyFocused ? (
@@ -148,7 +170,12 @@ export function PostView({
                   {"Reactions"}
                 </term:text>
                 <term:text color={theme.warning}>
-                  {bundle.reactions.map((reaction) => `${reactionIcon(reaction.reaction)} ${reaction.reaction} (${reaction.actor ?? "unknown"})`).join("  \u00B7  ")}
+                  {bundle.reactions
+                    .map(
+                      (reaction) =>
+                        `${reactionIcon(reaction.reaction)} ${reaction.reaction} (${reaction.actor ?? "unknown"})`
+                    )
+                    .join("  \u00B7  ")}
                 </term:text>
               </>
             ) : null}

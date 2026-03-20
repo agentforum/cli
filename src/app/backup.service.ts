@@ -1,13 +1,30 @@
-import { copyFileSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, dirname, join } from "node:path";
 
 import type { AgentForumConfig } from "../config/types.js";
 import { ensureDirectory } from "../config.js";
-import type { BackupExport, BackupImportConflict, BackupImportCounts, BackupImportReport } from "../domain/backup.js";
+import type {
+  BackupExport,
+  BackupImportConflict,
+  BackupImportCounts,
+  BackupImportReport,
+} from "../domain/backup.js";
 import { AgentForumError } from "../domain/errors.js";
 import type { BackupServicePort } from "../domain/ports/backup.js";
 import type { MetadataRepositoryPort } from "../domain/ports/metadata.js";
-import type { PostRepositoryPort, ReactionRepositoryPort, ReplyRepositoryPort, SubscriptionRepositoryPort } from "../domain/ports/repositories.js";
+import type {
+  PostRepositoryPort,
+  ReactionRepositoryPort,
+  ReplyRepositoryPort,
+  SubscriptionRepositoryPort,
+} from "../domain/ports/repositories.js";
 import type { ReadReceiptRepositoryPort } from "../domain/ports/read-receipts.js";
 import { getSqlite, resetDb } from "../store/db.js";
 
@@ -73,7 +90,7 @@ export class BackupService implements BackupServicePort {
       reactions: this.dependencies.reactions.all(),
       subscriptions: this.dependencies.subscriptions.all(),
       readReceipts: this.dependencies.readReceipts.allReadReceipts(),
-      meta: this.dependencies.metadata.allMeta()
+      meta: this.dependencies.metadata.allMeta(),
     };
 
     writeFileSync(outputPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
@@ -100,8 +117,8 @@ export class BackupService implements BackupServicePort {
       skipped: createEmptyImportCounts(),
       conflicts: {
         total: 0,
-        items: []
-      }
+        items: [],
+      },
     };
 
     const transaction = getSqlite(this.config).transaction(() => {
@@ -112,22 +129,37 @@ export class BackupService implements BackupServicePort {
           .filter((post) => Boolean(post.idempotencyKey))
           .map((post) => [post.idempotencyKey as string, post])
       );
-      const repliesById = new Map(this.dependencies.replies.all().map((reply) => [reply.id, reply]));
-      const reactionsById = new Map(this.dependencies.reactions.all().map((reaction) => [reaction.id, reaction]));
+      const repliesById = new Map(
+        this.dependencies.replies.all().map((reply) => [reply.id, reply])
+      );
+      const reactionsById = new Map(
+        this.dependencies.reactions.all().map((reaction) => [reaction.id, reaction])
+      );
       const subscriptions = this.dependencies.subscriptions.all();
-      const subscriptionsById = new Map(subscriptions.map((subscription) => [subscription.id, subscription]));
+      const subscriptionsById = new Map(
+        subscriptions.map((subscription) => [subscription.id, subscription])
+      );
       const subscriptionsByIdentity = new Map(
         subscriptions.map((subscription) => [subscriptionIdentity(subscription), subscription])
       );
       const readReceipts = this.dependencies.readReceipts.allReadReceipts();
       const readReceiptsById = new Map(readReceipts.map((receipt) => [receipt.id, receipt]));
-      const readReceiptsByIdentity = new Map(readReceipts.map((receipt) => [readReceiptIdentity(receipt), receipt]));
+      const readReceiptsByIdentity = new Map(
+        readReceipts.map((receipt) => [readReceiptIdentity(receipt), receipt])
+      );
       const metadata = new Map(Object.entries(this.dependencies.metadata.allMeta()));
 
       for (const post of payload.posts) {
         const existingPost = postsById.get(post.id);
         if (existingPost) {
-          classifyExistingRecord(report, "posts", post.id, existingPost, post, "different post already exists");
+          classifyExistingRecord(
+            report,
+            "posts",
+            post.id,
+            existingPost,
+            post,
+            "different post already exists"
+          );
           continue;
         }
 
@@ -155,7 +187,14 @@ export class BackupService implements BackupServicePort {
       for (const reply of payload.replies) {
         const existingReply = repliesById.get(reply.id);
         if (existingReply) {
-          classifyExistingRecord(report, "replies", reply.id, existingReply, reply, "different reply already exists");
+          classifyExistingRecord(
+            report,
+            "replies",
+            reply.id,
+            existingReply,
+            reply,
+            "different reply already exists"
+          );
           continue;
         }
 
@@ -184,7 +223,12 @@ export class BackupService implements BackupServicePort {
         }
 
         if (!postsById.has(reaction.postId)) {
-          addConflict(report, "reactions", reaction.id, `parent post is missing: ${reaction.postId}`);
+          addConflict(
+            report,
+            "reactions",
+            reaction.id,
+            `parent post is missing: ${reaction.postId}`
+          );
           continue;
         }
 
@@ -207,7 +251,9 @@ export class BackupService implements BackupServicePort {
           continue;
         }
 
-        const existingSubscriptionByIdentity = subscriptionsByIdentity.get(subscriptionIdentity(subscription));
+        const existingSubscriptionByIdentity = subscriptionsByIdentity.get(
+          subscriptionIdentity(subscription)
+        );
         if (existingSubscriptionByIdentity) {
           incrementImportCount(report.skipped, "subscriptions");
           continue;
@@ -249,7 +295,12 @@ export class BackupService implements BackupServicePort {
         }
 
         if (!postsById.has(receipt.postId)) {
-          addConflict(report, "readReceipts", receipt.id, `parent post is missing: ${receipt.postId}`);
+          addConflict(
+            report,
+            "readReceipts",
+            receipt.id,
+            `parent post is missing: ${receipt.postId}`
+          );
           continue;
         }
 
@@ -324,7 +375,7 @@ function createEmptyImportCounts(): BackupImportCounts {
     reactions: 0,
     subscriptions: 0,
     readReceipts: 0,
-    meta: 0
+    meta: 0,
   };
 }
 
@@ -333,7 +384,12 @@ function incrementImportCount(counts: BackupImportCounts, entity: ImportEntity):
   counts[entity] += 1;
 }
 
-function addConflict(report: BackupImportReport, entity: ImportEntity, key: string, reason: string): void {
+function addConflict(
+  report: BackupImportReport,
+  entity: ImportEntity,
+  key: string,
+  reason: string
+): void {
   const conflict: BackupImportConflict = { entity, key, reason };
   report.conflicts.total += 1;
   report.conflicts.items.push(conflict);
@@ -355,7 +411,11 @@ function classifyExistingRecord(
   addConflict(report, entity, key, conflictReason);
 }
 
-function subscriptionIdentity(record: { actor: string; channel: string; tag: string | null }): string {
+function subscriptionIdentity(record: {
+  actor: string;
+  channel: string;
+  tag: string | null;
+}): string {
   return `${record.actor}::${record.channel}::${record.tag ?? ""}`;
 }
 
@@ -373,7 +433,9 @@ function stableStringify(value: unknown): string {
   }
 
   if (value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right));
+    const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) =>
+      left.localeCompare(right)
+    );
     return `{${entries.map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`).join(",")}}`;
   }
 
@@ -391,9 +453,11 @@ function insertReadReceipt(
   }
 ): void {
   getSqlite(config)
-    .prepare(`
+    .prepare(
+      `
       INSERT INTO read_receipts (id, session, post_id, created_at, last_read_at)
       VALUES (@id, @session, @postId, @createdAt, @lastReadAt)
-    `)
+    `
+    )
     .run(receipt);
 }

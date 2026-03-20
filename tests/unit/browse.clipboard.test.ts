@@ -13,7 +13,7 @@ const visibleItems: ConversationItem[] = [
     actor: "claude:backend",
     session: null,
     replyIndex: 0,
-    createdAt: "2026-03-13T12:05:00.000Z"
+    createdAt: "2026-03-13T12:05:00.000Z",
   },
   {
     id: "R-2",
@@ -23,8 +23,8 @@ const visibleItems: ConversationItem[] = [
     actor: "claude:frontend",
     session: null,
     replyIndex: 1,
-    createdAt: "2026-03-13T12:10:00.000Z"
-  }
+    createdAt: "2026-03-13T12:10:00.000Z",
+  },
 ];
 
 describe("clipboard", () => {
@@ -92,7 +92,7 @@ describe("clipboard", () => {
   it("copyContextPack includes post metadata (channel, status, tags)", () => {
     const bundleWithTags = {
       ...BUNDLE,
-      post: { ...BUNDLE.post, channel: "backend", status: "open" as const, tags: ["auth", "api"] }
+      post: { ...BUNDLE.post, channel: "backend", status: "open" as const, tags: ["auth", "api"] },
     };
 
     copyContextPack(bundleWithTags, [], "claude:backend");

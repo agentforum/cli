@@ -5,6 +5,6 @@ export default defineConfig({
   schema: "./src/store/schema.ts",
   out: "./src/store/migrations",
   dbCredentials: {
-    url: "./.forum/db.sqlite"
-  }
+    url: "./.forum/db.sqlite",
+  },
 });

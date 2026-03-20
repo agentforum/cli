@@ -1,6 +1,13 @@
 import type { PostFilters } from "../../../domain/filters.js";
 import type { ReadPostBundle } from "../../../domain/post.js";
-import type { BrowseSortMode, ConversationFilterMode, ConversationSortMode, ListDisplayMode, Notice, ViewMode } from "./types.js";
+import type {
+  BrowseSortMode,
+  ConversationFilterMode,
+  ConversationSortMode,
+  ListDisplayMode,
+  Notice,
+  ViewMode,
+} from "./types.js";
 import { ALL_CHANNELS } from "./types.js";
 
 const TERMINAL_TEXT_REPLACEMENTS: Record<string, string> = {
@@ -11,8 +18,8 @@ const TERMINAL_TEXT_REPLACEMENTS: Record<string, string> = {
   "❌": "[x]",
   "⚠️": "[warn]",
   "⚠": "[warn]",
-  "ℹ️": "[info]",
-  "ℹ": "[info]"
+  ℹ️: "[info]",
+  ℹ: "[info]",
 };
 
 export function excerpt(text: string, maxLength = 80): string {
@@ -27,7 +34,10 @@ export function sanitizeTerminalText(text: string): string {
     .replace(/\t/g, "  ")
     .replace(/[\u200D\uFE0E\uFE0F]/g, "");
 
-  sanitized = sanitized.replace(/[\u{10000}-\u{10FFFF}]/gu, (symbol) => TERMINAL_TEXT_REPLACEMENTS[symbol] ?? "[?]");
+  sanitized = sanitized.replace(
+    /[\u{10000}-\u{10FFFF}]/gu,
+    (symbol) => TERMINAL_TEXT_REPLACEMENTS[symbol] ?? "[?]"
+  );
 
   return sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 }
@@ -37,7 +47,11 @@ export function describeRefreshMs(refreshMs: number): string {
   return seconds === 1 ? "1s" : `${seconds}s`;
 }
 
-export function buildAutoRefreshLabel(autoRefreshEnabled: boolean, refreshMs: number, remainingMs?: number | null): string {
+export function buildAutoRefreshLabel(
+  autoRefreshEnabled: boolean,
+  refreshMs: number,
+  remainingMs?: number | null
+): string {
   if (!autoRefreshEnabled) {
     return "auto off";
   }
@@ -73,7 +87,7 @@ export function buildFilterSummary(
     `sort: ${describeSortMode(options.sortMode)}`,
     `posts: ${postCount}`,
     `auto: ${options.autoRefreshEnabled ? `on (${describeRefreshMs(options.refreshMs)})` : "off"}`,
-    `last: ${options.lastRefreshAt}`
+    `last: ${options.lastRefreshAt}`,
   ];
 
   return parts.filter(Boolean).join("  |  ");
@@ -81,12 +95,18 @@ export function buildFilterSummary(
 
 export function statusIcon(status: string): string {
   switch (status) {
-    case "answered": return "\u2713";
-    case "open": return "\u25CB";
-    case "wont-answer": return "\u2717";
-    case "stale": return "~";
-    case "needs-clarification": return "?";
-    default: return "\u25CB";
+    case "answered":
+      return "\u2713";
+    case "open":
+      return "\u25CB";
+    case "wont-answer":
+      return "\u2717";
+    case "stale":
+      return "~";
+    case "needs-clarification":
+      return "?";
+    default:
+      return "\u25CB";
   }
 }
 
@@ -105,10 +125,7 @@ export function reactionIcon(reaction: string): string {
   }
 }
 
-export function buildBrowseHint(
-  view: ViewMode,
-  postCount: number
-): string {
+export function buildBrowseHint(view: ViewMode, postCount: number): string {
   if (view === "reply") {
     return "Ctrl+Enter send  |  Ctrl+K clear quote  |  Esc cancel  |  ? shortcuts";
   }
@@ -188,7 +205,11 @@ export function describeConversationFilterMode(filterMode: ConversationFilterMod
   }
 }
 
-export function buildReadProgressLabel(scrollTop: number, scrollHeight: number, viewportHeight: number): string {
+export function buildReadProgressLabel(
+  scrollTop: number,
+  scrollHeight: number,
+  viewportHeight: number
+): string {
   if (scrollHeight <= 0 || viewportHeight <= 0 || scrollHeight <= viewportHeight) {
     return "[100% read]";
   }
@@ -202,7 +223,13 @@ export function buildReadProgressLabel(scrollTop: number, scrollHeight: number, 
   return `[${percent}% read]`;
 }
 
-export function buildPageLabel(page: number, totalPages: number, rangeStart: number, rangeEnd: number, totalCount: number): string {
+export function buildPageLabel(
+  page: number,
+  totalPages: number,
+  rangeStart: number,
+  rangeEnd: number,
+  totalCount: number
+): string {
   if (totalCount <= 0) {
     return "page 1/1  (0 of 0)";
   }
@@ -218,7 +245,12 @@ export function estimateTokenCount(text: string): number {
   return Math.max(1, Math.ceil(text.length / 4));
 }
 
-export function breadcrumb(view: ViewMode, channelFilter: string, bundle: ReadPostBundle | null, focusedReplyIndex = -1): string {
+export function breadcrumb(
+  view: ViewMode,
+  channelFilter: string,
+  bundle: ReadPostBundle | null,
+  focusedReplyIndex = -1
+): string {
   const root = "AgentForum";
   const channel = channelFilter === ALL_CHANNELS ? "all channels" : `#${channelFilter}`;
 

@@ -1,6 +1,4 @@
-import type {
-  PostFilters
-} from "../filters.js";
+import type { PostFilters } from "../filters.js";
 import type { PostRecord, PostStatus, PostSummaryRecord } from "../post.js";
 import type { ReactionRecord } from "../reaction.js";
 import type { ReplyRecord } from "../reply.js";

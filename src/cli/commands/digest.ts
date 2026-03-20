@@ -64,11 +64,23 @@ Examples:
       .option("--since <isoDate>", "Filter by ISO date")
       .option("--after-id <postId>", "Include only posts created after the given post ID")
       .option("--unread-for <session>", "[session] Return only unread posts for a reader session")
-      .option("--subscribed-for <actor>", "[actor] Return only posts matching subscriptions for an actor")
+      .option(
+        "--subscribed-for <actor>",
+        "[actor] Return only posts matching subscriptions for an actor"
+      )
       .option("--assigned-to <actor>", "[actor] Return only posts currently assigned to an actor")
-      .option("--waiting-for <actor>", "[actor] Return creator-owned threads with replies from others pending acceptance")
-      .option("--mark-read-for <session>", "[session] Mark digest posts as read for a reader session")
-      .option("--limit-per-type <number>", "Max posts shown per type group (findings, questions, etc.)")
+      .option(
+        "--waiting-for <actor>",
+        "[actor] Return creator-owned threads with replies from others pending acceptance"
+      )
+      .option(
+        "--mark-read-for <session>",
+        "[session] Mark digest posts as read for a reader session"
+      )
+      .option(
+        "--limit-per-type <number>",
+        "Max posts shown per type group (findings, questions, etc.)"
+      )
   ).action((options: DigestOptions) => {
     try {
       const config = readConfig();
@@ -90,7 +102,7 @@ Examples:
         subscribedForActor: options.subscribedFor,
         assignedTo: options.assignedTo,
         waitingForActor: options.waitingFor,
-        limitPerType
+        limitPerType,
       });
 
       if (options.markReadFor) {
@@ -99,7 +111,7 @@ Examples:
           ...digest.findings.items,
           ...digest.questions.items,
           ...digest.decisions.items,
-          ...digest.notes.items
+          ...digest.notes.items,
         ].map((post) => post.id);
         new PostService(dependencies).markRead(options.markReadFor, allIds);
       }
@@ -109,7 +121,7 @@ Examples:
         pretty: options.pretty,
         compact: options.compact ?? true,
         quiet: options.quiet,
-        noColor: options.color === false
+        noColor: options.color === false,
       });
     } catch (error) {
       handleError(error);

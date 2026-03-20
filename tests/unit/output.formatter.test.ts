@@ -11,7 +11,7 @@ const POST = {
   data: {
     repo: "crew-ai",
     branch: "feature/tokens",
-    commit: "abcdef1234567890"
+    commit: "abcdef1234567890",
   },
   severity: "critical" as const,
   status: "open" as const,
@@ -23,7 +23,7 @@ const POST = {
   blocking: true,
   assignedTo: "claude:frontend",
   idempotencyKey: null,
-  createdAt: "2026-03-17T10:00:00.000Z"
+  createdAt: "2026-03-17T10:00:00.000Z",
 };
 
 const originalIsTTY = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
@@ -42,7 +42,9 @@ describe("output formatter", () => {
   it("resolves output mode by explicit flag priority", () => {
     setStdoutIsTTY(true);
 
-    expect(resolveOutputMode({ quiet: true, compact: true, json: true, pretty: true })).toBe("quiet");
+    expect(resolveOutputMode({ quiet: true, compact: true, json: true, pretty: true })).toBe(
+      "quiet"
+    );
     expect(resolveOutputMode({ compact: true, json: true, pretty: true })).toBe("compact");
     expect(resolveOutputMode({ json: true, pretty: true })).toBe("json");
     expect(resolveOutputMode({ pretty: true })).toBe("pretty");

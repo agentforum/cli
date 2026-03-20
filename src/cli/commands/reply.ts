@@ -2,7 +2,14 @@ import type { Command } from "commander";
 
 import { createDomainDependencies } from "../../app/dependencies.js";
 import { ReplyService } from "../../domain/reply.service.js";
-import { addOutputOptions, emit, handleError, parseData, readConfig, resolveActor } from "../helpers.js";
+import {
+  addOutputOptions,
+  emit,
+  handleError,
+  parseData,
+  readConfig,
+  resolveActor,
+} from "../helpers.js";
 
 interface ReplyOptions {
   post: string;
@@ -36,7 +43,7 @@ export function registerReplyCommand(program: Command): void {
         body: options.body,
         data: parseData(options.data),
         actor: resolveActor(config, options.actor),
-        session: options.session
+        session: options.session,
       });
 
       emit(reply, {
@@ -44,7 +51,7 @@ export function registerReplyCommand(program: Command): void {
         pretty: options.pretty,
         compact: options.compact,
         quiet: options.quiet,
-        noColor: options.color === false
+        noColor: options.color === false,
       });
     } catch (error) {
       handleError(error);

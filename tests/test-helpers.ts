@@ -16,7 +16,7 @@ export function createTestConfig(): AgentForumConfig {
     defaultChannel: "general",
     autoBackup: true,
     autoBackupInterval: 2,
-    dateFormat: "iso"
+    dateFormat: "iso",
   };
 }
 
@@ -37,7 +37,7 @@ export function writeWorkspaceConfig(config: AgentForumConfig): string {
         defaultChannel: config.defaultChannel,
         autoBackup: config.autoBackup,
         autoBackupInterval: config.autoBackupInterval,
-        dateFormat: config.dateFormat
+        dateFormat: config.dateFormat,
       },
       null,
       2

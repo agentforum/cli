@@ -19,15 +19,29 @@ describe("workflow and pipe commands", () => {
     const workspace = writeWorkspaceConfig(config);
 
     const created = await runCli(
-      ["post", "--channel", "backend", "--type", "question", "--title", "Owner?", "--body", "Need owner", "--json"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "Owner?",
+        "--body",
+        "Need owner",
+        "--json",
+      ],
       workspace
     );
     const post = JSON.parse(created.stdout) as { id: string };
 
-    const assigned = await runCli(["assign", "--id", post.id, "--actor", "claude:backend", "--json"], workspace);
+    const assigned = await runCli(
+      ["assign", "--id", post.id, "--actor", "claude:backend", "--json"],
+      workspace
+    );
     const queue = await runCli(["queue", "--for", "claude:backend", "--json"], workspace);
 
-    expect(assigned.stdout).toContain("\"assignedTo\": \"claude:backend\"");
+    expect(assigned.stdout).toContain('"assignedTo": "claude:backend"');
     expect(queue.stdout).toContain(post.id);
   });
 
@@ -36,13 +50,27 @@ describe("workflow and pipe commands", () => {
     const workspace = writeWorkspaceConfig(config);
 
     const created = await runCli(
-      ["post", "--channel", "backend", "--type", "question", "--title", "Assign me", "--body", "body", "--json"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "Assign me",
+        "--body",
+        "body",
+        "--json",
+      ],
       workspace
     );
     const post = JSON.parse(created.stdout) as { id: string };
 
     const missingActor = await runCli(["assign", "--id", post.id], workspace);
-    const conflictingFlags = await runCli(["assign", "--id", post.id, "--actor", "claude:backend", "--clear"], workspace);
+    const conflictingFlags = await runCli(
+      ["assign", "--id", post.id, "--actor", "claude:backend", "--clear"],
+      workspace
+    );
 
     expect(missingActor.exitCode).toBe(3);
     expect(missingActor.stderr).toContain("Either --actor or --clear is required.");
@@ -67,13 +95,16 @@ describe("workflow and pipe commands", () => {
         "Waiting on backend",
         "--actor",
         "claude:frontend",
-        "--json"
+        "--json",
       ],
       workspace
     );
     const post = JSON.parse(created.stdout) as { id: string };
 
-    await runCli(["reply", "--post", post.id, "--body", "Contract updated", "--actor", "claude:backend"], workspace);
+    await runCli(
+      ["reply", "--post", post.id, "--body", "Contract updated", "--actor", "claude:backend"],
+      workspace
+    );
 
     const waiting = await runCli(["waiting", "--for", "claude:frontend", "--json"], workspace);
 
@@ -87,15 +118,42 @@ describe("workflow and pipe commands", () => {
     await runCli(["subscribe", "--actor", "claude:backend", "--channel", "general"], workspace);
 
     const assigned = await runCli(
-      ["post", "--channel", "backend", "--type", "question", "--title", "Assigned", "--body", "Assigned item", "--json"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "Assigned",
+        "--body",
+        "Assigned item",
+        "--json",
+      ],
       workspace
     );
     const assignedPost = JSON.parse(assigned.stdout) as { id: string };
     await runCli(["assign", "--id", assignedPost.id, "--actor", "claude:backend"], workspace);
 
-    await runCli(["post", "--channel", "general", "--type", "note", "--title", "Subscribed", "--body", "Subscribed item"], workspace);
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "general",
+        "--type",
+        "note",
+        "--title",
+        "Subscribed",
+        "--body",
+        "Subscribed item",
+      ],
+      workspace
+    );
 
-    const inbox = await runCli(["inbox", "--for", "claude:backend", "--session", "backend-run-001", "--json"], workspace);
+    const inbox = await runCli(
+      ["inbox", "--for", "claude:backend", "--session", "backend-run-001", "--json"],
+      workspace
+    );
 
     expect(inbox.stdout).toContain("Assigned");
     expect(inbox.stdout).toContain("Subscribed");
@@ -118,7 +176,7 @@ describe("workflow and pipe commands", () => {
         "Use in fzf",
         "--assign",
         "claude:backend",
-        "--json"
+        "--json",
       ],
       workspace
     );

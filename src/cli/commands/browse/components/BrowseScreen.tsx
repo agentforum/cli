@@ -14,7 +14,7 @@ import type {
   Notice,
   PaginatedItems,
   ReplyQuote,
-  ViewMode
+  ViewMode,
 } from "../types.js";
 import { ChannelsView } from "./ChannelsView.js";
 import { FooterBar } from "./FooterBar.js";
@@ -79,10 +79,21 @@ export function BrowseScreen({
   showShortcutsHelp,
   shortcutsScrollRef,
   appVersion,
-  terminalWidth
+  terminalWidth,
 }: {
   rootRef: React.MutableRefObject<TermElement | null>;
-  onKeyPress: (event: { attributes: { key: { name: string; sequence: string; ctrl: boolean; alt: boolean; meta: boolean; shift: boolean } } }) => void;
+  onKeyPress: (event: {
+    attributes: {
+      key: {
+        name: string;
+        sequence: string;
+        ctrl: boolean;
+        alt: boolean;
+        meta: boolean;
+        shift: boolean;
+      };
+    };
+  }) => void;
   theme: BrowseTheme;
   view: ViewMode;
   channelFilter: string;
@@ -162,7 +173,13 @@ export function BrowseScreen({
       />
 
       {view === "post" && bundle ? (
-        <PostContextBar bundle={bundle} focusedReplyIndex={focusedReplyIndex} actor={actor} now={now} theme={theme} />
+        <PostContextBar
+          bundle={bundle}
+          focusedReplyIndex={focusedReplyIndex}
+          actor={actor}
+          now={now}
+          theme={theme}
+        />
       ) : null}
 
       <term:div
@@ -242,7 +259,12 @@ export function BrowseScreen({
       />
 
       {searchMode ? (
-        <SearchBar theme={theme} inputRef={searchInputRef} value={searchQuery} onChange={onSearchQueryChange} />
+        <SearchBar
+          theme={theme}
+          inputRef={searchInputRef}
+          value={searchQuery}
+          onChange={onSearchQueryChange}
+        />
       ) : null}
       {gotoPageMode ? (
         <GotoPageModal
@@ -254,7 +276,9 @@ export function BrowseScreen({
           onChange={onGotoPageInputChange}
         />
       ) : null}
-      {showShortcutsHelp ? <ShortcutsModal view={view} theme={theme} scrollRef={shortcutsScrollRef} /> : null}
+      {showShortcutsHelp ? (
+        <ShortcutsModal view={view} theme={theme} scrollRef={shortcutsScrollRef} />
+      ) : null}
     </term:div>
   );
 }

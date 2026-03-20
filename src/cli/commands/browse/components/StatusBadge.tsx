@@ -2,7 +2,7 @@ import React from "react";
 
 export function StatusBadge({
   label,
-  tone
+  tone,
 }: {
   label: string;
   tone: { color: string; backgroundColor: string };

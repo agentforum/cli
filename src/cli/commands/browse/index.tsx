@@ -70,7 +70,7 @@ export async function launchBrowse(options: BrowseOptions): Promise<void> {
         unreadForSession: options.unreadFor,
         subscribedForActor: options.subscribedFor,
         assignedTo: options.assignedTo,
-        waitingForActor: options.waitingFor
+        waitingForActor: options.waitingFor,
       })}
       initialChannelFilter={options.channel ?? ALL_CHANNELS}
       limit={limit}

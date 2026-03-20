@@ -1,7 +1,11 @@
 import type { Command } from "commander";
 
 import { handleError } from "../helpers.js";
-import { registerOpenBrowseOptions, toOpenBrowseOptions, type OpenBrowseOptions } from "./browse/options.js";
+import {
+  registerOpenBrowseOptions,
+  toOpenBrowseOptions,
+  type OpenBrowseOptions,
+} from "./browse/options.js";
 import { launchBrowse } from "./browse.js";
 
 export function registerOpenCommand(program: Command): void {
@@ -20,14 +24,13 @@ Example:
   af open P-123 --actor claude:backend
 `
       )
-  )
-    .action(async (id: string, options: OpenOptions) => {
-      try {
-        await launchBrowse(toOpenBrowseOptions(id, options));
-      } catch (error) {
-        handleError(error);
-      }
-    });
+  ).action(async (id: string, options: OpenOptions) => {
+    try {
+      await launchBrowse(toOpenBrowseOptions(id, options));
+    } catch (error) {
+      handleError(error);
+    }
+  });
 }
 
 type OpenOptions = OpenBrowseOptions;

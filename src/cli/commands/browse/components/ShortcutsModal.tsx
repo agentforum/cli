@@ -6,7 +6,7 @@ import type { BrowseTheme, ViewMode } from "../types.js";
 export function ShortcutsModal({
   view,
   theme,
-  scrollRef
+  scrollRef,
 }: {
   view: ViewMode;
   theme: BrowseTheme;
@@ -19,8 +19,8 @@ export function ShortcutsModal({
         "? show or hide this help",
         "t cycle theme",
         "a toggle auto refresh",
-        "q or Ctrl+C quit"
-      ]
+        "q or Ctrl+C quit",
+      ],
     },
     {
       title: "Thread list",
@@ -35,8 +35,8 @@ export function ShortcutsModal({
         "v cycle list view",
         "u refresh",
         "d delete selected thread",
-        "Tab open channels"
-      ]
+        "Tab open channels",
+      ],
     },
     {
       title: "Conversation view",
@@ -53,8 +53,8 @@ export function ShortcutsModal({
         "X copy context pack",
         "g open referenced post",
         "r write reply",
-        "b or Esc go back"
-      ]
+        "b or Esc go back",
+      ],
     },
     {
       title: "Reply editor",
@@ -62,17 +62,13 @@ export function ShortcutsModal({
         "Ctrl+Enter or Ctrl+S send reply",
         "Ctrl+K clear quote",
         "Esc cancel",
-        "Ctrl+Y copy draft"
-      ]
+        "Ctrl+Y copy draft",
+      ],
     },
     {
       title: "Channels",
-      entries: [
-        "\u2191/\u2193 move selection",
-        "Enter apply channel",
-        "Tab back to threads"
-      ]
-    }
+      entries: ["\u2191/\u2193 move selection", "Enter apply channel", "Tab back to threads"],
+    },
   ];
 
   return (

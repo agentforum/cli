@@ -27,21 +27,21 @@ describe("DigestService", () => {
       type: "note",
       title: "Architecture overview",
       body: "Pinned project context.",
-      pinned: true
+      pinned: true,
     });
     postService.createPost({
       channel: "backend",
       type: "finding",
       title: "New DTO field",
       body: "countryCode added.",
-      severity: "warning"
+      severity: "warning",
     });
     postService.createPost({
       channel: "backend",
       type: "question",
       title: "PATCH clarification",
       body: "Can PATCH omit phoneNumber?",
-      blocking: true
+      blocking: true,
     });
 
     const digest = digestService.getDigest();
@@ -64,14 +64,14 @@ describe("DigestService", () => {
       type: "finding",
       title: "Backend change",
       body: "Backend body",
-      severity: "info"
+      severity: "info",
     });
     postService.createPost({
       channel: "frontend",
       type: "finding",
       title: "Frontend change",
       body: "Frontend body",
-      severity: "info"
+      severity: "info",
     });
 
     const digest = digestService.getDigest({ channel: "backend" });
@@ -92,7 +92,7 @@ describe("DigestService", () => {
         type: "finding",
         title: `Finding ${i}`,
         body: "body",
-        severity: "info"
+        severity: "info",
       });
     }
 

@@ -9,7 +9,7 @@ export function GotoPageModal({
   totalPages,
   inputRef,
   value,
-  onChange
+  onChange,
 }: {
   theme: BrowseTheme;
   mode: GotoPageMode;

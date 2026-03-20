@@ -74,7 +74,7 @@ function mapPost(row: PostRow | undefined): PostRecord | null {
     blocking: Boolean(row.blocking),
     assignedTo: row.assigned_to,
     idempotencyKey: row.idempotency_key,
-    createdAt: row.created_at
+    createdAt: row.created_at,
   };
 }
 
@@ -85,11 +85,14 @@ function mapPostSummary(row: PostSummaryRow): PostSummaryRecord {
     replyCount: row.reply_count,
     reactionCount: row.reaction_count,
     lastReplyExcerpt: row.last_reply_body,
-    lastReplyActor: row.last_reply_actor
+    lastReplyActor: row.last_reply_actor,
   };
 }
 
-function buildListQuery(filters: PostFilters, selectClause: string): { sql: string; params: Array<string | number> } {
+function buildListQuery(
+  filters: PostFilters,
+  selectClause: string
+): { sql: string; params: Array<string | number> } {
   const joins: string[] = [];
   const where: string[] = [];
   const params: Array<string | number> = [];
@@ -164,7 +167,9 @@ function buildListQuery(filters: PostFilters, selectClause: string): { sql: stri
     where.push("posts.actor = ?");
     params.push(filters.waitingForActor);
     where.push("posts.status IN ('open', 'needs-clarification')");
-    where.push("EXISTS (SELECT 1 FROM replies wr WHERE wr.post_id = posts.id AND wr.actor IS NOT NULL AND wr.actor != ?)");
+    where.push(
+      "EXISTS (SELECT 1 FROM replies wr WHERE wr.post_id = posts.id AND wr.actor IS NOT NULL AND wr.actor != ?)"
+    );
     params.push(filters.waitingForActor);
   }
   if (filters.since) {
@@ -191,15 +196,17 @@ function buildListQuery(filters: PostFilters, selectClause: string): { sql: stri
       where.length > 0 ? `WHERE ${where.join(" AND ")}` : "",
       "ORDER BY posts.pinned DESC, posts.created_at DESC",
       filters.limit ? `LIMIT ${Number(filters.limit)}` : filters.offset ? "LIMIT -1" : "",
-      filters.offset ? `OFFSET ${Number(filters.offset)}` : ""
+      filters.offset ? `OFFSET ${Number(filters.offset)}` : "",
     ]
       .filter(Boolean)
       .join(" "),
-    params
+    params,
   };
 }
 
-export class PostRepository implements PostRepositoryPort, MetadataRepositoryPort, ReadReceiptRepositoryPort {
+export class PostRepository
+  implements PostRepositoryPort, MetadataRepositoryPort, ReadReceiptRepositoryPort
+{
   constructor(private readonly config: AgentForumConfig) {}
 
   private db(): Database.Database {
@@ -223,10 +230,13 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
         data: post.data ? JSON.stringify(post.data) : null,
         tags: JSON.stringify(post.tags),
         pinned: post.pinned ? 1 : 0,
-        blocking: post.blocking ? 1 : 0
+        blocking: post.blocking ? 1 : 0,
       });
     } catch (error) {
-      if (error instanceof Error && error.message.includes("UNIQUE constraint failed: posts.idempotency_key")) {
+      if (
+        error instanceof Error &&
+        error.message.includes("UNIQUE constraint failed: posts.idempotency_key")
+      ) {
         throw new AgentForumError("Idempotency key already exists.", 4);
       }
       throw error;
@@ -236,7 +246,9 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
   }
 
   findById(id: string): PostRecord | null {
-    const row = this.db().prepare("SELECT * FROM posts WHERE id = ?").get(id) as PostRow | undefined;
+    const row = this.db().prepare("SELECT * FROM posts WHERE id = ?").get(id) as
+      | PostRow
+      | undefined;
     return mapPost(row);
   }
 
@@ -252,7 +264,9 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
       throw new AgentForumError(`Post not found: ${filters.afterId}`, 2);
     }
     const { sql, params } = buildListQuery(filters, "SELECT DISTINCT posts.* FROM posts");
-    const rows = this.db().prepare(sql).all(...params) as PostRow[];
+    const rows = this.db()
+      .prepare(sql)
+      .all(...params) as PostRow[];
     return rows.map((row) => mapPost(row) as PostRecord);
   }
 
@@ -271,7 +285,9 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
         (SELECT body FROM replies WHERE post_id = posts.id ORDER BY created_at DESC LIMIT 1) AS last_reply_body
       FROM posts`
     );
-    const rows = this.db().prepare(sql).all(...params) as PostSummaryRow[];
+    const rows = this.db()
+      .prepare(sql)
+      .all(...params) as PostSummaryRow[];
     return rows.map(mapPostSummary);
   }
 
@@ -286,7 +302,9 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
   }
 
   updatePinned(id: string, pinned: boolean): PostRecord | null {
-    this.db().prepare("UPDATE posts SET pinned = ? WHERE id = ?").run(pinned ? 1 : 0, id);
+    this.db()
+      .prepare("UPDATE posts SET pinned = ? WHERE id = ?")
+      .run(pinned ? 1 : 0, id);
     return this.findById(id);
   }
 
@@ -317,10 +335,12 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
 
   setMeta(key: string, value: string): void {
     this.db()
-      .prepare(`
+      .prepare(
+        `
         INSERT INTO meta (key, value) VALUES (?, ?)
         ON CONFLICT(key) DO UPDATE SET value = excluded.value
-      `)
+      `
+      )
       .run(key, value);
   }
 
@@ -332,7 +352,10 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
   }
 
   allMeta(): Record<string, string> {
-    const rows = this.db().prepare("SELECT key, value FROM meta").all() as Array<{ key: string; value: string }>;
+    const rows = this.db().prepare("SELECT key, value FROM meta").all() as Array<{
+      key: string;
+      value: string;
+    }>;
     return Object.fromEntries(rows.map((row) => [row.key, row.value]));
   }
 
@@ -346,7 +369,9 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
       INSERT INTO read_receipts (id, session, post_id, created_at, last_read_at)
       VALUES (?, ?, ?, ?, ?)
     `);
-    const updateStatement = this.db().prepare("UPDATE read_receipts SET last_read_at = ? WHERE id = ?");
+    const updateStatement = this.db().prepare(
+      "UPDATE read_receipts SET last_read_at = ? WHERE id = ?"
+    );
 
     const tx = this.db().transaction((ids: string[]) => {
       for (const postId of ids) {
@@ -368,13 +393,15 @@ export class PostRepository implements PostRepositoryPort, MetadataRepositoryPor
   }
 
   allReadReceipts(): ReadReceiptRecord[] {
-    const rows = this.db().prepare("SELECT * FROM read_receipts ORDER BY created_at ASC").all() as ReadReceiptRow[];
+    const rows = this.db()
+      .prepare("SELECT * FROM read_receipts ORDER BY created_at ASC")
+      .all() as ReadReceiptRow[];
     return rows.map((row) => ({
       id: row.id,
       session: row.session,
       postId: row.post_id,
       createdAt: row.created_at,
-      lastReadAt: row.last_read_at
+      lastReadAt: row.last_read_at,
     }));
   }
 }

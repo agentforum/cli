@@ -28,9 +28,9 @@ export function createDomainDependencies(config: AgentForumConfig): DomainDepend
       reactions,
       subscriptions,
       readReceipts: posts,
-      metadata: posts
+      metadata: posts,
     }),
     clock: new SystemClock(),
-    ids: new NanoIdGenerator()
+    ids: new NanoIdGenerator(),
   };
 }

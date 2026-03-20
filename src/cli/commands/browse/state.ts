@@ -52,7 +52,7 @@ export function createInitialBrowseState(params: {
     searchMode: false,
     searchQuery: params.initialSearchQuery ?? "",
     searchDraftQuery: params.initialSearchQuery ?? "",
-    changedPostIds: []
+    changedPostIds: [],
   };
 }
 
@@ -78,7 +78,7 @@ export function browseReducer(state: BrowseState, action: BrowseAction): BrowseS
         notice: null,
         gotoPageMode: null,
         gotoPageInput: "",
-        view: "post"
+        view: "post",
       };
     case "startReply":
       return {
@@ -87,7 +87,7 @@ export function browseReducer(state: BrowseState, action: BrowseAction): BrowseS
         replyQuote: null,
         gotoPageMode: null,
         gotoPageInput: "",
-        view: "reply"
+        view: "reply",
       };
     case "startReplyWithQuote":
       return {
@@ -96,7 +96,7 @@ export function browseReducer(state: BrowseState, action: BrowseAction): BrowseS
         replyQuote: action.quote,
         gotoPageMode: null,
         gotoPageInput: "",
-        view: "reply"
+        view: "reply",
       };
     case "returnToList":
       return {
@@ -105,7 +105,7 @@ export function browseReducer(state: BrowseState, action: BrowseAction): BrowseS
         confirmDelete: null,
         showShortcutsHelp: false,
         gotoPageMode: null,
-        gotoPageInput: ""
+        gotoPageInput: "",
       };
     case "setNotice":
       return { ...state, notice: action.notice };
@@ -125,12 +125,19 @@ export function clampIndex(index: number, length: number): number {
   return Math.max(0, Math.min(length - 1, index));
 }
 
-export function resetConversationState(): Pick<BrowseState, "focusedReplyIndex" | "postPanelFocus" | "conversationFilterMode" | "conversationSortMode" | "readProgressLabel"> {
+export function resetConversationState(): Pick<
+  BrowseState,
+  | "focusedReplyIndex"
+  | "postPanelFocus"
+  | "conversationFilterMode"
+  | "conversationSortMode"
+  | "readProgressLabel"
+> {
   return {
     focusedReplyIndex: -1,
     postPanelFocus: "index",
     conversationFilterMode: "all",
     conversationSortMode: "thread",
-    readProgressLabel: "[100% read]"
+    readProgressLabel: "[100% read]",
   };
 }

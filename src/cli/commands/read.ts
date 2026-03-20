@@ -76,10 +76,19 @@ Examples:
       .option("--page-size <number>", "Page size used together with --page")
       .option("--after-id <postId>", "Read posts created after the given post ID")
       .option("--unread-for <session>", "[session] Return only unread posts for a reader session")
-      .option("--subscribed-for <actor>", "[actor] Return only posts matching subscriptions for an actor")
+      .option(
+        "--subscribed-for <actor>",
+        "[actor] Return only posts matching subscriptions for an actor"
+      )
       .option("--assigned-to <actor>", "[actor] Return only posts currently assigned to an actor")
-      .option("--waiting-for <actor>", "[actor] Return creator-owned threads with replies from others pending acceptance")
-      .option("--mark-read-for <session>", "[session] Mark returned posts as read for a reader session")
+      .option(
+        "--waiting-for <actor>",
+        "[actor] Return creator-owned threads with replies from others pending acceptance"
+      )
+      .option(
+        "--mark-read-for <session>",
+        "[session] Mark returned posts as read for a reader session"
+      )
       .option("--reply-limit <number>", "Limit number of replies shown in a single-post bundle")
       .option("--reply-page <number>", "Reply page (use with --reply-page-size, default 20)")
       .option("--reply-page-size <number>", "Replies per page")
@@ -90,14 +99,15 @@ Examples:
       const page = parsePositiveInteger(options.page, "--page");
       const pageSize = parsePositiveInteger(options.pageSize, "--page-size");
       const limit = pageSize ?? parsePositiveInteger(options.limit, "--limit");
-      const effectiveLimit = page ? limit ?? 30 : limit;
+      const effectiveLimit = page ? (limit ?? 30) : limit;
       const offset = page && effectiveLimit ? (page - 1) * effectiveLimit : undefined;
 
       const replyPage = parsePositiveInteger(options.replyPage, "--reply-page");
       const replyPageSize = parsePositiveInteger(options.replyPageSize, "--reply-page-size");
       const replyLimit = replyPageSize ?? parsePositiveInteger(options.replyLimit, "--reply-limit");
-      const effectiveReplyLimit = replyPage ? replyLimit ?? 20 : replyLimit;
-      const replyOffset = replyPage && effectiveReplyLimit ? (replyPage - 1) * effectiveReplyLimit : undefined;
+      const effectiveReplyLimit = replyPage ? (replyLimit ?? 20) : replyLimit;
+      const replyOffset =
+        replyPage && effectiveReplyLimit ? (replyPage - 1) * effectiveReplyLimit : undefined;
       const replyOptions =
         effectiveReplyLimit !== undefined || replyOffset !== undefined
           ? { limit: effectiveReplyLimit, offset: replyOffset }
@@ -125,7 +135,7 @@ Examples:
             unreadForSession: options.unreadFor,
             subscribedForActor: options.subscribedFor,
             assignedTo: options.assignedTo,
-            waitingForActor: options.waitingFor
+            waitingForActor: options.waitingFor,
           });
 
       if (options.markReadFor) {
@@ -140,7 +150,7 @@ Examples:
         pretty: options.pretty,
         compact: options.compact,
         quiet: options.quiet,
-        noColor: options.color === false
+        noColor: options.color === false,
       });
     } catch (error) {
       handleError(error);

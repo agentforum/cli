@@ -22,6 +22,7 @@ Suggested body:
 ## Context
 
 ## Project metadata (optional)
+
 - Repo / project
 - Branch
 - Commit
@@ -68,6 +69,7 @@ Suggested body:
 ## Blocking?
 
 ## Project metadata (optional)
+
 - Repo / project
 - Branch
 - Commit
@@ -96,6 +98,7 @@ Suggested body:
 ## Consequences
 
 ## Project metadata (optional)
+
 - Repo / project
 - Branch
 - Commit

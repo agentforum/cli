@@ -13,7 +13,7 @@ export function ListView({
   listItemRefs,
   now,
   theme,
-  displayMode
+  displayMode,
 }: {
   posts: BrowseListPost[];
   changedPostIds: string[];
@@ -29,7 +29,9 @@ export function ListView({
         <term:text fontWeight="bold" color={theme.warning}>
           No threads found.
         </term:text>
-        <term:text color={theme.muted}>Press c to change channel, u to refresh, or Tab to browse channels.</term:text>
+        <term:text color={theme.muted}>
+          Press c to change channel, u to refresh, or Tab to browse channels.
+        </term:text>
       </term:div>
     );
   }
@@ -75,7 +77,10 @@ export function ListView({
           <term:text color={selected ? theme.accent : theme.muted} whiteSpace="pre">
             {`${pointer} `}
           </term:text>
-          <term:text color={changed ? (selected ? theme.selectedFg : theme.warning) : mutedFg} whiteSpace="pre">
+          <term:text
+            color={changed ? (selected ? theme.selectedFg : theme.warning) : mutedFg}
+            whiteSpace="pre"
+          >
             {changed ? "\u25CF " : "  "}
           </term:text>
           <term:text color={statusColor} fontWeight="bold" whiteSpace="pre">
@@ -92,14 +97,24 @@ export function ListView({
         {displayMode === "compact" ? (
           <>
             <term:div flexDirection="row" marginTop={0}>
-              <term:text whiteSpace="pre" color={mutedFg}>{"     "}</term:text>
+              <term:text whiteSpace="pre" color={mutedFg}>
+                {"     "}
+              </term:text>
               <StatusBadge
                 label={post.type}
-                tone={selected ? { color: theme.selectedFg, backgroundColor: theme.muted } : getPostTypeTone(post.type)}
+                tone={
+                  selected
+                    ? { color: theme.selectedFg, backgroundColor: theme.muted }
+                    : getPostTypeTone(post.type)
+                }
               />
               <StatusBadge
                 label={post.status}
-                tone={selected ? { color: theme.selectedFg, backgroundColor: theme.muted } : getStatusTone(post.status)}
+                tone={
+                  selected
+                    ? { color: theme.selectedFg, backgroundColor: theme.muted }
+                    : getStatusTone(post.status)
+                }
               />
               {post.severity ? (
                 <term:text
@@ -124,26 +139,45 @@ export function ListView({
                 </term:text>
               ) : null}
               <term:text color={channelColor}>{`#${post.channel}`}</term:text>
-              <term:text color={mutedFg} whiteSpace="pre">{`  by ${post.actor ?? "unknown"}`}</term:text>
+              <term:text
+                color={mutedFg}
+                whiteSpace="pre"
+              >{`  by ${post.actor ?? "unknown"}`}</term:text>
               {post.assignedTo ? (
-                <term:text color={theme.accent} whiteSpace="pre">{`  -> ${post.assignedTo}`}</term:text>
+                <term:text
+                  color={theme.accent}
+                  whiteSpace="pre"
+                >{`  -> ${post.assignedTo}`}</term:text>
               ) : null}
             </term:div>
             {post.lastReplyExcerpt ? (
               <term:div flexDirection="row" whiteSpace="pre">
-                <term:text color={mutedFg} whiteSpace="pre">{"     \u2514 "}</term:text>
-                <term:text color={replyActorColor} fontWeight="bold">{post.lastReplyActor ?? "?"}</term:text>
-                <term:text color={mutedFg} whiteSpace="pre">{`: ${excerpt(sanitizeTerminalText(post.lastReplyExcerpt), 90)}`}</term:text>
+                <term:text color={mutedFg} whiteSpace="pre">
+                  {"     \u2514 "}
+                </term:text>
+                <term:text color={replyActorColor} fontWeight="bold">
+                  {post.lastReplyActor ?? "?"}
+                </term:text>
+                <term:text
+                  color={mutedFg}
+                  whiteSpace="pre"
+                >{`: ${excerpt(sanitizeTerminalText(post.lastReplyExcerpt), 90)}`}</term:text>
               </term:div>
             ) : null}
           </>
         ) : (
           <>
             <term:div flexDirection="row">
-              <term:text color={mutedFg} whiteSpace="pre">{"     state "}</term:text>
+              <term:text color={mutedFg} whiteSpace="pre">
+                {"     state "}
+              </term:text>
               <StatusBadge
                 label={post.status}
-                tone={selected ? { color: theme.selectedFg, backgroundColor: theme.muted } : getStatusTone(post.status)}
+                tone={
+                  selected
+                    ? { color: theme.selectedFg, backgroundColor: theme.muted }
+                    : getStatusTone(post.status)
+                }
               />
               {post.blocking ? (
                 <term:text
@@ -158,10 +192,16 @@ export function ListView({
               ) : null}
             </term:div>
             <term:div flexDirection="row">
-              <term:text color={mutedFg} whiteSpace="pre">{"     kind  "}</term:text>
+              <term:text color={mutedFg} whiteSpace="pre">
+                {"     kind  "}
+              </term:text>
               <StatusBadge
                 label={post.type}
-                tone={selected ? { color: theme.selectedFg, backgroundColor: theme.muted } : getPostTypeTone(post.type)}
+                tone={
+                  selected
+                    ? { color: theme.selectedFg, backgroundColor: theme.muted }
+                    : getPostTypeTone(post.type)
+                }
               />
               {post.severity ? (
                 <term:text
@@ -176,32 +216,45 @@ export function ListView({
               ) : null}
             </term:div>
             <term:div flexDirection="row">
-              <term:text color={mutedFg} whiteSpace="pre">{"     tags  "}</term:text>
+              <term:text color={mutedFg} whiteSpace="pre">
+                {"     tags  "}
+              </term:text>
               <term:text color={post.tags.length > 0 ? channelColor : mutedFg}>
                 {post.tags.length > 0 ? post.tags.map((tag) => `#${tag}`).join(" ") : "(none)"}
               </term:text>
             </term:div>
             <term:div flexDirection="row">
-              <term:text color={mutedFg} whiteSpace="pre">{"     owner "}</term:text>
+              <term:text color={mutedFg} whiteSpace="pre">
+                {"     owner "}
+              </term:text>
               <term:text color={post.assignedTo ? theme.accent : mutedFg}>
                 {post.assignedTo ?? "(unassigned)"}
               </term:text>
             </term:div>
             <term:div flexDirection="row">
-              <term:text color={mutedFg} whiteSpace="pre">{"     author "}</term:text>
-              <term:text color={fg}>
-                {post.actor ?? "unknown"}
+              <term:text color={mutedFg} whiteSpace="pre">
+                {"     author "}
               </term:text>
+              <term:text color={fg}>{post.actor ?? "unknown"}</term:text>
             </term:div>
             {post.lastReplyExcerpt ? (
               <term:div flexDirection="row">
-                <term:text color={mutedFg} whiteSpace="pre">{"     last  "}</term:text>
-                <term:text color={replyActorColor} fontWeight="bold">{post.lastReplyActor ?? "?"}</term:text>
-                <term:text color={mutedFg} whiteSpace="pre">{`: ${excerpt(sanitizeTerminalText(post.lastReplyExcerpt), 84)}`}</term:text>
+                <term:text color={mutedFg} whiteSpace="pre">
+                  {"     last  "}
+                </term:text>
+                <term:text color={replyActorColor} fontWeight="bold">
+                  {post.lastReplyActor ?? "?"}
+                </term:text>
+                <term:text
+                  color={mutedFg}
+                  whiteSpace="pre"
+                >{`: ${excerpt(sanitizeTerminalText(post.lastReplyExcerpt), 84)}`}</term:text>
               </term:div>
             ) : null}
             <term:div flexDirection="row">
-              <term:text color={mutedFg} whiteSpace="pre">{"     info  "}</term:text>
+              <term:text color={mutedFg} whiteSpace="pre">
+                {"     info  "}
+              </term:text>
               <term:text color={mutedFg}>
                 {`${post.replyCount} replies   ${post.reactionCount} reactions   #${post.channel}`}
               </term:text>

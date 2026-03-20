@@ -30,7 +30,7 @@ describe("BackupService", () => {
       type: "finding",
       title: "Backup me",
       body: "Persistent body",
-      severity: "critical"
+      severity: "critical",
     });
 
     const exportPath = `${config.backupDir}/forum-export.json`;
@@ -58,7 +58,7 @@ describe("BackupService", () => {
       type: "finding",
       title: "Keep me",
       body: "Current post",
-      severity: "warning"
+      severity: "warning",
     }).post;
     dependencies.metadata.setMeta("project", "current");
 
@@ -70,7 +70,7 @@ describe("BackupService", () => {
       actor: "claude:backend",
       session: "merge-run-001",
       idempotencyKey: "merge-imported-post",
-      createdAt: "2026-03-18T12:00:00.000Z"
+      createdAt: "2026-03-18T12:00:00.000Z",
     };
     const importPath = `${config.backupDir}/merge-import.json`;
 
@@ -89,8 +89,8 @@ describe("BackupService", () => {
               data: null,
               actor: "claude:reviewer",
               session: "merge-run-001",
-              createdAt: "2026-03-18T12:01:00.000Z"
-            }
+              createdAt: "2026-03-18T12:01:00.000Z",
+            },
           ],
           reactions: [
             {
@@ -99,14 +99,14 @@ describe("BackupService", () => {
               reaction: "confirmed",
               actor: "claude:reviewer",
               session: "merge-run-001",
-              createdAt: "2026-03-18T12:02:00.000Z"
-            }
+              createdAt: "2026-03-18T12:02:00.000Z",
+            },
           ],
           subscriptions: [],
           readReceipts: [],
           meta: {
-            project: "incoming"
-          }
+            project: "incoming",
+          },
         },
         null,
         2
@@ -121,28 +121,30 @@ describe("BackupService", () => {
     expect(report.created).toMatchObject({
       total: 2,
       posts: 1,
-      replies: 1
+      replies: 1,
     });
     expect(report.skipped).toMatchObject({
       total: 1,
-      posts: 1
+      posts: 1,
     });
     expect(report.conflicts.total).toBe(2);
     expect(report.conflicts.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           entity: "reactions",
-          key: "RX-missing"
+          key: "RX-missing",
         }),
         expect.objectContaining({
           entity: "meta",
           key: "project",
-          reason: "different metadata value already exists"
-        })
+          reason: "different metadata value already exists",
+        }),
       ])
     );
     expect(snapshot.posts).toHaveLength(2);
-    expect(snapshot.posts.map((post) => post.title)).toEqual(expect.arrayContaining(["Keep me", "Imported post"]));
+    expect(snapshot.posts.map((post) => post.title)).toEqual(
+      expect.arrayContaining(["Keep me", "Imported post"])
+    );
     expect(snapshot.replies).toHaveLength(1);
     expect(snapshot.reactions).toHaveLength(0);
     expect(snapshot.meta.project).toBe("current");
@@ -173,7 +175,9 @@ describe("BackupService", () => {
     config = createTestConfig();
     const backupService = new BackupService(config, createDomainDependencies(config));
 
-    expect(() => backupService.importFromJson(`${config.backupDir}/missing.json`)).toThrowError(/Backup file not found/);
+    expect(() => backupService.importFromJson(`${config.backupDir}/missing.json`)).toThrowError(
+      /Backup file not found/
+    );
   });
 
   it("restores the live sqlite database from a backup snapshot", () => {
@@ -186,7 +190,7 @@ describe("BackupService", () => {
       channel: "backend",
       type: "note",
       title: "Before restore",
-      body: "keep me"
+      body: "keep me",
     });
     const backupPath = backupService.createBackup();
 
@@ -194,9 +198,11 @@ describe("BackupService", () => {
       channel: "backend",
       type: "note",
       title: "After backup",
-      body: "drop me"
+      body: "drop me",
     });
-    expect(backupService.exportToJson(`${config.backupDir}/before-restore.json`).posts).toHaveLength(2);
+    expect(
+      backupService.exportToJson(`${config.backupDir}/before-restore.json`).posts
+    ).toHaveLength(2);
 
     const restored = backupService.restoreFromSqlite(backupPath);
     const snapshot = backupService.exportToJson(`${config.backupDir}/after-restore.json`);
@@ -216,13 +222,13 @@ describe("BackupService", () => {
       channel: "backend",
       type: "note",
       title: "first",
-      body: "first"
+      body: "first",
     });
     postService.createPost({
       channel: "backend",
       type: "note",
       title: "second",
-      body: "second"
+      body: "second",
     });
 
     expect(backupService.listBackups().some((path) => path.endsWith(".sqlite"))).toBe(true);

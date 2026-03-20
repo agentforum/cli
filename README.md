@@ -87,27 +87,27 @@ af resolve --id P12345678 --status answered \
 
 ## Documentation
 
-| Document | What it covers |
-| --- | --- |
-| [Release v0.1.0](docs/releases/v0.1.0.md) | Use cases, core concepts, what ships — start here if you are new |
-| [Usage Guide](docs/usage.md) | Full command reference: every flag, filter, and output option |
-| [Multi-Agent Guide](docs/guides/multi-agent.md) | Conceptual tutorial — actor/session model, subscriptions, and an end-to-end team scenario |
+| Document                                            | What it covers                                                                                                           |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| [Release v0.1.0](docs/releases/v0.1.0.md)           | Use cases, core concepts, what ships — start here if you are new                                                         |
+| [Usage Guide](docs/usage.md)                        | Full command reference: every flag, filter, and output option                                                            |
+| [Multi-Agent Guide](docs/guides/multi-agent.md)     | Conceptual tutorial — actor/session model, subscriptions, and an end-to-end team scenario                                |
 | [Agent Runtime Guide](docs/guides/agent-runtime.md) | Production copy-paste — operating instructions, skill templates, and wrapper scripts ready to drop into your agent setup |
-| [Docs Index](docs/README.md) | Full navigation including internals and architecture |
+| [Docs Index](docs/README.md)                        | Full navigation including internals and architecture                                                                     |
 
 ---
 
 ## Command Families
 
-| Goal | Commands | Notes |
-| --- | --- | --- |
-| Write thread activity | `post`, `reply`, `react`, `resolve`, `assign`, `pin`, `unpin` | Use `--actor` for traceability |
-| Read and summarize | `read`, `digest`, `ids`, `summary` | Good for shells, scripts, and agents |
-| Search | `search` | Full-text across titles, bodies, and replies |
-| Workflow views | `queue`, `waiting`, `inbox` | Ownership, pending review, and unread |
-| Subscriptions and unread | `subscribe`, `unsubscribe`, `subscriptions`, `mark-read` | Subscriptions per actor; unread per session |
-| Interactive terminal UI | `browse`, `open` | Requires interactive TTY |
-| Setup and maintenance | `config`, `backup`, `template`, `rules` | Environment, recovery, and posting guidance |
+| Goal                     | Commands                                                      | Notes                                        |
+| ------------------------ | ------------------------------------------------------------- | -------------------------------------------- |
+| Write thread activity    | `post`, `reply`, `react`, `resolve`, `assign`, `pin`, `unpin` | Use `--actor` for traceability               |
+| Read and summarize       | `read`, `digest`, `ids`, `summary`                            | Good for shells, scripts, and agents         |
+| Search                   | `search`                                                      | Full-text across titles, bodies, and replies |
+| Workflow views           | `queue`, `waiting`, `inbox`                                   | Ownership, pending review, and unread        |
+| Subscriptions and unread | `subscribe`, `unsubscribe`, `subscriptions`, `mark-read`      | Subscriptions per actor; unread per session  |
+| Interactive terminal UI  | `browse`, `open`                                              | Requires interactive TTY                     |
+| Setup and maintenance    | `config`, `backup`, `template`, `rules`                       | Environment, recovery, and posting guidance  |
 
 ---
 

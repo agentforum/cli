@@ -4,7 +4,7 @@ import {
   ALL_CHANNELS,
   CONVERSATION_FILTER_MODES,
   CONVERSATION_SORT_MODES,
-  SORT_MODES
+  SORT_MODES,
 } from "../../src/cli/commands/browse/types.js";
 import {
   buildBaseBrowseFilters,
@@ -21,7 +21,7 @@ import {
   paginateItems,
   resolveConversationSelection,
   resolvePageOffsetForId,
-  resolveSelectedIndex
+  resolveSelectedIndex,
 } from "../../src/cli/commands/browse/selectors.js";
 import { BUNDLE, POSTS, toBrowsePost } from "./browse.fixtures.js";
 
@@ -38,7 +38,7 @@ describe("browse selectors", () => {
         severity: "warning",
         type: "question",
         status: "open",
-        assignedTo: "claude:backend"
+        assignedTo: "claude:backend",
       })
     ).toEqual({
       channel: undefined,
@@ -51,7 +51,7 @@ describe("browse selectors", () => {
       unreadForSession: undefined,
       subscribedForActor: undefined,
       assignedTo: "claude:backend",
-      waitingForActor: undefined
+      waitingForActor: undefined,
     });
 
     expect(
@@ -60,7 +60,7 @@ describe("browse selectors", () => {
         type: "question",
         status: "open",
         pinned: true,
-        limit: 30
+        limit: 30,
       })
     ).toEqual({
       channel: "backend",
@@ -74,7 +74,7 @@ describe("browse selectors", () => {
       subscribedForActor: undefined,
       assignedTo: undefined,
       waitingForActor: undefined,
-      limit: 30
+      limit: 30,
     });
   });
 
@@ -90,24 +90,37 @@ describe("browse selectors", () => {
 
   it("computes last activity and sorts posts accordingly", () => {
     const withActivity = [
-      toBrowsePost({ ...POSTS[0], channel: "backend" }, { lastActivityAt: "2026-03-13T12:03:00.000Z", replyCount: 1 }),
-      toBrowsePost({ ...POSTS[1], channel: "frontend" }, { lastActivityAt: "2026-03-13T12:02:00.000Z" })
+      toBrowsePost(
+        { ...POSTS[0], channel: "backend" },
+        { lastActivityAt: "2026-03-13T12:03:00.000Z", replyCount: 1 }
+      ),
+      toBrowsePost(
+        { ...POSTS[1], channel: "frontend" },
+        { lastActivityAt: "2026-03-13T12:02:00.000Z" }
+      ),
     ];
 
     expect(
       getLastActivityAt(POSTS[0], {
         replies: [{ createdAt: "2026-03-13T12:03:00.000Z" }],
-        reactions: [{ createdAt: "2026-03-13T12:02:30.000Z" }]
+        reactions: [{ createdAt: "2026-03-13T12:02:30.000Z" }],
       })
     ).toBe("2026-03-13T12:03:00.000Z");
 
-    expect(filterAndSortPosts(withActivity, { channelFilter: ALL_CHANNELS, sortMode: "activity", limit: 10 }).items.map((post) => post.id)).toEqual([
-      "P-1",
-      "P-2"
-    ]);
-    expect(filterAndSortPosts(withActivity, { channelFilter: "frontend", sortMode: "activity", limit: 10 }).items.map((post) => post.id)).toEqual([
-      "P-2"
-    ]);
+    expect(
+      filterAndSortPosts(withActivity, {
+        channelFilter: ALL_CHANNELS,
+        sortMode: "activity",
+        limit: 10,
+      }).items.map((post) => post.id)
+    ).toEqual(["P-1", "P-2"]);
+    expect(
+      filterAndSortPosts(withActivity, {
+        channelFilter: "frontend",
+        sortMode: "activity",
+        limit: 10,
+      }).items.map((post) => post.id)
+    ).toEqual(["P-2"]);
   });
 
   it("paginateItems slices correctly and computes pagination metadata", () => {
@@ -162,7 +175,11 @@ describe("browse selectors", () => {
     const offset = resolvePageOffsetForId(items, { focusedId: "C", currentOffset: 0, limit });
     expect(offset).toBe(2);
 
-    const samePageOffset = resolvePageOffsetForId(items, { focusedId: "B", currentOffset: 0, limit });
+    const samePageOffset = resolvePageOffsetForId(items, {
+      focusedId: "B",
+      currentOffset: 0,
+      limit,
+    });
     expect(samePageOffset).toBe(0);
 
     const missingId = resolvePageOffsetForId(items, { focusedId: "Z", currentOffset: 4, limit });
@@ -171,21 +188,37 @@ describe("browse selectors", () => {
 
   it("builds channel stats and conversation items", () => {
     const browsePosts = [
-      toBrowsePost({ ...POSTS[0], channel: "backend" }, { lastActivityAt: "2026-03-13T12:03:00.000Z" }),
-      toBrowsePost({ ...POSTS[1], channel: "backend" }, { lastActivityAt: "2026-03-13T12:01:00.000Z" }),
-      toBrowsePost({ ...POSTS[0], id: "P-3", channel: "frontend" }, { lastActivityAt: "2026-03-13T12:05:00.000Z" })
+      toBrowsePost(
+        { ...POSTS[0], channel: "backend" },
+        { lastActivityAt: "2026-03-13T12:03:00.000Z" }
+      ),
+      toBrowsePost(
+        { ...POSTS[1], channel: "backend" },
+        { lastActivityAt: "2026-03-13T12:01:00.000Z" }
+      ),
+      toBrowsePost(
+        { ...POSTS[0], id: "P-3", channel: "frontend" },
+        { lastActivityAt: "2026-03-13T12:05:00.000Z" }
+      ),
     ];
 
     const stats = buildChannelStats(browsePosts);
-    expect(stats[0]).toEqual({ name: "frontend", threadCount: 1, lastActivityAt: "2026-03-13T12:05:00.000Z" });
+    expect(stats[0]).toEqual({
+      name: "frontend",
+      threadCount: 1,
+      lastActivityAt: "2026-03-13T12:05:00.000Z",
+    });
 
-    expect(buildConversationItems(BUNDLE, { filterMode: "all", sortMode: "thread" }).map((item) => item.label)).toEqual([
-      "Post original",
-      "Reply 1",
-      "Reply 2"
-    ]);
+    expect(
+      buildConversationItems(BUNDLE, { filterMode: "all", sortMode: "thread" }).map(
+        (item) => item.label
+      )
+    ).toEqual(["Post original", "Reply 1", "Reply 2"]);
 
-    const recentReplies = buildConversationItems(BUNDLE, { filterMode: "replies", sortMode: "recent" });
+    const recentReplies = buildConversationItems(BUNDLE, {
+      filterMode: "replies",
+      sortMode: "recent",
+    });
     expect(recentReplies.map((item) => item.label)).toEqual(["Reply 2", "Reply 1"]);
     expect(resolveConversationSelection(recentReplies, 1)).toBe(0);
   });

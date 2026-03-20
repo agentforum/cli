@@ -3,7 +3,16 @@ import type { Command } from "commander";
 import { createDomainDependencies } from "../../app/dependencies.js";
 import type { PostType, Severity } from "../../domain/post.js";
 import { PostService } from "../../domain/post.service.js";
-import { addOutputOptions, emit, handleError, parseData, readConfig, resolveActor, resolveChannel, normalizeTags } from "../helpers.js";
+import {
+  addOutputOptions,
+  emit,
+  handleError,
+  parseData,
+  readConfig,
+  resolveActor,
+  resolveChannel,
+  normalizeTags,
+} from "../helpers.js";
 
 interface PostOptions {
   channel?: string;
@@ -64,7 +73,7 @@ export function registerPostCommand(program: Command): void {
         blocking: options.blocking,
         pinned: options.pin,
         assignedTo: options.assign,
-        idempotencyKey: options.idempotencyKey
+        idempotencyKey: options.idempotencyKey,
       });
 
       emit(result.post, {
@@ -72,7 +81,7 @@ export function registerPostCommand(program: Command): void {
         pretty: options.pretty,
         compact: options.compact,
         quiet: options.quiet,
-        noColor: options.color === false
+        noColor: options.color === false,
       });
 
       if (result.duplicated) {

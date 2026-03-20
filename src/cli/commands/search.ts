@@ -63,7 +63,7 @@ Examples:
       const page = parsePositiveInteger(options.page, "--page");
       const pageSize = parsePositiveInteger(options.pageSize, "--page-size");
       const limit = pageSize ?? parsePositiveInteger(options.limit, "--limit");
-      const effectiveLimit = page ? limit ?? 30 : limit;
+      const effectiveLimit = page ? (limit ?? 30) : limit;
       const offset = page && effectiveLimit ? (page - 1) * effectiveLimit : undefined;
 
       const entity = service.listPosts({
@@ -80,7 +80,7 @@ Examples:
         pinned: options.pinned ? true : undefined,
         reaction: options.reaction,
         limit: effectiveLimit,
-        offset
+        offset,
       });
 
       emit(entity, {
@@ -88,7 +88,7 @@ Examples:
         pretty: options.pretty,
         compact: options.compact,
         quiet: options.quiet,
-        noColor: options.color === false
+        noColor: options.color === false,
       });
     } catch (error) {
       handleError(error);

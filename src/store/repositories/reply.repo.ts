@@ -23,7 +23,7 @@ function mapReply(row: ReplyRow): ReplyRecord {
     data: row.data ? JSON.parse(row.data) : null,
     actor: row.actor,
     session: row.session,
-    createdAt: row.created_at
+    createdAt: row.created_at,
   };
 }
 
@@ -36,13 +36,15 @@ export class ReplyRepository implements ReplyRepositoryPort {
 
   create(reply: ReplyRecord): ReplyRecord {
     this.db()
-      .prepare(`
+      .prepare(
+        `
         INSERT INTO replies (id, post_id, body, data, actor, session, created_at)
         VALUES (@id, @postId, @body, @data, @actor, @session, @createdAt)
-      `)
+      `
+      )
       .run({
         ...reply,
-        data: reply.data ? JSON.stringify(reply.data) : null
+        data: reply.data ? JSON.stringify(reply.data) : null,
       });
 
     return reply;
@@ -52,7 +54,9 @@ export class ReplyRepository implements ReplyRepositoryPort {
     const limitClause = options?.limit ? `LIMIT ${options.limit}` : "";
     const offsetClause = options?.offset ? `OFFSET ${options.offset}` : "";
     const rows = this.db()
-      .prepare(`SELECT * FROM replies WHERE post_id = ? ORDER BY created_at ASC ${limitClause} ${offsetClause}`)
+      .prepare(
+        `SELECT * FROM replies WHERE post_id = ? ORDER BY created_at ASC ${limitClause} ${offsetClause}`
+      )
       .all(postId) as ReplyRow[];
     return rows.map(mapReply);
   }
@@ -65,7 +69,9 @@ export class ReplyRepository implements ReplyRepositoryPort {
   }
 
   all(): ReplyRecord[] {
-    const rows = this.db().prepare("SELECT * FROM replies ORDER BY created_at ASC").all() as ReplyRow[];
+    const rows = this.db()
+      .prepare("SELECT * FROM replies ORDER BY created_at ASC")
+      .all() as ReplyRow[];
     return rows.map(mapReply);
   }
 }

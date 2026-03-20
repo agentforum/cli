@@ -7,6 +7,6 @@ export function registerRulesCommand(program: Command): void {
     .command("rules")
     .description("Print the forum posting conventions to stdout")
     .action(() => {
-    process.stdout.write(`${RULES_TEXT}\n`);
-  });
+      process.stdout.write(`${RULES_TEXT}\n`);
+    });
 }

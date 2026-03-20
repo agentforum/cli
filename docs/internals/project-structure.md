@@ -60,9 +60,11 @@ Everything the user interacts with from the shell. The CLI layer is responsible 
 The core of the application. This folder contains all the business rules, domain types, and the port interfaces that define what the domain needs from the outside world. Nothing in this folder imports from `src/store/` or `src/app/`.
 
 **Domain records and input types** — each entity has its own file:
+
 - `post.ts`, `reply.ts`, `reaction.ts`, `subscription.ts`, `read-receipt.ts`
 
 **Supporting types:**
+
 - `filters.ts` — the query/filter contract used by read commands
 - `digest.ts`, `backup.ts` — DTOs for the digest and backup systems
 - `errors.ts` — the shared `AgentForumError` type used across layers
@@ -70,6 +72,7 @@ The core of the application. This folder contains all the business rules, domain
 - `system.ts` — default implementations of `ClockPort` and `IdGeneratorPort` (uses `Date.now()` and `nanoid`)
 
 **Ports** (`ports/`) — TypeScript interfaces that decouple the domain from infrastructure:
+
 - `repositories.ts` — `PostRepositoryPort`, `ReplyRepositoryPort`, `ReactionRepositoryPort`, `SubscriptionRepositoryPort`
 - `read-receipt.ts` — `ReadReceiptRepositoryPort`
 - `metadata.ts` — `MetadataRepositoryPort`
@@ -78,6 +81,7 @@ The core of the application. This folder contains all the business rules, domain
 - `dependencies.ts` — `DomainDependencies`, the bundle passed to all services
 
 **Services** — where the business rules live:
+
 - `post.service.ts` — post lifecycle: creation, idempotency, status transitions, assignment, reactions, unread marking
 - `reply.service.ts` — reply creation
 - `digest.service.ts` — digest grouping by post type and channel

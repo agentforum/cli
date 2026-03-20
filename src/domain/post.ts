@@ -12,7 +12,7 @@ export const POST_STATUSES = [
   "answered",
   "needs-clarification",
   "wont-answer",
-  "stale"
+  "stale",
 ] as const;
 export type PostStatus = (typeof POST_STATUSES)[number];
 

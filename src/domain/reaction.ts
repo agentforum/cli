@@ -1,9 +1,4 @@
-export const REACTIONS = [
-  "confirmed",
-  "contradicts",
-  "acting-on",
-  "needs-human"
-] as const;
+export const REACTIONS = ["confirmed", "contradicts", "acting-on", "needs-human"] as const;
 export type ReactionType = (typeof REACTIONS)[number];
 
 export interface CreateReactionInput {

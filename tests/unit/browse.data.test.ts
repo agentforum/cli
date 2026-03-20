@@ -11,7 +11,7 @@ describe("browse data adapter", () => {
       replyCount: 2,
       reactionCount: 0,
       lastReplyExcerpt: "Second reply body with extra details",
-      lastReplyActor: "claude:frontend"
+      lastReplyActor: "claude:frontend",
     });
     expect(row.replyCount).toBe(2);
     expect(row.lastReplyExcerpt).toContain("Second reply body");
@@ -19,15 +19,16 @@ describe("browse data adapter", () => {
 
   it("refreshes visible browse data and preserves bundle when available", () => {
     const postService = {
-      listPostSummaries: () => POSTS.map((post, index) => ({
-        ...post,
-        lastActivityAt: index === 0 ? "2026-03-13T12:00:00.000Z" : "2026-03-13T12:01:00.000Z",
-        replyCount: 0,
-        reactionCount: 0,
-        lastReplyExcerpt: null,
-        lastReplyActor: null
-      })),
-      getPost: () => BUNDLE
+      listPostSummaries: () =>
+        POSTS.map((post, index) => ({
+          ...post,
+          lastActivityAt: index === 0 ? "2026-03-13T12:00:00.000Z" : "2026-03-13T12:01:00.000Z",
+          replyCount: 0,
+          reactionCount: 0,
+          lastReplyExcerpt: null,
+          lastReplyActor: null,
+        })),
+      getPost: () => BUNDLE,
     } as never;
 
     const result = refreshBrowseData({
@@ -40,7 +41,7 @@ describe("browse data adapter", () => {
       currentIndex: 0,
       currentRawPosts: [],
       currentBundle: BUNDLE,
-      focusedId: "P-1"
+      focusedId: "P-1",
     });
 
     expect(result.rawPosts).toHaveLength(2);
@@ -58,10 +59,10 @@ describe("browse data adapter", () => {
           replyCount: 2,
           reactionCount: 0,
           lastReplyExcerpt: "Latest",
-          lastReplyActor: "claude:frontend"
-        }
+          lastReplyActor: "claude:frontend",
+        },
       ],
-      getPost: () => BUNDLE
+      getPost: () => BUNDLE,
     } as never;
 
     const result = refreshBrowseData({
@@ -79,11 +80,11 @@ describe("browse data adapter", () => {
           replyCount: 1,
           reactionCount: 0,
           lastReplyExcerpt: "Older",
-          lastReplyActor: "claude:backend"
-        }
+          lastReplyActor: "claude:backend",
+        },
       ],
       currentBundle: BUNDLE,
-      focusedId: "P-1"
+      focusedId: "P-1",
     });
 
     expect(result.changedPostIds).toEqual(["P-1"]);

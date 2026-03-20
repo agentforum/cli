@@ -1,5 +1,11 @@
 import type { PostFilters } from "../../../domain/filters.js";
-import type { PostRecord, PostStatus, PostType, ReadPostBundle, Severity } from "../../../domain/types.js";
+import type {
+  PostRecord,
+  PostStatus,
+  PostType,
+  ReadPostBundle,
+  Severity,
+} from "../../../domain/types.js";
 import type {
   BrowseListPost,
   BrowseSortMode,
@@ -7,11 +13,15 @@ import type {
   ConversationFilterMode,
   ConversationItem,
   ConversationSortMode,
-  PaginatedItems
+  PaginatedItems,
 } from "./types.js";
 import { ALL_CHANNELS } from "./types.js";
 
-export function resolveSelectedIndex(posts: PostRecord[], currentIndex: number, focusedId?: string): number {
+export function resolveSelectedIndex(
+  posts: PostRecord[],
+  currentIndex: number,
+  focusedId?: string
+): number {
   if (posts.length === 0) {
     return 0;
   }
@@ -52,7 +62,7 @@ export function buildBrowseFilters(options: {
     subscribedForActor: options.subscribedForActor,
     assignedTo: options.assignedTo,
     waitingForActor: options.waitingForActor,
-    limit: options.limit
+    limit: options.limit,
   };
 }
 
@@ -78,7 +88,7 @@ export function buildBaseBrowseFilters(options: {
     unreadForSession: options.unreadForSession,
     subscribedForActor: options.subscribedForActor,
     assignedTo: options.assignedTo,
-    waitingForActor: options.waitingForActor
+    waitingForActor: options.waitingForActor,
   };
 }
 
@@ -101,13 +111,15 @@ export function buildChannelStats(posts: BrowseListPost[]): ChannelStats[] {
     .map(([name, { count, lastActivity }]) => ({
       name,
       threadCount: count,
-      lastActivityAt: lastActivity
+      lastActivityAt: lastActivity,
     }))
     .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
 }
 
 export function listChannels(posts: PostRecord[]): string[] {
-  return [...new Set(posts.map((post) => post.channel))].sort((left, right) => left.localeCompare(right));
+  return [...new Set(posts.map((post) => post.channel))].sort((left, right) =>
+    left.localeCompare(right)
+  );
 }
 
 export function nextValue<T>(values: readonly T[], current: T): T {
@@ -127,12 +139,18 @@ export function filterAndSortPosts(
   posts: BrowseListPost[],
   options: { channelFilter: string; sortMode: BrowseSortMode; limit: number; offset?: number }
 ): PaginatedItems<BrowseListPost> {
-  const filtered = options.channelFilter === ALL_CHANNELS ? posts : posts.filter((post) => post.channel === options.channelFilter);
+  const filtered =
+    options.channelFilter === ALL_CHANNELS
+      ? posts
+      : posts.filter((post) => post.channel === options.channelFilter);
   const sorted = [...filtered].sort((left, right) => comparePosts(left, right, options.sortMode));
   return paginateItems(sorted, { limit: options.limit, offset: options.offset ?? 0 });
 }
 
-export function paginateItems<T>(items: T[], options: { limit: number; offset?: number }): PaginatedItems<T> {
+export function paginateItems<T>(
+  items: T[],
+  options: { limit: number; offset?: number }
+): PaginatedItems<T> {
   const totalCount = items.length;
   const safeLimit = Math.max(1, options.limit);
   const totalPages = Math.max(1, Math.ceil(totalCount / safeLimit));
@@ -149,7 +167,7 @@ export function paginateItems<T>(items: T[], options: { limit: number; offset?: 
     page,
     offset: Math.min(offset, maxOffset),
     rangeStart,
-    rangeEnd
+    rangeEnd,
   };
 }
 
@@ -184,7 +202,11 @@ export function resolvePageOffsetForId<T extends { id: string }>(
     return clampOffset(options.currentOffset, items.length, options.limit);
   }
 
-  return clampOffset(offsetForPage(Math.floor(focusedIndex / Math.max(1, options.limit)) + 1, options.limit), items.length, options.limit);
+  return clampOffset(
+    offsetForPage(Math.floor(focusedIndex / Math.max(1, options.limit)) + 1, options.limit),
+    items.length,
+    options.limit
+  );
 }
 
 export function buildConversationItems(
@@ -199,7 +221,7 @@ export function buildConversationItems(
     session: bundle.post.session,
     createdAt: bundle.post.createdAt,
     body: bundle.post.body,
-    replyIndex: -1
+    replyIndex: -1,
   };
   const replyItems: ConversationItem[] = bundle.replies.map((reply, index) => ({
     id: reply.id,
@@ -209,23 +231,30 @@ export function buildConversationItems(
     session: reply.session,
     createdAt: reply.createdAt,
     body: reply.body,
-    replyIndex: index
+    replyIndex: index,
   }));
 
-  let items = options.filterMode === "original"
-    ? [postItem]
-    : options.filterMode === "replies"
-      ? replyItems
-      : [postItem, ...replyItems];
+  let items =
+    options.filterMode === "original"
+      ? [postItem]
+      : options.filterMode === "replies"
+        ? replyItems
+        : [postItem, ...replyItems];
 
   if (options.sortMode === "recent") {
-    items = [...items].sort((left, right) => right.createdAt.localeCompare(left.createdAt) || left.replyIndex - right.replyIndex);
+    items = [...items].sort(
+      (left, right) =>
+        right.createdAt.localeCompare(left.createdAt) || left.replyIndex - right.replyIndex
+    );
   }
 
   return items;
 }
 
-export function resolveConversationSelection(items: ConversationItem[], focusedReplyIndex: number): number {
+export function resolveConversationSelection(
+  items: ConversationItem[],
+  focusedReplyIndex: number
+): number {
   if (items.length === 0) {
     return 0;
   }
@@ -234,17 +263,24 @@ export function resolveConversationSelection(items: ConversationItem[], focusedR
   return index >= 0 ? index : 0;
 }
 
-export function getLastActivityAt(post: PostRecord, bundle?: { replies: Array<{ createdAt: string }>; reactions: Array<{ createdAt: string }> }): string {
+export function getLastActivityAt(
+  post: PostRecord,
+  bundle?: { replies: Array<{ createdAt: string }>; reactions: Array<{ createdAt: string }> }
+): string {
   const timestamps = [
     post.createdAt,
     ...(bundle?.replies.map((reply) => reply.createdAt) ?? []),
-    ...(bundle?.reactions.map((reaction) => reaction.createdAt) ?? [])
+    ...(bundle?.reactions.map((reaction) => reaction.createdAt) ?? []),
   ];
 
   return timestamps.sort((left, right) => right.localeCompare(left))[0] ?? post.createdAt;
 }
 
-function comparePosts(left: BrowseListPost, right: BrowseListPost, sortMode: BrowseSortMode): number {
+function comparePosts(
+  left: BrowseListPost,
+  right: BrowseListPost,
+  sortMode: BrowseSortMode
+): number {
   if (left.pinned !== right.pinned) {
     return left.pinned ? -1 : 1;
   }
@@ -254,14 +290,22 @@ function comparePosts(left: BrowseListPost, right: BrowseListPost, sortMode: Bro
   }
 
   if (sortMode === "channel") {
-    return compareText(left.channel, right.channel) || compareText(left.title, right.title) || right.createdAt.localeCompare(left.createdAt);
+    return (
+      compareText(left.channel, right.channel) ||
+      compareText(left.title, right.title) ||
+      right.createdAt.localeCompare(left.createdAt)
+    );
   }
 
   if (sortMode === "recent") {
     return right.createdAt.localeCompare(left.createdAt) || compareText(left.title, right.title);
   }
 
-  return right.lastActivityAt.localeCompare(left.lastActivityAt) || right.createdAt.localeCompare(left.createdAt) || compareText(left.title, right.title);
+  return (
+    right.lastActivityAt.localeCompare(left.lastActivityAt) ||
+    right.createdAt.localeCompare(left.createdAt) ||
+    compareText(left.title, right.title)
+  );
 }
 
 function compareText(left: string, right: string): number {

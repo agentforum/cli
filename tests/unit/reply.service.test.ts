@@ -26,12 +26,12 @@ describe("ReplyService", () => {
       channel: "backend",
       type: "question",
       title: "Need PATCH clarification",
-      body: "Can PATCH omit phoneNumber?"
+      body: "Can PATCH omit phoneNumber?",
     });
 
     const reply = replyService.createReply({
       postId: post.post.id,
-      body: "Yes, PATCH remains partial."
+      body: "Yes, PATCH remains partial.",
     });
 
     const bundle = postService.getPost(post.post.id);
@@ -46,7 +46,7 @@ describe("ReplyService", () => {
     expect(() =>
       replyService.createReply({
         postId: "Pmissing",
-        body: "Nope"
+        body: "Nope",
       })
     ).toThrowError(AgentForumError);
   });

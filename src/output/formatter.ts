@@ -44,7 +44,9 @@ export function formatEntity(entity: unknown, options: OutputOptions = {}): stri
   }
 
   if (isImportReport(entity)) {
-    return mode === "compact" ? formatImportReportCompact(entity) : formatImportReportPretty(entity, options);
+    return mode === "compact"
+      ? formatImportReportCompact(entity)
+      : formatImportReportPretty(entity, options);
   }
 
   if (isDigest(entity)) {
@@ -56,7 +58,9 @@ export function formatEntity(entity: unknown, options: OutputOptions = {}): stri
   }
 
   if (Array.isArray(entity) && entity.every(isPost)) {
-    return mode === "compact" ? formatPostListCompact(entity) : formatPostListPretty(entity, options);
+    return mode === "compact"
+      ? formatPostListCompact(entity)
+      : formatPostListPretty(entity, options);
   }
 
   if (isPost(entity)) {
@@ -91,7 +95,7 @@ function formatPostPretty(post: PostRecord, options: OutputOptions): string {
     post.body,
     `channel=${post.channel} status=${post.status}${post.blocking ? " blocking=true" : ""}${post.pinned ? " pinned=true" : ""}`,
     `actor=${post.actor ?? "unknown"} session=${post.session ?? "-"} assignedTo=${post.assignedTo ?? "-"}`,
-    `tags=${post.tags.join(", ") || "-"} createdAt=${post.createdAt}`
+    `tags=${post.tags.join(", ") || "-"} createdAt=${post.createdAt}`,
   ];
 
   if (post.data) {
@@ -104,7 +108,16 @@ function formatPostPretty(post: PostRecord, options: OutputOptions): string {
 function formatPostListPretty(posts: PostRecord[], options: OutputOptions): string {
   const c = getChalk(options.noColor);
   const table = new Table({
-    head: [c.bold("ID"), c.bold("Type"), c.bold("Severity"), c.bold("Channel"), c.bold("Title"), c.bold("Actor"), c.bold("Assigned"), c.bold("Session")]
+    head: [
+      c.bold("ID"),
+      c.bold("Type"),
+      c.bold("Severity"),
+      c.bold("Channel"),
+      c.bold("Title"),
+      c.bold("Actor"),
+      c.bold("Assigned"),
+      c.bold("Session"),
+    ],
   });
 
   for (const post of posts) {
@@ -116,7 +129,7 @@ function formatPostListPretty(posts: PostRecord[], options: OutputOptions): stri
       post.title,
       post.actor ?? "unknown",
       post.assignedTo ?? "-",
-      post.session ?? "-"
+      post.session ?? "-",
     ]);
   }
 
@@ -152,7 +165,9 @@ function formatBundlePretty(bundle: ReadPostBundle, options: OutputOptions): str
 
 function formatDigestPretty(digest: DigestResult, options: OutputOptions): string {
   const c = getChalk(options.noColor);
-  const lines = [`${c.bold("DIGEST")} ${digest.channel ? `(${digest.channel})` : "(all channels)"} ${digest.generatedAt}`];
+  const lines = [
+    `${c.bold("DIGEST")} ${digest.channel ? `(${digest.channel})` : "(all channels)"} ${digest.generatedAt}`,
+  ];
 
   appendSection(lines, c.bold("Pinned"), digest.pinned);
   appendSection(lines, c.bold("Findings"), digest.findings);
@@ -208,7 +223,10 @@ function groupLabel(group: DigestResult["pinned"]): string {
 
 function appendSection(lines: string[], title: string, group: DigestResult["pinned"]): void {
   lines.push("");
-  const label = group.summary.shown < group.summary.total ? ` (${group.summary.shown} of ${group.summary.total})` : "";
+  const label =
+    group.summary.shown < group.summary.total
+      ? ` (${group.summary.shown} of ${group.summary.total})`
+      : "";
   lines.push(`${title}${label}:`);
   if (group.items.length === 0) {
     lines.push("- none");
@@ -226,7 +244,7 @@ function formatCompactLine(post: PostRecord): string {
     post.actor,
     post.assignedTo ? `owner:${post.assignedTo}` : null,
     post.session ? `session:${post.session}` : null,
-    projectMetadataHint(post)
+    projectMetadataHint(post),
   ]
     .filter(Boolean)
     .join(" • ");
@@ -304,30 +322,46 @@ function formatCountParts(counts: BackupImportReport["created"]): string[] {
     ["reactions", "reactions"],
     ["subscriptions", "subscriptions"],
     ["readReceipts", "readReceipts"],
-    ["meta", "meta"]
+    ["meta", "meta"],
   ];
   return fields.filter(([key]) => counts[key] > 0).map(([key, label]) => `${label}=${counts[key]}`);
 }
 
 function isImportReport(value: unknown): value is BackupImportReport {
-  return Boolean(value && typeof value === "object" && "mode" in value && (value as { mode: unknown }).mode === "merge" && "created" in value && "skipped" in value && "conflicts" in value);
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "mode" in value &&
+    (value as { mode: unknown }).mode === "merge" &&
+    "created" in value &&
+    "skipped" in value &&
+    "conflicts" in value
+  );
 }
 
 function isPost(value: unknown): value is PostRecord {
-  return Boolean(value && typeof value === "object" && "id" in value && "type" in value && "title" in value);
+  return Boolean(
+    value && typeof value === "object" && "id" in value && "type" in value && "title" in value
+  );
 }
 
 function isBundle(value: unknown): value is ReadPostBundle {
-  return Boolean(value && typeof value === "object" && "post" in value && "replies" in value && "reactions" in value);
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "post" in value &&
+    "replies" in value &&
+    "reactions" in value
+  );
 }
 
 function isDigest(value: unknown): value is DigestResult {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      "generatedAt" in value &&
-      "pinned" in value &&
-      "findings" in value &&
-      "questions" in value
+    typeof value === "object" &&
+    "generatedAt" in value &&
+    "pinned" in value &&
+    "findings" in value &&
+    "questions" in value
   );
 }

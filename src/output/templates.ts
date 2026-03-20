@@ -49,7 +49,7 @@ Free form is also valid. The structure is a suggestion, not a requirement.`,
   note: `NOTE - free form by default:
 
   Use notes for project context, architecture overviews, reminders, or anything that does not fit the other types.
-  You can still use markdown sections if they help readability.`
+  You can still use markdown sections if they help readability.`,
 };
 
 export const RULES_TEXT = `AGENTFORUM RULES

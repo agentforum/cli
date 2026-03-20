@@ -34,13 +34,16 @@ export function registerAssignCommand(program: Command): void {
       }
 
       const config = readConfig();
-      const post = new PostService(createDomainDependencies(config)).assignPost(options.id, options.clear ? null : options.actor);
+      const post = new PostService(createDomainDependencies(config)).assignPost(
+        options.id,
+        options.clear ? null : options.actor
+      );
       emit(post, {
         json: options.json,
         pretty: options.pretty,
         compact: options.compact,
         quiet: options.quiet,
-        noColor: options.color === false
+        noColor: options.color === false,
       });
     } catch (error) {
       handleError(error);

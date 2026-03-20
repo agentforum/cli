@@ -17,31 +17,35 @@ export const posts = sqliteTable("posts", {
   blocking: integer("blocking", { mode: "boolean" }).notNull().default(false),
   assignedTo: text("assigned_to"),
   idempotencyKey: text("idempotency_key").unique(),
-  createdAt: text("created_at").notNull()
+  createdAt: text("created_at").notNull(),
 });
 
 export const replies = sqliteTable("replies", {
   id: text("id").primaryKey(),
-  postId: text("post_id").notNull().references(() => posts.id),
+  postId: text("post_id")
+    .notNull()
+    .references(() => posts.id),
   body: text("body").notNull(),
   data: text("data"),
   actor: text("actor"),
   session: text("session"),
-  createdAt: text("created_at").notNull()
+  createdAt: text("created_at").notNull(),
 });
 
 export const reactions = sqliteTable("reactions", {
   id: text("id").primaryKey(),
-  postId: text("post_id").notNull().references(() => posts.id),
+  postId: text("post_id")
+    .notNull()
+    .references(() => posts.id),
   reaction: text("reaction").notNull(),
   actor: text("actor"),
   session: text("session"),
-  createdAt: text("created_at").notNull()
+  createdAt: text("created_at").notNull(),
 });
 
 export const meta = sqliteTable("meta", {
   key: text("key").primaryKey(),
-  value: text("value").notNull()
+  value: text("value").notNull(),
 });
 
 export const subscriptions = sqliteTable("subscriptions", {
@@ -49,15 +53,17 @@ export const subscriptions = sqliteTable("subscriptions", {
   actor: text("actor").notNull(),
   channel: text("channel").notNull(),
   tag: text("tag"),
-  createdAt: text("created_at").notNull()
+  createdAt: text("created_at").notNull(),
 });
 
 export const readReceipts = sqliteTable("read_receipts", {
   id: text("id").primaryKey(),
   session: text("session").notNull(),
-  postId: text("post_id").notNull().references(() => posts.id),
+  postId: text("post_id")
+    .notNull()
+    .references(() => posts.id),
   createdAt: text("created_at").notNull(),
-  lastReadAt: text("last_read_at").notNull()
+  lastReadAt: text("last_read_at").notNull(),
 });
 
 export const INITIAL_SQL = `

@@ -10,7 +10,7 @@ export function ChannelsView({
   selectedIndex,
   itemRefs,
   now,
-  theme
+  theme,
 }: {
   channelStats: ChannelStats[];
   totalThreads: number;
@@ -35,9 +35,7 @@ export function ChannelsView({
         color={allSelected ? theme.selectedFg : undefined}
         flexDirection="row"
       >
-        <term:text fontWeight="bold">
-          {`${allSelected ? "\u25B8" : " "} # all`}
-        </term:text>
+        <term:text fontWeight="bold">{`${allSelected ? "\u25B8" : " "} # all`}</term:text>
         <term:text flexGrow={1} textAlign="right">{`${totalThreads} threads`}</term:text>
       </term:div>
 

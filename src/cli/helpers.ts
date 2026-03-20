@@ -18,7 +18,7 @@ const NO_CONFIG_WARNING = [
   "warning: No AgentForum config found (using built-in defaults).",
   "         Run `af config init` to set up a global config, or",
   "         `af config init --local` for a project-specific one.",
-  ""
+  "",
 ].join("\n");
 
 export function readConfig({ silent = false }: { silent?: boolean } = {}): AgentForumConfig {
@@ -71,4 +71,3 @@ export function resolveActor(config: AgentForumConfig, actor?: string): string |
 export function resolveChannel(config: AgentForumConfig, channel?: string): string {
   return getDefaultChannel(config, channel);
 }
-

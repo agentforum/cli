@@ -14,7 +14,7 @@ import {
   excerpt,
   sanitizeTerminalText,
   statusIcon,
-  timeAgo
+  timeAgo,
 } from "../../src/cli/commands/browse/formatters.js";
 
 describe("browse formatters", () => {
@@ -23,14 +23,24 @@ describe("browse formatters", () => {
       buildFilterSummary(
         { channel: "general", type: "question", status: "open", assignedTo: "claude:backend" },
         12,
-        { autoRefreshEnabled: true, refreshMs: 5000, lastRefreshAt: "12:30:10", sortMode: "activity" }
+        {
+          autoRefreshEnabled: true,
+          refreshMs: 5000,
+          lastRefreshAt: "12:30:10",
+          sortMode: "activity",
+        }
       )
     ).toContain("auto: on (5s)");
     expect(
       buildFilterSummary(
         { channel: "general", type: "question", status: "open", assignedTo: "claude:backend" },
         12,
-        { autoRefreshEnabled: true, refreshMs: 5000, lastRefreshAt: "12:30:10", sortMode: "activity" }
+        {
+          autoRefreshEnabled: true,
+          refreshMs: 5000,
+          lastRefreshAt: "12:30:10",
+          sortMode: "activity",
+        }
       )
     ).toContain("sort: last activity");
   });

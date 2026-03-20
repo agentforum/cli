@@ -7,7 +7,7 @@ export function SearchBar({
   theme,
   inputRef,
   value,
-  onChange
+  onChange,
 }: {
   theme: BrowseTheme;
   inputRef: React.MutableRefObject<TermInput | null>;

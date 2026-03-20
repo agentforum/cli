@@ -12,7 +12,7 @@ export const THEMES: BrowseTheme[] = [
     selected: "blue",
     selectedFg: "white",
     success: "green",
-    warning: "yellow"
+    warning: "yellow",
   },
   {
     name: "green",
@@ -24,7 +24,7 @@ export const THEMES: BrowseTheme[] = [
     selected: "#005500",
     selectedFg: "#00ff88",
     success: "#00ff88",
-    warning: "yellow"
+    warning: "yellow",
   },
   {
     name: "ocean",
@@ -36,7 +36,7 @@ export const THEMES: BrowseTheme[] = [
     selected: "#223366",
     selectedFg: "#ffffff",
     success: "#44cc88",
-    warning: "#ffaa44"
+    warning: "#ffaa44",
   },
   {
     name: "amber",
@@ -48,7 +48,7 @@ export const THEMES: BrowseTheme[] = [
     selected: "#443300",
     selectedFg: "#ffee88",
     success: "#ffcc44",
-    warning: "#ff8800"
+    warning: "#ff8800",
   },
   {
     name: "pink",
@@ -60,8 +60,8 @@ export const THEMES: BrowseTheme[] = [
     selected: "#442233",
     selectedFg: "#ffddee",
     success: "#66ff99",
-    warning: "#ffcc66"
-  }
+    warning: "#ffcc66",
+  },
 ];
 
 export function severityColor(severity: Severity): string {

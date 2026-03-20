@@ -22,7 +22,7 @@ export class SubscriptionService {
             actor,
             channel,
             tag,
-            createdAt
+            createdAt,
           }))
         : [
             {
@@ -30,8 +30,8 @@ export class SubscriptionService {
               actor,
               channel,
               tag: null,
-              createdAt
-            }
+              createdAt,
+            },
           ];
 
     const result = this.dependencies.subscriptions.createMany(records);

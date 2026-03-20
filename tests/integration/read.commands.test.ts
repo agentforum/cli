@@ -19,7 +19,18 @@ describe("read command", () => {
     const workspace = writeWorkspaceConfig(config);
 
     const created = await runCli(
-      ["post", "--channel", "backend", "--type", "question", "--title", "PATCH?", "--body", "Can PATCH omit phoneNumber?", "--json"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "PATCH?",
+        "--body",
+        "Can PATCH omit phoneNumber?",
+        "--json",
+      ],
       workspace
     );
     const post = JSON.parse(created.stdout) as { id: string };
@@ -28,7 +39,7 @@ describe("read command", () => {
 
     const result = await runCli(["read", "--id", post.id, "--json"], workspace);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("\"replies\"");
+    expect(result.stdout).toContain('"replies"');
     expect(result.stdout).toContain("Yes, PATCH remains partial.");
   });
 
@@ -36,12 +47,28 @@ describe("read command", () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
 
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "BE", "--body", "Backend note"], workspace);
-    await runCli(["post", "--channel", "frontend", "--type", "note", "--title", "FE", "--body", "Frontend note"], workspace);
+    await runCli(
+      ["post", "--channel", "backend", "--type", "note", "--title", "BE", "--body", "Backend note"],
+      workspace
+    );
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "frontend",
+        "--type",
+        "note",
+        "--title",
+        "FE",
+        "--body",
+        "Frontend note",
+      ],
+      workspace
+    );
 
     const result = await runCli(["read", "--channel", "backend", "--json"], workspace);
-    expect(result.stdout).toContain("\"channel\": \"backend\"");
-    expect(result.stdout).not.toContain("\"channel\": \"frontend\"");
+    expect(result.stdout).toContain('"channel": "backend"');
+    expect(result.stdout).not.toContain('"channel": "frontend"');
   });
 
   it("filters posts by assigned owner", async () => {
@@ -49,10 +76,35 @@ describe("read command", () => {
     const workspace = writeWorkspaceConfig(config);
 
     await runCli(
-      ["post", "--channel", "backend", "--type", "question", "--title", "Assigned", "--body", "body", "--assign", "claude:backend"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "Assigned",
+        "--body",
+        "body",
+        "--assign",
+        "claude:backend",
+      ],
       workspace
     );
-    await runCli(["post", "--channel", "backend", "--type", "question", "--title", "Unassigned", "--body", "body"], workspace);
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "Unassigned",
+        "--body",
+        "body",
+      ],
+      workspace
+    );
 
     const result = await runCli(["read", "--assigned-to", "claude:backend", "--json"], workspace);
 
@@ -64,8 +116,34 @@ describe("read command", () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
 
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "oauth details", "--body", "Spec section 3.2"], workspace);
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "Unrelated", "--body", "No match here"], workspace);
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "oauth details",
+        "--body",
+        "Spec section 3.2",
+      ],
+      workspace
+    );
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Unrelated",
+        "--body",
+        "No match here",
+      ],
+      workspace
+    );
 
     const result = await runCli(["read", "--text", "oauth", "--json"], workspace);
 
@@ -80,14 +158,42 @@ describe("read command", () => {
     const workspace = writeWorkspaceConfig(config);
 
     const created = await runCli(
-      ["post", "--channel", "backend", "--type", "question", "--title", "Has reply", "--body", "body", "--json"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "Has reply",
+        "--body",
+        "body",
+        "--json",
+      ],
       workspace
     );
     const post = JSON.parse(created.stdout) as { id: string };
-    await runCli(["reply", "--post", post.id, "--body", "Reply from specialist", "--actor", "claude:specialist"], workspace);
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "No reply", "--body", "body"], workspace);
+    await runCli(
+      [
+        "reply",
+        "--post",
+        post.id,
+        "--body",
+        "Reply from specialist",
+        "--actor",
+        "claude:specialist",
+      ],
+      workspace
+    );
+    await runCli(
+      ["post", "--channel", "backend", "--type", "note", "--title", "No reply", "--body", "body"],
+      workspace
+    );
 
-    const result = await runCli(["read", "--reply-actor", "claude:specialist", "--json"], workspace);
+    const result = await runCli(
+      ["read", "--reply-actor", "claude:specialist", "--json"],
+      workspace
+    );
 
     expect(result.exitCode).toBe(0);
     const posts = JSON.parse(result.stdout) as Array<{ title: string }>;
@@ -99,7 +205,10 @@ describe("read command", () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
 
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "Old post", "--body", "body"], workspace);
+    await runCli(
+      ["post", "--channel", "backend", "--type", "note", "--title", "Old post", "--body", "body"],
+      workspace
+    );
 
     const cutoff = new Date(Date.now() + 86400 * 1000).toISOString();
     const result = await runCli(["read", "--until", cutoff, "--json"], workspace);
@@ -114,11 +223,30 @@ describe("read command", () => {
     const workspace = writeWorkspaceConfig(config);
 
     for (let i = 1; i <= 5; i++) {
-      await runCli(["post", "--channel", "backend", "--type", "note", "--title", `Post ${i}`, "--body", "body"], workspace);
+      await runCli(
+        [
+          "post",
+          "--channel",
+          "backend",
+          "--type",
+          "note",
+          "--title",
+          `Post ${i}`,
+          "--body",
+          "body",
+        ],
+        workspace
+      );
     }
 
-    const page1 = await runCli(["read", "--channel", "backend", "--page", "1", "--page-size", "2", "--json"], workspace);
-    const page2 = await runCli(["read", "--channel", "backend", "--page", "2", "--page-size", "2", "--json"], workspace);
+    const page1 = await runCli(
+      ["read", "--channel", "backend", "--page", "1", "--page-size", "2", "--json"],
+      workspace
+    );
+    const page2 = await runCli(
+      ["read", "--channel", "backend", "--page", "2", "--page-size", "2", "--json"],
+      workspace
+    );
 
     const p1 = JSON.parse(page1.stdout) as Array<{ title: string }>;
     const p2 = JSON.parse(page2.stdout) as Array<{ title: string }>;
@@ -134,12 +262,36 @@ describe("read command", () => {
     const workspace = writeWorkspaceConfig(config);
 
     const created = await runCli(
-      ["post", "--channel", "backend", "--type", "question", "--title", "Blank title", "--body", "Blank body", "--json"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "Blank title",
+        "--body",
+        "Blank body",
+        "--json",
+      ],
       workspace
     );
     const post = JSON.parse(created.stdout) as { id: string };
     await runCli(["reply", "--post", post.id, "--body", "xyzzy_unique_term in reply"], workspace);
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "No match", "--body", "no match here"], workspace);
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "No match",
+        "--body",
+        "no match here",
+      ],
+      workspace
+    );
 
     const result = await runCli(["read", "--text", "xyzzy_unique_term", "--json"], workspace);
 
@@ -154,12 +306,36 @@ describe("read command", () => {
     const workspace = writeWorkspaceConfig(config);
 
     const created = await runCli(
-      ["post", "--channel", "backend", "--type", "question", "--title", "Needs confirmation", "--body", "body", "--json"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "Needs confirmation",
+        "--body",
+        "body",
+        "--json",
+      ],
       workspace
     );
     const post = JSON.parse(created.stdout) as { id: string };
     await runCli(["react", "--id", post.id, "--reaction", "confirmed"], workspace);
-    await runCli(["post", "--channel", "backend", "--type", "question", "--title", "No reaction", "--body", "body"], workspace);
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "No reaction",
+        "--body",
+        "body",
+      ],
+      workspace
+    );
 
     const result = await runCli(["read", "--reaction", "confirmed", "--json"], workspace);
 
@@ -172,15 +348,46 @@ describe("read command", () => {
     const workspace = writeWorkspaceConfig(config);
 
     await runCli(
-      ["post", "--channel", "backend", "--type", "note", "--title", "Owned session", "--body", "body", "--actor", "claude:backend", "--session", "be-run-123"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Owned session",
+        "--body",
+        "body",
+        "--actor",
+        "claude:backend",
+        "--session",
+        "be-run-123",
+      ],
       workspace
     );
     await runCli(
-      ["post", "--channel", "backend", "--type", "note", "--title", "Different author", "--body", "body", "--actor", "claude:frontend", "--session", "fe-run-123"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Different author",
+        "--body",
+        "body",
+        "--actor",
+        "claude:frontend",
+        "--session",
+        "fe-run-123",
+      ],
       workspace
     );
 
-    const result = await runCli(["read", "--actor", "claude:backend", "--session", "be-run-123", "--json"], workspace);
+    const result = await runCli(
+      ["read", "--actor", "claude:backend", "--session", "be-run-123", "--json"],
+      workspace
+    );
 
     expect(result.stdout).toContain("Owned session");
     expect(result.stdout).not.toContain("Different author");
@@ -191,19 +398,58 @@ describe("read command", () => {
     const workspace = writeWorkspaceConfig(config);
 
     await runCli(
-      ["post", "--channel", "backend", "--type", "finding", "--title", "Pinned critical", "--body", "body", "--severity", "critical", "--pin"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "finding",
+        "--title",
+        "Pinned critical",
+        "--body",
+        "body",
+        "--severity",
+        "critical",
+        "--pin",
+      ],
       workspace
     );
     await runCli(
-      ["post", "--channel", "backend", "--type", "finding", "--title", "Unpinned critical", "--body", "body", "--severity", "critical"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "finding",
+        "--title",
+        "Unpinned critical",
+        "--body",
+        "body",
+        "--severity",
+        "critical",
+      ],
       workspace
     );
     await runCli(
-      ["post", "--channel", "backend", "--type", "note", "--title", "Pinned note", "--body", "body", "--pin"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Pinned note",
+        "--body",
+        "body",
+        "--pin",
+      ],
       workspace
     );
 
-    const result = await runCli(["read", "--type", "finding", "--severity", "critical", "--pinned", "--json"], workspace);
+    const result = await runCli(
+      ["read", "--type", "finding", "--severity", "critical", "--pinned", "--json"],
+      workspace
+    );
 
     expect(result.stdout).toContain("Pinned critical");
     expect(result.stdout).not.toContain("Unpinned critical");
@@ -215,11 +461,35 @@ describe("read command", () => {
     const workspace = writeWorkspaceConfig(config);
 
     await runCli(
-      ["post", "--channel", "backend", "--type", "note", "--title", "Pay thread", "--body", "body", "--tag", "pay"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Pay thread",
+        "--body",
+        "body",
+        "--tag",
+        "pay",
+      ],
       workspace
     );
     await runCli(
-      ["post", "--channel", "backend", "--type", "note", "--title", "Payments thread", "--body", "body", "--tag", "payments"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Payments thread",
+        "--body",
+        "body",
+        "--tag",
+        "payments",
+      ],
       workspace
     );
 
@@ -243,11 +513,17 @@ describe("read command", () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
 
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "Older", "--body", "body"], workspace);
+    await runCli(
+      ["post", "--channel", "backend", "--type", "note", "--title", "Older", "--body", "body"],
+      workspace
+    );
     await new Promise((resolve) => setTimeout(resolve, 10));
     const cutoff = new Date().toISOString();
     await new Promise((resolve) => setTimeout(resolve, 10));
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "Newer", "--body", "body"], workspace);
+    await runCli(
+      ["post", "--channel", "backend", "--type", "note", "--title", "Newer", "--body", "body"],
+      workspace
+    );
 
     const result = await runCli(["read", "--since", cutoff, "--json"], workspace);
 

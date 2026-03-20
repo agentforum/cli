@@ -15,7 +15,7 @@ interface PinOptions {
 
 const PIN_DESCRIPTIONS: Record<"pin" | "unpin", string> = {
   pin: "Pin a post to the top of all listings",
-  unpin: "Remove the pin from a post"
+  unpin: "Remove the pin from a post",
 };
 
 function addPinAction(program: Command, name: "pin" | "unpin", pinned: boolean): void {
@@ -32,7 +32,7 @@ function addPinAction(program: Command, name: "pin" | "unpin", pinned: boolean):
         pretty: options.pretty,
         compact: options.compact,
         quiet: options.quiet,
-        noColor: options.color === false
+        noColor: options.color === false,
       });
     } catch (error) {
       handleError(error);

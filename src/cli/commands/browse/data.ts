@@ -3,7 +3,12 @@ import type { PostService } from "../../../domain/post.service.js";
 import type { ReplyService } from "../../../domain/reply.service.js";
 import type { BrowseListPost, BrowseSortMode, ReplyQuote } from "./types.js";
 import { excerpt } from "./formatters.js";
-import { filterAndSortPosts, paginateItems, resolvePageOffsetForId, resolveSelectedIndex } from "./selectors.js";
+import {
+  filterAndSortPosts,
+  paginateItems,
+  resolvePageOffsetForId,
+  resolveSelectedIndex,
+} from "./selectors.js";
 
 export interface RefreshBrowseDataParams {
   postService: PostService;
@@ -30,21 +35,23 @@ export interface RefreshBrowseDataResult {
 }
 
 export function refreshBrowseData(params: RefreshBrowseDataParams): RefreshBrowseDataResult {
-  const nextBrowsePosts = params.postService.listPostSummaries({
-    ...params.baseFilters,
-    text: params.searchQuery?.trim() || undefined,
-    limit: undefined
-  }).map(toBrowseListPost);
+  const nextBrowsePosts = params.postService
+    .listPostSummaries({
+      ...params.baseFilters,
+      text: params.searchQuery?.trim() || undefined,
+      limit: undefined,
+    })
+    .map(toBrowseListPost);
   const sortedPosts = filterAndSortPosts(nextBrowsePosts, {
     channelFilter: params.channelFilter,
     sortMode: params.sortMode,
     limit: Math.max(nextBrowsePosts.length, 1),
-    offset: 0
+    offset: 0,
   }).items;
   const pageOffset = resolvePageOffsetForId(sortedPosts, {
     currentOffset: params.currentOffset,
     limit: params.limit,
-    focusedId: params.focusedId ?? params.currentBundle?.post.id
+    focusedId: params.focusedId ?? params.currentBundle?.post.id,
   });
   const nextVisible = paginateItems(sortedPosts, { limit: params.limit, offset: pageOffset });
 
@@ -66,22 +73,25 @@ export function refreshBrowseData(params: RefreshBrowseDataParams): RefreshBrows
     listOffset: nextVisible.offset,
     selectedIndex,
     bundle,
-    changedPostIds: collectChangedPostIds(params.currentRawPosts, nextBrowsePosts)
+    changedPostIds: collectChangedPostIds(params.currentRawPosts, nextBrowsePosts),
   };
 }
 
 export function toBrowseListPost(post: PostSummaryRecord): BrowseListPost {
   return {
     ...post,
-    lastReplyExcerpt: post.lastReplyExcerpt ? excerpt(post.lastReplyExcerpt) : null
+    lastReplyExcerpt: post.lastReplyExcerpt ? excerpt(post.lastReplyExcerpt) : null,
   };
 }
 
-export function submitBrowseReply(replyService: ReplyService, params: { postId: string; body: string; actor?: string; quote?: ReplyQuote | null }): void {
+export function submitBrowseReply(
+  replyService: ReplyService,
+  params: { postId: string; body: string; actor?: string; quote?: ReplyQuote | null }
+): void {
   replyService.createReply({
     postId: params.postId,
     body: buildReplyBody(params.body, params.quote),
-    actor: params.actor
+    actor: params.actor,
   });
 }
 
@@ -97,10 +107,15 @@ function buildReplyBody(body: string, quote?: ReplyQuote | null): string {
     .map((line) => `> ${line}`)
     .join("\n");
 
-  return [`> [@${quote.author} · reply #${quote.replyIndex + 1}]`, quotedLines, "", body].join("\n");
+  return [`> [@${quote.author} · reply #${quote.replyIndex + 1}]`, quotedLines, "", body].join(
+    "\n"
+  );
 }
 
-function collectChangedPostIds(currentRawPosts: BrowseListPost[], nextBrowsePosts: BrowseListPost[]): string[] {
+function collectChangedPostIds(
+  currentRawPosts: BrowseListPost[],
+  nextBrowsePosts: BrowseListPost[]
+): string[] {
   if (currentRawPosts.length === 0) {
     return [];
   }
@@ -109,7 +124,11 @@ function collectChangedPostIds(currentRawPosts: BrowseListPost[], nextBrowsePost
   return nextBrowsePosts
     .filter((post) => {
       const previous = previousById.get(post.id);
-      return !previous || previous.lastActivityAt !== post.lastActivityAt || previous.replyCount !== post.replyCount;
+      return (
+        !previous ||
+        previous.lastActivityAt !== post.lastActivityAt ||
+        previous.replyCount !== post.replyCount
+      );
     })
     .map((post) => post.id);
 }

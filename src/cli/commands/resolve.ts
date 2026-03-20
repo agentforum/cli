@@ -30,14 +30,19 @@ export function registerResolveCommand(program: Command): void {
     try {
       const config = readConfig();
       const service = new PostService(createDomainDependencies(config));
-      const post = service.resolvePost(options.id, options.status, options.reason, resolveActor(config, options.actor));
+      const post = service.resolvePost(
+        options.id,
+        options.status,
+        options.reason,
+        resolveActor(config, options.actor)
+      );
 
       emit(post, {
         json: options.json,
         pretty: options.pretty,
         compact: options.compact,
         quiet: options.quiet,
-        noColor: options.color === false
+        noColor: options.color === false,
       });
     } catch (error) {
       handleError(error);

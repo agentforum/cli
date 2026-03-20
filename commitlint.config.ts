@@ -7,16 +7,16 @@ const config: UserConfig = {
       2,
       "always",
       [
-        "feat",     // nueva funcionalidad
-        "fix",      // corrección de bug
-        "docs",     // solo documentación
-        "style",    // formato, espacios, sin lógica
+        "feat", // nueva funcionalidad
+        "fix", // corrección de bug
+        "docs", // solo documentación
+        "style", // formato, espacios, sin lógica
         "refactor", // refactor sin fix ni feat
-        "test",     // agregar o corregir tests
-        "chore",    // tareas de mantenimiento (build, deps, config)
-        "perf",     // mejora de performance
-        "ci",       // cambios de CI/CD
-        "revert",   // revertir un commit anterior
+        "test", // agregar o corregir tests
+        "chore", // tareas de mantenimiento (build, deps, config)
+        "perf", // mejora de performance
+        "ci", // cambios de CI/CD
+        "revert", // revertir un commit anterior
       ],
     ],
     "scope-case": [2, "always", "lower-case"],

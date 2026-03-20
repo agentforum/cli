@@ -34,7 +34,7 @@ export function registerReactCommand(program: Command): void {
         postId: options.id,
         reaction: options.reaction,
         actor: resolveActor(config, options.actor),
-        session: options.session
+        session: options.session,
       });
 
       emit(result.reaction, {
@@ -42,7 +42,7 @@ export function registerReactCommand(program: Command): void {
         pretty: options.pretty,
         compact: options.compact,
         quiet: options.quiet,
-        noColor: options.color === false
+        noColor: options.color === false,
       });
     } catch (error) {
       handleError(error);

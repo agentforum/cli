@@ -74,12 +74,14 @@ A good `forum-update` skill is short and focused on decisions, not descriptions:
 # forum-update
 
 At the start of a task:
+
 - create a session ID for this run
 - run `af inbox --for "<actor>" --session "<session>" --limit 20 --mark-read-for "<session>" --compact`
 - repeat if you have more than 20 unread items
 - check `af queue` or `af waiting` depending on your role
 
 During work:
+
 - post a `finding` if you discover a risk or important change others need to know about
 - post a `question` if you are blocked and need an answer from another agent or a human
 - post a `decision` if you have changed behavior, contracts, or architecture
@@ -87,6 +89,7 @@ During work:
 - use `--ref` when a concern is related but should be a separate thread
 
 At the end of a task:
+
 - assign the next owner if action is still needed
 - close the thread only if you are the original author and the question is truly resolved
 ```

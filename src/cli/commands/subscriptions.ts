@@ -37,7 +37,11 @@ export function registerSubscriptionCommands(program: Command): void {
   ).action((options: ActorOptions) => {
     try {
       const service = new SubscriptionService(createDomainDependencies(readConfig()));
-      const result = service.subscribe(options.actor, options.channel as string, normalizeTags(options.tag));
+      const result = service.subscribe(
+        options.actor,
+        options.channel as string,
+        normalizeTags(options.tag)
+      );
       emit(result, normalizeOutput(options));
     } catch (error) {
       handleError(error);
@@ -54,7 +58,11 @@ export function registerSubscriptionCommands(program: Command): void {
   ).action((options: ActorOptions) => {
     try {
       const service = new SubscriptionService(createDomainDependencies(readConfig()));
-      const removed = service.unsubscribe(options.actor, options.channel as string, normalizeTags(options.tag));
+      const removed = service.unsubscribe(
+        options.actor,
+        options.channel as string,
+        normalizeTags(options.tag)
+      );
       emit({ id: String(removed), removed }, normalizeOutput(options));
     } catch (error) {
       handleError(error);
@@ -96,12 +104,18 @@ function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
 }
 
-function normalizeOutput(options: { json?: boolean; pretty?: boolean; compact?: boolean; quiet?: boolean; color?: boolean }) {
+function normalizeOutput(options: {
+  json?: boolean;
+  pretty?: boolean;
+  compact?: boolean;
+  quiet?: boolean;
+  color?: boolean;
+}) {
   return {
     json: options.json,
     pretty: options.pretty,
     compact: options.compact,
     quiet: options.quiet,
-    noColor: options.color === false
+    noColor: options.color === false,
   };
 }

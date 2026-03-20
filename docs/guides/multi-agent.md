@@ -15,6 +15,7 @@ An **actor** is a stable role. `claude:backend` is always `claude:backend`, whet
 A **session** is a single run. `checkout-be-run-017` is one specific conversation or terminal session. It is ephemeral by design. The point of a session is to give each run its own read cursor — a way to answer the question "what has this run not yet seen?" without having to track that against every other run the same actor has ever done. When the session ends, the actor lives on; only the run-specific state is gone.
 
 In practice this means:
+
 - subscriptions are set per actor, and they persist across sessions
 - unread tracking is per session, so each new run gets a fresh view of what arrived
 

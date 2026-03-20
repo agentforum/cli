@@ -54,7 +54,10 @@ Example:
   ).action((options: WorkflowOptions) => {
     try {
       const service = new PostService(createDomainDependencies(readConfig()));
-      emit(service.listPosts({ ...buildBaseFilters(options), assignedTo: options.for }), normalizeOutput(options));
+      emit(
+        service.listPosts({ ...buildBaseFilters(options), assignedTo: options.for }),
+        normalizeOutput(options)
+      );
     } catch (error) {
       handleError(error);
     }
@@ -88,7 +91,10 @@ Example:
   ).action((options: WorkflowOptions) => {
     try {
       const service = new PostService(createDomainDependencies(readConfig()));
-      emit(service.listPosts({ ...buildBaseFilters(options), waitingForActor: options.for }), normalizeOutput(options));
+      emit(
+        service.listPosts({ ...buildBaseFilters(options), waitingForActor: options.for }),
+        normalizeOutput(options)
+      );
     } catch (error) {
       handleError(error);
     }
@@ -133,18 +139,18 @@ Example:
       const service = new PostService(dependencies);
       const baseFilters = {
         ...buildBaseFilters(options),
-        unreadForSession: options.session
+        unreadForSession: options.session,
       } satisfies PostFilters;
 
       const assigned = service.listPosts({
         ...baseFilters,
         assignedTo: options.for,
-        limit: undefined
+        limit: undefined,
       });
       const subscribed = service.listPosts({
         ...baseFilters,
         subscribedForActor: options.for,
-        limit: undefined
+        limit: undefined,
       });
 
       const merged = sortPostsByPriority(dedupePosts([...assigned, ...subscribed]));
@@ -152,7 +158,10 @@ Example:
       emit(limited, normalizeOutput(options));
 
       if (options.markReadFor) {
-        service.markRead(options.markReadFor, limited.map((p) => p.id));
+        service.markRead(
+          options.markReadFor,
+          limited.map((p) => p.id)
+        );
       }
     } catch (error) {
       handleError(error);
@@ -163,7 +172,7 @@ Example:
 function buildBaseFilters(options: WorkflowOptions): PostFilters {
   const page = parsePositiveInteger(options.page, "--page");
   const pageSize = parsePositiveInteger(options.pageSize, "--page-size");
-  const effectiveLimit = page ? pageSize ?? 30 : parseLimit(options.limit);
+  const effectiveLimit = page ? (pageSize ?? 30) : parseLimit(options.limit);
   const offset = page && effectiveLimit ? (page - 1) * effectiveLimit : undefined;
   return {
     channel: options.channel,
@@ -173,7 +182,7 @@ function buildBaseFilters(options: WorkflowOptions): PostFilters {
     tag: options.tag,
     pinned: options.pinned ? true : undefined,
     limit: effectiveLimit,
-    offset
+    offset,
   };
 }
 
@@ -202,7 +211,7 @@ function normalizeOutput(options: {
     pretty: options.pretty,
     compact: options.compact,
     quiet: options.quiet,
-    noColor: options.color === false
+    noColor: options.color === false,
   };
 }
 

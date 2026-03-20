@@ -13,10 +13,7 @@
     "resolveJsonModule": true,
     "declaration": true,
     "sourceMap": true,
-    "types": [
-      "node",
-      "react"
-    ]
+    "types": ["node", "react"]
   },
   "include": [
     "src/**/*.ts",

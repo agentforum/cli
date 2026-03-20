@@ -1,7 +1,13 @@
 import type React from "react";
 import type { TermElement, TermInput } from "terminosaurus";
 
-import type { PostFilters, PostStatus, PostType, ReadPostBundle, Severity } from "../../../domain/types.js";
+import type {
+  PostFilters,
+  PostStatus,
+  PostType,
+  ReadPostBundle,
+  Severity,
+} from "../../../domain/types.js";
 import type { PostRecord } from "../../../domain/post.js";
 import type { PostService } from "../../../domain/post.service.js";
 import type { ReplyService } from "../../../domain/reply.service.js";

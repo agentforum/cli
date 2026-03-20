@@ -5,7 +5,12 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { AgentForumConfig } from "../../src/domain/types.js";
 import { runCli } from "../cli-test-helpers.js";
-import { cleanupTestConfig, createTestConfig, writeWorkspaceConfig, createBareWorkspace } from "../test-helpers.js";
+import {
+  cleanupTestConfig,
+  createTestConfig,
+  writeWorkspaceConfig,
+  createBareWorkspace,
+} from "../test-helpers.js";
 
 let config: AgentForumConfig | undefined;
 
@@ -59,14 +64,21 @@ describe("config init", () => {
     const workspace = writeWorkspaceConfig(config);
 
     // Put something non-standard in the existing config
-    writeFileSync(join(workspace, ".afrc"), JSON.stringify({ dbPath: "custom/path.sqlite" }), "utf8");
+    writeFileSync(
+      join(workspace, ".afrc"),
+      JSON.stringify({ dbPath: "custom/path.sqlite" }),
+      "utf8"
+    );
 
     const result = await runCli(["config", "init", "--local", "--overwrite"], workspace);
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("overwritten");
 
-    const written = JSON.parse(readFileSync(join(workspace, ".afrc"), "utf8")) as Record<string, unknown>;
+    const written = JSON.parse(readFileSync(join(workspace, ".afrc"), "utf8")) as Record<
+      string,
+      unknown
+    >;
     expect(written.dbPath).toBe(".forum/db.sqlite");
   });
 
@@ -114,13 +126,19 @@ describe("config set", () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
 
-    const result = await runCli(["config", "set", "--key", "defaultActor", "--value", "claude:backend", "--local"], workspace);
+    const result = await runCli(
+      ["config", "set", "--key", "defaultActor", "--value", "claude:backend", "--local"],
+      workspace
+    );
 
     expect(result.exitCode).toBe(0);
     const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
     expect(parsed.defaultActor).toBe("claude:backend");
 
-    const onDisk = JSON.parse(readFileSync(join(workspace, ".afrc"), "utf8")) as Record<string, unknown>;
+    const onDisk = JSON.parse(readFileSync(join(workspace, ".afrc"), "utf8")) as Record<
+      string,
+      unknown
+    >;
     expect(onDisk.defaultActor).toBe("claude:backend");
   });
 
@@ -128,9 +146,15 @@ describe("config set", () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
 
-    await runCli(["config", "set", "--key", "autoBackup", "--value", "false", "--local"], workspace);
+    await runCli(
+      ["config", "set", "--key", "autoBackup", "--value", "false", "--local"],
+      workspace
+    );
 
-    const onDisk = JSON.parse(readFileSync(join(workspace, ".afrc"), "utf8")) as Record<string, unknown>;
+    const onDisk = JSON.parse(readFileSync(join(workspace, ".afrc"), "utf8")) as Record<
+      string,
+      unknown
+    >;
     expect(onDisk.autoBackup).toBe(false);
   });
 
@@ -138,9 +162,15 @@ describe("config set", () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
 
-    await runCli(["config", "set", "--key", "autoBackupInterval", "--value", "100", "--local"], workspace);
+    await runCli(
+      ["config", "set", "--key", "autoBackupInterval", "--value", "100", "--local"],
+      workspace
+    );
 
-    const onDisk = JSON.parse(readFileSync(join(workspace, ".afrc"), "utf8")) as Record<string, unknown>;
+    const onDisk = JSON.parse(readFileSync(join(workspace, ".afrc"), "utf8")) as Record<
+      string,
+      unknown
+    >;
     expect(onDisk.autoBackupInterval).toBe(100);
   });
 
@@ -149,7 +179,10 @@ describe("config set", () => {
     const workspace = writeWorkspaceConfig(config);
     rmSync(join(workspace, ".afrc"), { force: true });
 
-    const result = await runCli(["config", "set", "--key", "defaultActor", "--value", "x", "--local"], workspace);
+    const result = await runCli(
+      ["config", "set", "--key", "defaultActor", "--value", "x", "--local"],
+      workspace
+    );
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("not found");
@@ -202,7 +235,18 @@ describe("no-config warning on operational commands", () => {
 
     try {
       const result = await runCli(
-        ["post", "--channel", "backend", "--type", "note", "--title", "test", "--body", "body", "--json"],
+        [
+          "post",
+          "--channel",
+          "backend",
+          "--type",
+          "note",
+          "--title",
+          "test",
+          "--body",
+          "body",
+          "--json",
+        ],
         workspace
       );
 

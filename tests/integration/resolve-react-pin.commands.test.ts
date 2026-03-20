@@ -31,7 +31,7 @@ describe("resolve/react/pin commands", () => {
         "Can PATCH omit phoneNumber?",
         "--actor",
         "claude:frontend",
-        "--json"
+        "--json",
       ],
       workspace
     );
@@ -48,16 +48,19 @@ describe("resolve/react/pin commands", () => {
         "Only POST requires it.",
         "--actor",
         "claude:frontend",
-        "--json"
+        "--json",
       ],
       workspace
     );
-    const reacted = await runCli(["react", "--id", post.id, "--reaction", "confirmed", "--json"], workspace);
+    const reacted = await runCli(
+      ["react", "--id", post.id, "--reaction", "confirmed", "--json"],
+      workspace
+    );
     const pinned = await runCli(["pin", "--id", post.id, "--json"], workspace);
 
-    expect(resolved.stdout).toContain("\"status\": \"answered\"");
-    expect(reacted.stdout).toContain("\"reaction\": \"confirmed\"");
-    expect(pinned.stdout).toContain("\"pinned\": true");
+    expect(resolved.stdout).toContain('"status": "answered"');
+    expect(reacted.stdout).toContain('"reaction": "confirmed"');
+    expect(pinned.stdout).toContain('"pinned": true');
   });
 
   it("can unpin a previously pinned post", async () => {
@@ -65,7 +68,19 @@ describe("resolve/react/pin commands", () => {
     const workspace = writeWorkspaceConfig(config);
 
     const created = await runCli(
-      ["post", "--channel", "backend", "--type", "note", "--title", "Pinned once", "--body", "body", "--pin", "--json"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Pinned once",
+        "--body",
+        "body",
+        "--pin",
+        "--json",
+      ],
       workspace
     );
     const post = JSON.parse(created.stdout) as { id: string };
@@ -73,7 +88,7 @@ describe("resolve/react/pin commands", () => {
     const result = await runCli(["unpin", "--id", post.id, "--json"], workspace);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("\"pinned\": false");
+    expect(result.stdout).toContain('"pinned": false');
   });
 
   it("rejects stale without reason", async () => {
@@ -93,7 +108,7 @@ describe("resolve/react/pin commands", () => {
         "Can PATCH omit phoneNumber?",
         "--actor",
         "claude:frontend",
-        "--json"
+        "--json",
       ],
       workspace
     );
@@ -122,14 +137,24 @@ describe("resolve/react/pin commands", () => {
         "Can PATCH omit phoneNumber?",
         "--actor",
         "claude:frontend",
-        "--json"
+        "--json",
       ],
       workspace
     );
     const post = JSON.parse(created.stdout) as { id: string };
 
     const result = await runCli(
-      ["resolve", "--id", post.id, "--status", "answered", "--reason", "Looks good", "--actor", "claude:backend"],
+      [
+        "resolve",
+        "--id",
+        post.id,
+        "--status",
+        "answered",
+        "--reason",
+        "Looks good",
+        "--actor",
+        "claude:backend",
+      ],
       workspace
     );
 

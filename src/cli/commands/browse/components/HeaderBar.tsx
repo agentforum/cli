@@ -16,7 +16,7 @@ export function HeaderBar({
   postsLength,
   theme,
   refreshing,
-  terminalWidth
+  terminalWidth,
 }: {
   view: "list" | "post" | "reply" | "channels";
   channelFilter: string;
@@ -32,14 +32,23 @@ export function HeaderBar({
   terminalWidth: number;
 }) {
   const compact = terminalWidth < 110;
-  const breadcrumbText = excerpt(breadcrumb(view, channelFilter, bundle, focusedReplyIndex), compact ? Math.max(24, terminalWidth - 8) : 100);
+  const breadcrumbText = excerpt(
+    breadcrumb(view, channelFilter, bundle, focusedReplyIndex),
+    compact ? Math.max(24, terminalWidth - 8) : 100
+  );
   const detailText = excerpt(
     `${describeSortMode(sortMode)}  |  ${refreshing ? "refreshing..." : buildAutoRefreshLabel(autoRefreshEnabled, refreshMs, autoRefreshCountdownMs)}  |  ${postsLength} threads  |  ${theme.name}`,
     compact ? Math.max(24, terminalWidth - 8) : 120
   );
 
   return (
-    <term:div border="modern" borderColor={theme.muted} padding={[0, 1]} marginBottom={1} flexDirection="column">
+    <term:div
+      border="modern"
+      borderColor={theme.muted}
+      padding={[0, 1]}
+      marginBottom={1}
+      flexDirection="column"
+    >
       <term:div flexDirection="row" alignItems="center">
         <term:text color={theme.accent} fontWeight="bold">
           {breadcrumbText}
@@ -50,9 +59,7 @@ export function HeaderBar({
           </term:text>
         ) : null}
       </term:div>
-      <term:text color={theme.muted}>
-        {detailText}
-      </term:text>
+      <term:text color={theme.muted}>{detailText}</term:text>
     </term:div>
   );
 }

@@ -19,7 +19,7 @@ export const POSTS: PostRecord[] = [
     blocking: false,
     assignedTo: null,
     idempotencyKey: null,
-    createdAt: "2026-03-13T12:00:00.000Z"
+    createdAt: "2026-03-13T12:00:00.000Z",
   },
   {
     id: "P-2",
@@ -38,11 +38,14 @@ export const POSTS: PostRecord[] = [
     blocking: false,
     assignedTo: null,
     idempotencyKey: null,
-    createdAt: "2026-03-13T12:01:00.000Z"
-  }
+    createdAt: "2026-03-13T12:01:00.000Z",
+  },
 ];
 
-export function toBrowsePost(post: PostRecord, overrides?: Partial<BrowseListPost>): BrowseListPost {
+export function toBrowsePost(
+  post: PostRecord,
+  overrides?: Partial<BrowseListPost>
+): BrowseListPost {
   return {
     ...post,
     lastActivityAt: post.createdAt,
@@ -50,7 +53,7 @@ export function toBrowsePost(post: PostRecord, overrides?: Partial<BrowseListPos
     reactionCount: 0,
     lastReplyExcerpt: null,
     lastReplyActor: null,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -60,7 +63,7 @@ export const BUNDLE: ReadPostBundle = {
     id: "thread-1",
     title: "Original thread",
     body: "Original body",
-    createdAt: "2026-03-13T12:00:00.000Z"
+    createdAt: "2026-03-13T12:00:00.000Z",
   },
   replies: [
     {
@@ -70,7 +73,7 @@ export const BUNDLE: ReadPostBundle = {
       data: null,
       actor: "claude:backend",
       session: null,
-      createdAt: "2026-03-13T12:05:00.000Z"
+      createdAt: "2026-03-13T12:05:00.000Z",
     },
     {
       id: "R-2",
@@ -79,9 +82,9 @@ export const BUNDLE: ReadPostBundle = {
       data: null,
       actor: "claude:frontend",
       session: "sess-2",
-      createdAt: "2026-03-13T12:10:00.000Z"
-    }
+      createdAt: "2026-03-13T12:10:00.000Z",
+    },
   ],
   totalReplies: 2,
-  reactions: []
+  reactions: [],
 };

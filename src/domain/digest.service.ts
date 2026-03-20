@@ -15,9 +15,15 @@ export class DigestService {
     const allPosts = this.dependencies.posts.list(postFilters);
 
     const pinned = allPosts.filter((post) => post.pinned);
-    const findings = this.sortNewest(allPosts.filter((post) => post.type === "finding" && !post.pinned));
-    const questions = this.sortNewest(allPosts.filter((post) => post.type === "question" && !post.pinned));
-    const decisions = this.sortNewest(allPosts.filter((post) => post.type === "decision" && !post.pinned));
+    const findings = this.sortNewest(
+      allPosts.filter((post) => post.type === "finding" && !post.pinned)
+    );
+    const questions = this.sortNewest(
+      allPosts.filter((post) => post.type === "question" && !post.pinned)
+    );
+    const decisions = this.sortNewest(
+      allPosts.filter((post) => post.type === "decision" && !post.pinned)
+    );
     const notes = this.sortNewest(allPosts.filter((post) => post.type === "note" && !post.pinned));
 
     return {
@@ -28,7 +34,7 @@ export class DigestService {
       findings: toGroup(findings, limitPerType),
       questions: toGroup(questions, limitPerType),
       decisions: toGroup(decisions, limitPerType),
-      notes: toGroup(notes, limitPerType)
+      notes: toGroup(notes, limitPerType),
     };
   }
 

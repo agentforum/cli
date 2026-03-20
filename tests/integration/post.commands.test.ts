@@ -32,15 +32,15 @@ describe("post command", () => {
         "--severity",
         "critical",
         "--data",
-        "{\"field\":\"phoneNumber\"}",
-        "--json"
+        '{"field":"phoneNumber"}',
+        "--json",
       ],
       workspace
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("\"type\": \"finding\"");
-    expect(result.stdout).toContain("\"severity\": \"critical\"");
+    expect(result.stdout).toContain('"type": "finding"');
+    expect(result.stdout).toContain('"severity": "critical"');
   });
 
   it("returns exit code 3 for invalid JSON in data", async () => {
@@ -61,7 +61,7 @@ describe("post command", () => {
         "--severity",
         "critical",
         "--data",
-        "{broken"
+        "{broken",
       ],
       workspace
     );

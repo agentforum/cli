@@ -21,7 +21,7 @@ function mapReaction(row: ReactionRow): ReactionRecord {
     reaction: row.reaction,
     actor: row.actor,
     session: row.session,
-    createdAt: row.created_at
+    createdAt: row.created_at,
   };
 }
 
@@ -34,10 +34,12 @@ export class ReactionRepository implements ReactionRepositoryPort {
 
   create(reaction: ReactionRecord): ReactionRecord {
     this.db()
-      .prepare(`
+      .prepare(
+        `
         INSERT INTO reactions (id, post_id, reaction, actor, session, created_at)
         VALUES (@id, @postId, @reaction, @actor, @session, @createdAt)
-      `)
+      `
+      )
       .run(reaction);
 
     return reaction;
@@ -51,7 +53,9 @@ export class ReactionRepository implements ReactionRepositoryPort {
   }
 
   all(): ReactionRecord[] {
-    const rows = this.db().prepare("SELECT * FROM reactions ORDER BY created_at ASC").all() as ReactionRow[];
+    const rows = this.db()
+      .prepare("SELECT * FROM reactions ORDER BY created_at ASC")
+      .all() as ReactionRow[];
     return rows.map(mapReaction);
   }
 }

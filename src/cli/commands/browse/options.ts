@@ -12,7 +12,10 @@ export interface OpenBrowseOptions {
   refreshMs?: string;
 }
 
-export function registerBrowseOptions(command: Command, defaults?: { includeIdOption?: boolean; defaultLimit?: string; defaultRefreshMs?: string }): Command {
+export function registerBrowseOptions(
+  command: Command,
+  defaults?: { includeIdOption?: boolean; defaultLimit?: string; defaultRefreshMs?: string }
+): Command {
   const includeIdOption = defaults?.includeIdOption ?? true;
   const defaultLimit = defaults?.defaultLimit ?? "30";
   const defaultRefreshMs = defaults?.defaultRefreshMs ?? `${DEFAULT_REFRESH_MS}`;
@@ -68,7 +71,10 @@ export function parseRefreshMs(rawRefreshMs?: string): number {
   return refreshMs;
 }
 
-export function registerOpenBrowseOptions(command: Command, defaults?: { defaultRefreshMs?: string }): Command {
+export function registerOpenBrowseOptions(
+  command: Command,
+  defaults?: { defaultRefreshMs?: string }
+): Command {
   const defaultRefreshMs = defaults?.defaultRefreshMs ?? `${DEFAULT_REFRESH_MS}`;
 
   return command
@@ -86,6 +92,6 @@ export function toOpenBrowseOptions(id: string, options: OpenBrowseOptions): Bro
     session: options.session,
     text: options.text,
     autoRefresh: options.autoRefresh,
-    refreshMs: options.refreshMs
+    refreshMs: options.refreshMs,
   };
 }

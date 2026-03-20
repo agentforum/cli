@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialBrowseState, browseReducer, clampIndex, cycleThemeIndex } from "../../src/cli/commands/browse/state.js";
+import {
+  createInitialBrowseState,
+  browseReducer,
+  clampIndex,
+  cycleThemeIndex,
+} from "../../src/cli/commands/browse/state.js";
 import { BUNDLE } from "./browse.fixtures.js";
 
 describe("browse state", () => {
   it("creates the expected initial state", () => {
-    const state = createInitialBrowseState({ initialChannelFilter: "__all__", initialAutoRefresh: true, initialSearchQuery: "oauth" });
+    const state = createInitialBrowseState({
+      initialChannelFilter: "__all__",
+      initialAutoRefresh: true,
+      initialSearchQuery: "oauth",
+    });
 
     expect(state.view).toBe("list");
     expect(state.autoRefreshEnabled).toBe(true);
@@ -18,7 +27,10 @@ describe("browse state", () => {
   });
 
   it("opens a bundle and resets conversation state", () => {
-    const initial = createInitialBrowseState({ initialChannelFilter: "__all__", initialAutoRefresh: false });
+    const initial = createInitialBrowseState({
+      initialChannelFilter: "__all__",
+      initialAutoRefresh: false,
+    });
     const next = browseReducer(
       {
         ...initial,
@@ -27,7 +39,7 @@ describe("browse state", () => {
         replyQuote: { text: "quoted", author: "claude", replyIndex: 1, replyId: "R-1" },
         focusedReplyIndex: 2,
         conversationFilterMode: "replies",
-        conversationSortMode: "recent"
+        conversationSortMode: "recent",
       },
       { type: "openBundle", bundle: BUNDLE }
     );
@@ -42,8 +54,14 @@ describe("browse state", () => {
   });
 
   it("supports patch updates and reply body changes", () => {
-    const initial = createInitialBrowseState({ initialChannelFilter: "__all__", initialAutoRefresh: false });
-    const patched = browseReducer(initial, { type: "patch", patch: { showShortcutsHelp: true, searchDraftQuery: "draft only" } });
+    const initial = createInitialBrowseState({
+      initialChannelFilter: "__all__",
+      initialAutoRefresh: false,
+    });
+    const patched = browseReducer(initial, {
+      type: "patch",
+      patch: { showShortcutsHelp: true, searchDraftQuery: "draft only" },
+    });
     const withBody = browseReducer(patched, { type: "setReplyBody", value: "hello" });
 
     expect(patched.showShortcutsHelp).toBe(true);
@@ -59,7 +77,10 @@ describe("browse state", () => {
   });
 
   it("startReplyWithQuote opens composer with the quote and clears page state", () => {
-    const initial = createInitialBrowseState({ initialChannelFilter: "__all__", initialAutoRefresh: false });
+    const initial = createInitialBrowseState({
+      initialChannelFilter: "__all__",
+      initialAutoRefresh: false,
+    });
     const withBundle = browseReducer(initial, { type: "openBundle", bundle: BUNDLE });
     const quote = { text: "quoted text", author: "claude:backend", replyIndex: 0, replyId: "R-1" };
 
@@ -73,10 +94,13 @@ describe("browse state", () => {
   });
 
   it("startReply clears any existing quote", () => {
-    const initial = createInitialBrowseState({ initialChannelFilter: "__all__", initialAutoRefresh: false });
+    const initial = createInitialBrowseState({
+      initialChannelFilter: "__all__",
+      initialAutoRefresh: false,
+    });
     const withQuote = browseReducer(initial, {
       type: "startReplyWithQuote",
-      quote: { text: "old quote", author: "agent", replyIndex: 0, replyId: "R-0" }
+      quote: { text: "old quote", author: "agent", replyIndex: 0, replyId: "R-0" },
     });
 
     const cleared = browseReducer(withQuote, { type: "startReply" });
@@ -86,8 +110,14 @@ describe("browse state", () => {
   });
 
   it("returnToList resets modal and delete confirmation state", () => {
-    const initial = createInitialBrowseState({ initialChannelFilter: "__all__", initialAutoRefresh: false });
-    const dirty = browseReducer(initial, { type: "patch", patch: { showShortcutsHelp: true, confirmDelete: null } });
+    const initial = createInitialBrowseState({
+      initialChannelFilter: "__all__",
+      initialAutoRefresh: false,
+    });
+    const dirty = browseReducer(initial, {
+      type: "patch",
+      patch: { showShortcutsHelp: true, confirmDelete: null },
+    });
 
     const back = browseReducer(dirty, { type: "returnToList" });
 

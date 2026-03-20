@@ -291,7 +291,9 @@ export function isRightKey(key: KeyLike): boolean {
 }
 
 export function isEnterKey(key: KeyLike): boolean {
-  return key.name === "enter" || key.name === "return" || key.sequence === "\r" || key.sequence === "\n";
+  return (
+    key.name === "enter" || key.name === "return" || key.sequence === "\r" || key.sequence === "\n"
+  );
 }
 
 export function isEscapeKey(key: KeyLike): boolean {
@@ -331,7 +333,11 @@ export function isShiftCharacterKey(key: KeyLike, value: string): boolean {
   const keyName = key.name.toLowerCase();
   const keySequence = key.sequence.toLowerCase();
 
-  return (key.shift && (keyName === normalized || keySequence === normalized)) || key.name === value || key.sequence === value;
+  return (
+    (key.shift && (keyName === normalized || keySequence === normalized)) ||
+    key.name === value ||
+    key.sequence === value
+  );
 }
 
 export function isCtrlKey(key: KeyLike, value: string): boolean {

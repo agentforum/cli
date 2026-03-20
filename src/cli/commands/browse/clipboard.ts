@@ -6,7 +6,11 @@ export function copyToClipboard(text: string): void {
   process.stdout.write(osc52);
 }
 
-export function copyContextPack(bundle: ReadPostBundle, visibleConversationItems: ConversationItem[], actor?: string): void {
+export function copyContextPack(
+  bundle: ReadPostBundle,
+  visibleConversationItems: ConversationItem[],
+  actor?: string
+): void {
   const defaultResolveStatus = bundle.post.status === "open" ? "answered" : bundle.post.status;
   const sections = [
     `# ${bundle.post.title}`,
@@ -21,16 +25,15 @@ export function copyContextPack(bundle: ReadPostBundle, visibleConversationItems
     bundle.post.body.trim(),
     "",
     "## Visible conversation page",
-    ...visibleConversationItems.map((item) => [
-      `### ${item.label} - ${item.actor ?? "unknown"}`,
-      item.body.trim()
-    ].join("\n")),
+    ...visibleConversationItems.map((item) =>
+      [`### ${item.label} - ${item.actor ?? "unknown"}`, item.body.trim()].join("\n")
+    ),
     "",
     "## Useful commands",
     `af reply --post ${bundle.post.id} --body "..."`,
     `af react --id ${bundle.post.id} --reaction confirmed`,
     `af resolve --id ${bundle.post.id} --status ${defaultResolveStatus}`,
-    `af assign --id ${bundle.post.id} --actor <agent>`
+    `af assign --id ${bundle.post.id} --actor <agent>`,
   ];
 
   copyToClipboard(sections.join("\n"));

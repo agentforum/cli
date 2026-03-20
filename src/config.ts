@@ -15,7 +15,7 @@ const DEFAULT_CONFIG: AgentForumConfig = {
   defaultChannel: "general",
   autoBackup: true,
   autoBackupInterval: 50,
-  dateFormat: "iso"
+  dateFormat: "iso",
 };
 
 export interface ConfigSource {
@@ -23,12 +23,17 @@ export interface ConfigSource {
   scope: "local" | "global" | "default";
 }
 
-function findConfigResult(cwd: string): { result: ReturnType<ReturnType<typeof cosmiconfigSync>["search"]>; scope: "local" | "global" | "default" } {
+function findConfigResult(cwd: string): {
+  result: ReturnType<ReturnType<typeof cosmiconfigSync>["search"]>;
+  scope: "local" | "global" | "default";
+} {
   const home = homedir();
 
   // Search from cwd upward. cosmiconfig's stopDir is inclusive so home itself
   // is still checked — we filter it out by requiring the result lives outside home.
-  const anyResult = cosmiconfigSync("af", { searchPlaces: SEARCH_PLACES, stopDir: home }).search(cwd);
+  const anyResult = cosmiconfigSync("af", { searchPlaces: SEARCH_PLACES, stopDir: home }).search(
+    cwd
+  );
 
   if (anyResult) {
     const inHome = dirname(anyResult.filepath) === home;
@@ -46,7 +51,7 @@ export function loadConfig(cwd = process.cwd()): AgentForumConfig {
 
   const config = {
     ...DEFAULT_CONFIG,
-    ...(result?.config ?? {})
+    ...(result?.config ?? {}),
   } satisfies AgentForumConfig;
 
   config.dbPath = resolve(configDir, config.dbPath);
@@ -63,7 +68,7 @@ export function findConfigSource(cwd = process.cwd()): ConfigSource {
   const { result, scope } = findConfigResult(cwd);
   return {
     filepath: result?.filepath ?? resolve(home, ".afrc"),
-    scope
+    scope,
   };
 }
 

@@ -21,7 +21,7 @@ export class ReplyService {
       data: input.data ?? null,
       actor: input.actor ?? null,
       session: input.session ?? null,
-      createdAt: this.dependencies.clock.now()
+      createdAt: this.dependencies.clock.now(),
     };
 
     this.dependencies.replies.create(reply);

@@ -19,7 +19,19 @@ describe("digest command", () => {
     const workspace = writeWorkspaceConfig(config);
 
     const note = await runCli(
-      ["post", "--channel", "general", "--type", "note", "--title", "Architecture", "--body", "Project architecture", "--pin", "--json"],
+      [
+        "post",
+        "--channel",
+        "general",
+        "--type",
+        "note",
+        "--title",
+        "Architecture",
+        "--body",
+        "Project architecture",
+        "--pin",
+        "--json",
+      ],
       workspace
     );
     const finding = await runCli(
@@ -36,12 +48,23 @@ describe("digest command", () => {
         "--severity",
         "critical",
         "--data",
-        "{\"repo\":\"koywe-web\",\"branch\":\"feature/contacts\",\"commit\":\"12312321\"}"
+        '{"repo":"koywe-web","branch":"feature/contacts","commit":"12312321"}',
       ],
       workspace
     );
     const question = await runCli(
-      ["post", "--channel", "backend", "--type", "question", "--title", "PATCH?", "--body", "Need answer", "--blocking"],
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "PATCH?",
+        "--body",
+        "Need answer",
+        "--blocking",
+      ],
       workspace
     );
 
@@ -59,8 +82,34 @@ describe("digest command", () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
 
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "OAuth rollout", "--body", "Token refresh migration"], workspace);
-    await runCli(["post", "--channel", "backend", "--type", "note", "--title", "Unrelated", "--body", "No matching text"], workspace);
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "OAuth rollout",
+        "--body",
+        "Token refresh migration",
+      ],
+      workspace
+    );
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Unrelated",
+        "--body",
+        "No matching text",
+      ],
+      workspace
+    );
 
     const digest = await runCli(["digest", "--text", "token refresh", "--compact"], workspace);
 
