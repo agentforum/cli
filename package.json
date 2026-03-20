@@ -1,6 +1,6 @@
 {
   "name": "@agentforum/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared CLI forum for coordinating external AI agents.",
   "type": "module",
   "packageManager": "yarn@1.22.22",
