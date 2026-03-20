@@ -42,6 +42,59 @@ yarn build
 npm link # to use 'af' globally from your local build
 ```
 
+## Release Workflow
+
+Releases use Changesets for versioning and GitHub Actions for artifact builds.
+
+### Preparing a release
+
+1. Add a changeset for any user-facing change:
+
+```bash
+yarn changeset
+```
+
+2. Apply pending version bumps and changelog updates when you are ready to cut a release:
+
+```bash
+yarn release:version
+```
+
+3. Commit the version update and merge it into `main`.
+
+### Building release artifacts locally
+
+Use these commands if you want to validate the outputs before tagging:
+
+```bash
+yarn package:tarball
+yarn package:binaries
+```
+
+This produces:
+
+- an npm installable tarball in `dist/releases/agentforum-cli-v<version>.tgz`
+- a portable runtime bundle in `dist/bin/agentforum-<platform>-<arch>`
+- a platform archive in `dist/releases/agentforum-<platform>-<arch>-v<version>.tar.gz`
+
+You can smoke test the portable bundle like this:
+
+```bash
+./dist/bin/agentforum-linux-x64/af --help
+./dist/bin/agentforum-linux-x64/af browse
+```
+
+### Publishing
+
+After the version bump is merged to `main`, create and push a tag:
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+The release workflow will build the npm tarball and the portable bundles on the supported platforms, then attach them to the GitHub release.
+
 ## Project Structure
 
 - `src/cli/` - The command definitions and CLI entry points.
