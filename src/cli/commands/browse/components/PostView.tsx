@@ -53,7 +53,19 @@ export function PostView({
   terminalWidth: number;
 }) {
   if (!bundle) {
-    return <term:text>Select a post to open it.</term:text>;
+    return (
+      <term:div
+        border="rounded"
+        borderColor={theme.border}
+        backgroundColor={theme.surface}
+        padding={[1, 2]}
+      >
+        <term:text color={theme.warning} fontWeight="bold">
+          No thread selected
+        </term:text>
+        <term:text color={theme.muted}>Open a post from the list to inspect the thread.</term:text>
+      </term:div>
+    );
   }
 
   const bodyFocused = focusedIndex === -1;
@@ -75,13 +87,14 @@ export function PostView({
         flexShrink={0}
         overflow="scroll"
         border="rounded"
-        borderColor={panelFocus === "index" ? theme.accent : theme.muted}
+        borderColor={panelFocus === "index" ? theme.focus : theme.border}
+        backgroundColor={panelFocus === "index" ? theme.surface : theme.surfaceMuted}
         padding={[0, 1]}
         marginRight={compact ? 0 : 1}
         marginBottom={compact ? 1 : 0}
       >
         <term:text
-          color={panelFocus === "index" ? theme.accent : theme.fg}
+          color={panelFocus === "index" ? theme.focus : theme.fg}
           fontWeight="bold"
           marginBottom={0}
         >
@@ -112,7 +125,7 @@ export function PostView({
                   itemRefs.current[itemIndex] = el;
                 }}
                 border={focused ? "modern" : "rounded"}
-                borderColor={focused ? theme.accent : theme.muted}
+                borderColor={focused ? theme.focus : theme.border}
                 backgroundColor={focused ? theme.selected : undefined}
                 padding={[0, 1]}
                 marginBottom={1}
@@ -135,11 +148,12 @@ export function PostView({
         flexShrink={1}
         overflow="scroll"
         border="rounded"
-        borderColor={panelFocus === "content" ? theme.accent : theme.muted}
+        borderColor={panelFocus === "content" ? theme.focus : theme.border}
+        backgroundColor={panelFocus === "content" ? theme.surface : theme.surfaceMuted}
         padding={[0, 1]}
       >
         <term:text
-          color={panelFocus === "content" ? theme.accent : theme.fg}
+          color={panelFocus === "content" ? theme.focus : theme.fg}
           fontWeight="bold"
           marginBottom={1}
         >

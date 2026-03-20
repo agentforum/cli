@@ -7,7 +7,11 @@ import {
   statusIcon,
   timeAgo,
 } from "@/cli/commands/browse/formatters.js";
-import { getPostTypeTone, getStatusTone, severityColor } from "@/cli/commands/browse/theme.js";
+import {
+  getPostTypeTone,
+  getStatusToneForTheme,
+  severityColor,
+} from "@/cli/commands/browse/theme.js";
 import type { BrowseListPost, BrowseTheme, ListDisplayMode } from "@/cli/commands/browse/types.js";
 import { StatusBadge } from "./StatusBadge.js";
 
@@ -30,12 +34,18 @@ export function ListView({
 }) {
   if (posts.length === 0) {
     return (
-      <term:div flexDirection="column" padding={[1, 2]}>
+      <term:div
+        flexDirection="column"
+        padding={[1, 2]}
+        backgroundColor={theme.surface}
+        border="rounded"
+        borderColor={theme.border}
+      >
         <term:text fontWeight="bold" color={theme.warning}>
-          No threads found.
+          No threads yet
         </term:text>
         <term:text color={theme.muted}>
-          Press c to change channel, u to refresh, or Tab to browse channels.
+          Change channel, refresh the feed, or browse channels to find a thread.
         </term:text>
       </term:div>
     );
@@ -48,25 +58,18 @@ export function ListView({
     const post = posts[index];
     const selected = index === selectedIndex;
     const icon = statusIcon(post.status);
-    const bg = selected ? theme.selected : undefined;
+    const bg = selected ? theme.selected : index % 2 === 0 ? theme.surface : theme.surfaceMuted;
     const fg = selected ? theme.selectedFg : theme.fg;
     const mutedFg = selected ? theme.selectedFg : theme.muted;
-    const pointer = selected ? "\u25B8" : " ";
-    const statusColor = selected ? theme.selectedFg : getStatusTone(post.status).backgroundColor;
-    const typeColor = selected ? theme.selectedFg : getPostTypeTone(post.type).backgroundColor;
+    const pointer = selected ? "\u258C" : "\u2502";
+    const statusColor = selected
+      ? theme.selectedFg
+      : getStatusToneForTheme(post.status, theme).backgroundColor;
     const channelColor = selected ? theme.selectedFg : theme.accent;
     const replyActorColor = selected ? theme.selectedFg : theme.success;
     const time = timeAgo(post.lastActivityAt, now);
     const right = `${post.replyCount}r  ${post.reactionCount}*  ${time}`;
     const changed = changedSet.has(post.id);
-
-    if (index > 0) {
-      items.push(
-        <term:text key={`sep-${post.id}`} color={theme.muted} whiteSpace="pre" padding={[0, 1]}>
-          {"\u2500".repeat(72)}
-        </term:text>
-      );
-    }
 
     items.push(
       <term:div
@@ -76,10 +79,13 @@ export function ListView({
         }}
         flexDirection="column"
         backgroundColor={bg}
+        border="rounded"
+        borderColor={selected ? theme.focus : theme.border}
         padding={[0, 1]}
+        marginBottom={1}
       >
         <term:div flexDirection="row">
-          <term:text color={selected ? theme.accent : theme.muted} whiteSpace="pre">
+          <term:text color={selected ? theme.focus : theme.borderStrong} whiteSpace="pre">
             {`${pointer} `}
           </term:text>
           <term:text
@@ -135,7 +141,7 @@ export function ListView({
               {post.blocking ? (
                 <term:text
                   color={selected ? theme.selectedFg : "white"}
-                  backgroundColor={selected ? theme.muted : "red"}
+                  backgroundColor={selected ? theme.muted : theme.danger}
                   padding={[0, 1]}
                   marginRight={1}
                   fontWeight="bold"
@@ -187,7 +193,7 @@ export function ListView({
               {post.blocking ? (
                 <term:text
                   color={selected ? theme.selectedFg : "white"}
-                  backgroundColor={selected ? theme.muted : "red"}
+                  backgroundColor={selected ? theme.muted : theme.danger}
                   padding={[0, 1]}
                   marginRight={1}
                   fontWeight="bold"

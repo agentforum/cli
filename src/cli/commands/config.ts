@@ -7,7 +7,7 @@ import { addOutputOptions, emit, handleError, readConfig } from "@/cli/helpers.j
 import { findConfigSource, globalConfigPath } from "@/config.js";
 import { AgentForumError } from "@/domain/types.js";
 
-const LOCAL_CONFIG_DEFAULTS = {
+export const LOCAL_CONFIG_DEFAULTS = {
   dbPath: ".forum/db.sqlite",
   backupDir: ".forum/backups",
   defaultChannel: "general",
@@ -16,7 +16,7 @@ const LOCAL_CONFIG_DEFAULTS = {
   dateFormat: "iso",
 };
 
-const GLOBAL_CONFIG_DEFAULTS = {
+export const GLOBAL_CONFIG_DEFAULTS = {
   dbPath: ".forum/db.sqlite",
   backupDir: ".forum/backups",
   defaultChannel: "general",

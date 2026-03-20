@@ -19,6 +19,7 @@ import { registerTemplateCommand } from "./commands/template.js";
 import { registerSubscriptionCommands } from "./commands/subscriptions.js";
 import { registerWorkflowCommands } from "./commands/workflow.js";
 import { registerCompletionCommand } from "./commands/completion.js";
+import { registerInitCommand } from "./onboarding.js";
 
 const IDENTITY_MODEL_LEGEND = `
 Identity model:
@@ -37,7 +38,7 @@ General commands  (no identity required):
   browse, search, open, template, rules, backup, config
 
 Quick start:
-  af config init                              # Create ~/.afrc
+  af init                                     # Interactive first-run setup
   af post --type finding --title "..." --body "..."
   af browse                                   # Interactive TUI
   af digest --compact                         # Agent-friendly snapshot
@@ -53,6 +54,7 @@ export function buildProgram(): Command {
     .version("0.1.0")
     .addHelpText("after", IDENTITY_MODEL_LEGEND);
 
+  registerInitCommand(program);
   registerPostCommand(program);
   registerReplyCommand(program);
   registerReadCommand(program);

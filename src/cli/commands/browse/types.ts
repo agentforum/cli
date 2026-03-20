@@ -66,10 +66,22 @@ export interface BrowseTheme {
   accent: string;
   muted: string;
   banner: string;
+  surface: string;
+  surfaceMuted: string;
+  border: string;
+  borderStrong: string;
+  focus: string;
   selected: string;
   selectedFg: string;
   success: string;
   warning: string;
+  danger: string;
+  info: string;
+  statusOpen: string;
+  statusAnswered: string;
+  statusNeedsClarification: string;
+  statusWontAnswer: string;
+  statusStale: string;
 }
 
 export interface BrowseListPost extends PostRecord {

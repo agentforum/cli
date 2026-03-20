@@ -2,7 +2,6 @@ import React from "react";
 import type { TermElement, TermInput } from "terminosaurus";
 
 import type { ReadPostBundle } from "@/domain/post.js";
-import { sanitizeTerminalText } from "@/cli/commands/browse/formatters.js";
 import type {
   BrowseListPost,
   BrowseTheme,
@@ -189,7 +188,20 @@ export function BrowseScreen({
         padding={[0, 0]}
       >
         {loading ? (
-          <term:text color={theme.warning}>{"  Loading threads..."}</term:text>
+          <term:div
+            border="rounded"
+            borderColor={theme.border}
+            backgroundColor={theme.surface}
+            padding={[1, 2]}
+            flexDirection="column"
+          >
+            <term:text color={theme.warning} fontWeight="bold">
+              Loading threads
+            </term:text>
+            <term:text color={theme.muted}>
+              Refreshing the current view and rebuilding the thread list.
+            </term:text>
+          </term:div>
         ) : view === "channels" ? (
           <ChannelsView
             channelStats={channelStats}

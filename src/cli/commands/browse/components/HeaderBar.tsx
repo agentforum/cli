@@ -48,22 +48,33 @@ export function HeaderBar({
 
   return (
     <term:div
-      border="modern"
-      borderColor={theme.muted}
+      border="rounded"
+      borderColor={theme.border}
+      backgroundColor={theme.surface}
       padding={[0, 1]}
       marginBottom={1}
       flexDirection="column"
     >
-      <term:div flexDirection="row" alignItems="center">
-        <term:text color={theme.accent} fontWeight="bold">
-          {breadcrumbText}
+      <term:div flexDirection="row" alignItems="center" marginBottom={0}>
+        <term:text color={theme.banner} fontWeight="bold">
+          {"AgentForum"}
         </term:text>
+        <term:text color={theme.muted}>{`  ·  ${breadcrumbText}`}</term:text>
         {refreshing ? (
-          <term:text color={theme.warning} marginLeft={1} fontWeight="bold">
-            {"  \u21BB"}
+          <term:text
+            color={theme.bg}
+            backgroundColor={theme.warning}
+            padding={[0, 1]}
+            marginLeft={1}
+            fontWeight="bold"
+          >
+            {" REFRESHING "}
           </term:text>
         ) : null}
       </term:div>
+      <term:text color={theme.fg} fontWeight="bold">
+        {view === "post" ? "Thread view" : view === "reply" ? "Reply composer" : "Browse threads"}
+      </term:text>
       <term:text color={theme.muted}>{detailText}</term:text>
     </term:div>
   );

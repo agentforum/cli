@@ -24,8 +24,8 @@ export function FooterBar({
   view,
   postsLength,
   postPage,
-  autoRefreshEnabled,
-  refreshMs,
+  autoRefreshEnabled: _autoRefreshEnabled,
+  refreshMs: _refreshMs,
   selectedIndex,
   bundleOpen,
   selectedConversationIndex,
@@ -53,7 +53,7 @@ export function FooterBar({
 }) {
   const compact = terminalWidth < 110;
   const leftText = sanitizeTerminalText(notice?.text ?? buildBrowseHint(view, postsLength));
-  const rightText = `${
+  const statusText = `${
     view === "list"
       ? `${buildPageLabel(postPage.page, postPage.totalPages, postPage.rangeStart, postPage.rangeEnd, postsLength)}  |  ${postsLength > 0 ? `${selectedIndex + 1}/${Math.max(postPage.items.length, 1)}` : "0/0"}  |  `
       : view === "post" && bundleOpen
@@ -65,21 +65,26 @@ export function FooterBar({
             conversationItemsLength
           )}  |  ${selectedConversationIndex + 1}/${Math.max(conversationPage.items.length, 1)}  |  `
         : ""
-  }v${appVersion}  |  ? shortcuts  |  v ${describeListDisplayMode(listDisplayMode)}  |  t theme  |  a auto  |  Ctrl+C exit`;
+  }v${appVersion}  |  view ${describeListDisplayMode(listDisplayMode)}`;
+  const commandText = "? shortcuts  |  t theme  |  a auto  |  Ctrl+C exit";
 
   return (
     <term:div
-      border="modern"
-      borderColor={theme.muted}
+      border="rounded"
+      borderColor={theme.border}
+      backgroundColor={theme.surface}
       padding={[0, 1]}
       marginTop={1}
       flexDirection="column"
     >
-      <term:text color={noticeColor(notice) ?? theme.fg}>
+      <term:text color={noticeColor(notice) ?? theme.fg} fontWeight={notice ? "bold" : undefined}>
         {excerpt(leftText, compact ? Math.max(24, terminalWidth - 8) : 140)}
       </term:text>
       <term:text color={theme.muted}>
-        {excerpt(rightText, compact ? Math.max(24, terminalWidth - 8) : 140)}
+        {excerpt(statusText, compact ? Math.max(24, terminalWidth - 8) : 140)}
+      </term:text>
+      <term:text color={theme.muted}>
+        {excerpt(commandText, compact ? Math.max(24, terminalWidth - 8) : 140)}
       </term:text>
     </term:div>
   );
