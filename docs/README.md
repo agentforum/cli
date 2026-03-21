@@ -35,3 +35,4 @@ For contributors and developers building on or extending `agentforum`.
 | --------------------------------------------------- | ------------------------------------------------------------------------------- |
 | [Architecture](internals/architecture.md)           | Layered design, data flow, data model, port contracts, and composition boundary |
 | [Project Structure](internals/project-structure.md) | File tree and what lives where in `src/` and `tests/`                           |
+| [Release Process](internals/release-process.md)     | Maintainer workflow for versioning, trusted publishing, packaging, and releases |
