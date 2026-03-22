@@ -5,6 +5,7 @@ import {
   browseReducer,
   clampIndex,
   cycleThemeIndex,
+  resolveDeleteTransition,
 } from "@/cli/commands/browse/state.js";
 import { BUNDLE } from "./browse.fixtures.js";
 
@@ -36,7 +37,16 @@ describe("browse state", () => {
         ...initial,
         view: "reply",
         replyBody: "draft",
-        replyQuote: { text: "quoted", author: "claude", replyIndex: 1, replyId: "R-1" },
+        replyQuotes: [
+          {
+            id: "R-1",
+            kind: "reply",
+            label: "Reply 2",
+            text: "quoted",
+            author: "claude",
+            replyIndex: 1,
+          },
+        ],
         focusedReplyIndex: 2,
         conversationFilterMode: "replies",
         conversationSortMode: "recent",
@@ -47,7 +57,7 @@ describe("browse state", () => {
     expect(next.view).toBe("post");
     expect(next.bundle?.post.id).toBe("thread-1");
     expect(next.replyBody).toBe("");
-    expect(next.replyQuote).toBeNull();
+    expect(next.replyQuotes).toEqual([]);
     expect(next.focusedReplyIndex).toBe(-1);
     expect(next.conversationFilterMode).toBe("all");
     expect(next.replyPage).toBe(1);
@@ -76,37 +86,73 @@ describe("browse state", () => {
     expect(cycleThemeIndex(4, 5)).toBe(0);
   });
 
-  it("startReplyWithQuote opens composer with the quote and clears page state", () => {
+  it("startReply opens composer and preserves selected quotes", () => {
     const initial = createInitialBrowseState({
       initialChannelFilter: "__all__",
       initialAutoRefresh: false,
     });
-    const withBundle = browseReducer(initial, { type: "openBundle", bundle: BUNDLE });
-    const quote = { text: "quoted text", author: "claude:backend", replyIndex: 0, replyId: "R-1" };
+    const withBundle = browseReducer(
+      {
+        ...initial,
+        replyQuotes: [
+          {
+            id: "R-1",
+            kind: "reply",
+            label: "Reply 1",
+            text: "quoted text",
+            author: "claude:backend",
+            replyIndex: 0,
+          },
+        ],
+      },
+      { type: "openBundle", bundle: BUNDLE }
+    );
+    const withQuotes = {
+      ...withBundle,
+      replyQuotes: [
+        {
+          id: "thread-1",
+          kind: "post" as const,
+          label: "Original post",
+          text: "original body",
+          author: "claude:backend",
+          replyIndex: -1,
+        },
+      ],
+    };
 
-    const next = browseReducer(withBundle, { type: "startReplyWithQuote", quote });
+    const next = browseReducer(withQuotes, { type: "startReply" });
 
     expect(next.view).toBe("reply");
-    expect(next.replyQuote).toEqual(quote);
+    expect(next.replyQuotes).toEqual(withQuotes.replyQuotes);
     expect(next.replyBody).toBe("");
     expect(next.gotoPageMode).toBeNull();
     expect(next.gotoPageInput).toBe("");
   });
 
-  it("startReply clears any existing quote", () => {
+  it("startReply keeps any existing quotes selected", () => {
     const initial = createInitialBrowseState({
       initialChannelFilter: "__all__",
       initialAutoRefresh: false,
     });
-    const withQuote = browseReducer(initial, {
-      type: "startReplyWithQuote",
-      quote: { text: "old quote", author: "agent", replyIndex: 0, replyId: "R-0" },
-    });
+    const withQuote = {
+      ...initial,
+      replyQuotes: [
+        {
+          id: "R-0",
+          kind: "reply" as const,
+          label: "Reply 1",
+          text: "old quote",
+          author: "agent",
+          replyIndex: 0,
+        },
+      ],
+    };
 
     const cleared = browseReducer(withQuote, { type: "startReply" });
 
     expect(cleared.view).toBe("reply");
-    expect(cleared.replyQuote).toBeNull();
+    expect(cleared.replyQuotes).toEqual(withQuote.replyQuotes);
   });
 
   it("returnToList resets modal and delete confirmation state", () => {
@@ -125,5 +171,31 @@ describe("browse state", () => {
     expect(back.showShortcutsHelp).toBe(false);
     expect(back.gotoPageMode).toBeNull();
     expect(back.confirmDelete).toBeNull();
+  });
+
+  it("closes the open thread and clears focus when deleting the selected post", () => {
+    const next = resolveDeleteTransition({
+      currentBundle: BUNDLE,
+      currentView: "post",
+      currentFocusedId: BUNDLE.post.id,
+      deletedPostId: BUNDLE.post.id,
+    });
+
+    expect(next.bundle).toBeNull();
+    expect(next.view).toBe("list");
+    expect(next.focusedId).toBeNull();
+  });
+
+  it("keeps the current thread open when deleting a different selected post", () => {
+    const next = resolveDeleteTransition({
+      currentBundle: BUNDLE,
+      currentView: "post",
+      currentFocusedId: "P-2",
+      deletedPostId: "P-2",
+    });
+
+    expect(next.bundle).toBe(BUNDLE);
+    expect(next.view).toBe("post");
+    expect(next.focusedId).toBeNull();
   });
 });

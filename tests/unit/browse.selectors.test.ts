@@ -92,11 +92,28 @@ describe("browse selectors", () => {
     const withActivity = [
       toBrowsePost(
         { ...POSTS[0], channel: "backend" },
-        { lastActivityAt: "2026-03-13T12:03:00.000Z", replyCount: 1 }
+        {
+          lastActivityAt: "2026-03-13T12:03:00.000Z",
+          replyCount: 1,
+          searchMatch: {
+            kind: "body",
+            kinds: ["body"],
+            excerpt: "token rotation details",
+            rank: 3,
+          },
+        }
       ),
       toBrowsePost(
         { ...POSTS[1], channel: "frontend" },
-        { lastActivityAt: "2026-03-13T12:02:00.000Z" }
+        {
+          lastActivityAt: "2026-03-13T12:02:00.000Z",
+          searchMatch: {
+            kind: "title",
+            kinds: ["title"],
+            excerpt: "Decision 2",
+            rank: 1,
+          },
+        }
       ),
     ];
 
@@ -113,7 +130,7 @@ describe("browse selectors", () => {
         sortMode: "activity",
         limit: 10,
       }).items.map((post) => post.id)
-    ).toEqual(["P-1", "P-2"]);
+    ).toEqual(["P-2", "P-1"]);
     expect(
       filterAndSortPosts(withActivity, {
         channelFilter: "frontend",

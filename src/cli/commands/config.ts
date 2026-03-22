@@ -14,6 +14,7 @@ export const LOCAL_CONFIG_DEFAULTS = {
   autoBackup: true,
   autoBackupInterval: 50,
   dateFormat: "iso",
+  reactions: ["confirmed", "contradicts", "acting-on", "needs-human"],
 };
 
 export const GLOBAL_CONFIG_DEFAULTS = {
@@ -23,6 +24,7 @@ export const GLOBAL_CONFIG_DEFAULTS = {
   autoBackup: true,
   autoBackupInterval: 50,
   dateFormat: "iso",
+  reactions: ["confirmed", "contradicts", "acting-on", "needs-human"],
 };
 
 interface OutputOptions {
@@ -157,7 +159,18 @@ function writeJsonFile(path: string, data: Record<string, unknown>): void {
   writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`, "utf8");
 }
 
-function parseValue(value: string): string | number | boolean {
+function parseValue(value: string): unknown {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
+    (trimmed.startsWith("{") && trimmed.endsWith("}"))
+  ) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      // Fall through to scalar parsing so the CLI still accepts raw strings.
+    }
+  }
   if (value === "true") return true;
   if (value === "false") return false;
   if (!Number.isNaN(Number(value)) && value.trim() !== "") return Number(value);

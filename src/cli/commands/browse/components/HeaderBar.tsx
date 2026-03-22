@@ -14,6 +14,7 @@ export function HeaderBar({
   channelFilter,
   bundle,
   focusedReplyIndex,
+  appVersion,
   sortMode,
   autoRefreshEnabled,
   refreshMs,
@@ -22,11 +23,14 @@ export function HeaderBar({
   theme,
   refreshing,
   terminalWidth,
+  showMoreAbove,
+  activeSearchQuery,
 }: {
-  view: "list" | "post" | "reply" | "channels";
+  view: "list" | "post" | "reader" | "reply" | "channels";
   channelFilter: string;
   bundle: ReadPostBundle | null;
   focusedReplyIndex: number;
+  appVersion: string;
   sortMode: "activity" | "recent" | "title" | "channel";
   autoRefreshEnabled: boolean;
   refreshMs: number;
@@ -35,6 +39,8 @@ export function HeaderBar({
   theme: BrowseTheme;
   refreshing: boolean;
   terminalWidth: number;
+  showMoreAbove: boolean;
+  activeSearchQuery: string;
 }) {
   const compact = terminalWidth < 110;
   const breadcrumbText = excerpt(
@@ -42,7 +48,7 @@ export function HeaderBar({
     compact ? Math.max(24, terminalWidth - 8) : 100
   );
   const detailText = excerpt(
-    `${describeSortMode(sortMode)}  |  ${refreshing ? "refreshing..." : buildAutoRefreshLabel(autoRefreshEnabled, refreshMs, autoRefreshCountdownMs)}  |  ${postsLength} threads  |  ${theme.name}`,
+    `${activeSearchQuery ? `search ${activeSearchQuery}  |  ` : ""}${describeSortMode(sortMode)}  |  ${refreshing ? "refreshing..." : buildAutoRefreshLabel(autoRefreshEnabled, refreshMs, autoRefreshCountdownMs)}  |  ${postsLength} threads  |  ${theme.name}`,
     compact ? Math.max(24, terminalWidth - 8) : 120
   );
 
@@ -54,12 +60,19 @@ export function HeaderBar({
       padding={[0, 1]}
       marginBottom={1}
       flexDirection="column"
+      flexShrink={0}
     >
       <term:div flexDirection="row" alignItems="center" marginBottom={0}>
         <term:text color={theme.banner} fontWeight="bold">
-          {"AgentForum"}
+          {`AgentForum v${appVersion}`}
         </term:text>
         <term:text color={theme.muted}>{`  ·  ${breadcrumbText}`}</term:text>
+        <term:text flexGrow={1} />
+        {showMoreAbove ? (
+          <term:text color={theme.muted} textAlign="right">
+            {"↑ more"}
+          </term:text>
+        ) : null}
         {refreshing ? (
           <term:text
             color={theme.bg}
@@ -73,7 +86,15 @@ export function HeaderBar({
         ) : null}
       </term:div>
       <term:text color={theme.fg} fontWeight="bold">
-        {view === "post" ? "Thread view" : view === "reply" ? "Reply composer" : "Browse threads"}
+        {view === "list" && activeSearchQuery
+          ? "Search results"
+          : view === "post"
+            ? "Thread view"
+            : view === "reader"
+              ? "Reading mode"
+              : view === "reply"
+                ? "Reply composer"
+                : "Browse threads"}
       </term:text>
       <term:text color={theme.muted}>{detailText}</term:text>
     </term:div>

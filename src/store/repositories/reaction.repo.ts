@@ -8,6 +8,8 @@ import { getSqlite } from "@/store/db.js";
 interface ReactionRow {
   id: string;
   post_id: string;
+  target_type: ReactionRecord["targetType"] | null;
+  target_id: string | null;
   reaction: ReactionRecord["reaction"];
   actor: string | null;
   session: string | null;
@@ -18,6 +20,8 @@ function mapReaction(row: ReactionRow): ReactionRecord {
   return {
     id: row.id,
     postId: row.post_id,
+    targetType: row.target_type ?? "post",
+    targetId: row.target_id ?? row.post_id,
     reaction: row.reaction,
     actor: row.actor,
     session: row.session,
@@ -36,8 +40,8 @@ export class ReactionRepository implements ReactionRepositoryPort {
     this.db()
       .prepare(
         `
-        INSERT INTO reactions (id, post_id, reaction, actor, session, created_at)
-        VALUES (@id, @postId, @reaction, @actor, @session, @createdAt)
+        INSERT INTO reactions (id, post_id, target_type, target_id, reaction, actor, session, created_at)
+        VALUES (@id, @postId, @targetType, @targetId, @reaction, @actor, @session, @createdAt)
       `
       )
       .run(reaction);

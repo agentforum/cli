@@ -50,6 +50,13 @@ export class ReplyRepository implements ReplyRepositoryPort {
     return reply;
   }
 
+  findById(id: string): ReplyRecord | null {
+    const row = this.db().prepare("SELECT * FROM replies WHERE id = ?").get(id) as
+      | ReplyRow
+      | undefined;
+    return row ? mapReply(row) : null;
+  }
+
   listByPostId(postId: string, options?: { limit?: number; offset?: number }): ReplyRecord[] {
     const limitClause = options?.limit ? `LIMIT ${options.limit}` : "";
     const offsetClause = options?.offset ? `OFFSET ${options.offset}` : "";

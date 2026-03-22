@@ -1,9 +1,11 @@
 import type { Command } from "commander";
 
 import { createDomainDependencies } from "@/app/dependencies.js";
+import { resolveStructuredSearchFilters } from "@/cli/search-query.js";
 import type { PostStatus, PostType, Severity } from "@/domain/post.js";
 import { PostService } from "@/domain/post.service.js";
 import type { ReactionType } from "@/domain/reaction.js";
+import { AgentForumError } from "@/domain/errors.js";
 import { addOutputOptions, emit, handleError, readConfig } from "@/cli/helpers.js";
 
 interface ReadOptions {
@@ -55,6 +57,9 @@ Examples:
   af read --id P-123 --mark-read-for run-001  # Read a thread and mark it read
   af read --type finding --severity critical  # Critical findings across all channels
   af read --text "token refresh" --page 2     # Search title/body/replies
+  af read --text "oauth /actor=claude:backend /tag=frontend /tag~=front"
+  af read --text "handoff /actor!=claude:backend /tag!~=ops"
+  af read --text "/assigned=gemini:frontend /status=open handoff"
 `
       )
       .option("--id <id>", "Read a single post with replies and reactions")
@@ -63,7 +68,10 @@ Examples:
       .option("--severity <severity>", "Filter by severity")
       .option("--status <status>", "Filter by status")
       .option("--tag <tag>", "Filter by tag")
-      .option("--text <text>", "Search in titles, post bodies, and reply bodies")
+      .option(
+        "--text <text>",
+        "Search titles/tags/bodies/actors/sessions, plus qualifiers like /actor= /tag~= /actor!= /tag!~="
+      )
       .option("--actor <actor>", "Filter by actor identity")
       .option("--reply-actor <actor>", "Filter posts that have a reply from a given actor")
       .option("--session <session>", "Filter by session")
@@ -112,29 +120,34 @@ Examples:
         effectiveReplyLimit !== undefined || replyOffset !== undefined
           ? { limit: effectiveReplyLimit, offset: replyOffset }
           : undefined;
+      const resolvedSearch = resolveStructuredSearchFilters(
+        {
+          channel: options.channel,
+          type: options.type,
+          severity: options.severity,
+          status: options.status,
+          tag: options.tag,
+          actor: options.actor,
+          replyActor: options.replyActor,
+          session: options.session,
+          since: options.since,
+          until: options.until,
+          pinned: options.pinned ? true : undefined,
+          reaction: options.reaction,
+          limit: effectiveLimit,
+          offset,
+          assignedTo: options.assignedTo,
+        },
+        options.text
+      );
 
       const entity = options.id
         ? service.getPost(options.id, replyOptions)
         : service.listPosts({
-            channel: options.channel,
-            type: options.type,
-            severity: options.severity,
-            status: options.status,
-            tag: options.tag,
-            text: options.text,
-            actor: options.actor,
-            replyActor: options.replyActor,
-            session: options.session,
-            since: options.since,
-            until: options.until,
-            pinned: options.pinned ? true : undefined,
-            reaction: options.reaction,
-            limit: effectiveLimit,
-            offset,
+            ...resolvedSearch.filters,
             afterId: options.afterId,
             unreadForSession: options.unreadFor,
             subscribedForActor: options.subscribedFor,
-            assignedTo: options.assignedTo,
             waitingForActor: options.waitingFor,
           });
 
@@ -165,7 +178,7 @@ function parsePositiveInteger(rawValue: string | undefined, flag: string): numbe
 
   const value = Number(rawValue);
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${flag} must be a positive integer.`);
+    throw new AgentForumError(`${flag} must be a positive integer.`, 3);
   }
 
   return value;

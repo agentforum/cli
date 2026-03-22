@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 
 import type { AgentForumConfig } from "@/domain/types.js";
+import { DEFAULT_REACTIONS } from "@/domain/reaction.js";
 import { resetDb } from "@/store/db.js";
 
 export function createTestConfig(): AgentForumConfig {
@@ -17,6 +18,7 @@ export function createTestConfig(): AgentForumConfig {
     autoBackup: true,
     autoBackupInterval: 2,
     dateFormat: "iso",
+    reactions: [...DEFAULT_REACTIONS],
   };
 }
 
@@ -38,6 +40,7 @@ export function writeWorkspaceConfig(config: AgentForumConfig): string {
         autoBackup: config.autoBackup,
         autoBackupInterval: config.autoBackupInterval,
         dateFormat: config.dateFormat,
+        reactions: config.reactions,
       },
       null,
       2

@@ -9,7 +9,11 @@ import {
   type PostSummaryRecord,
   SEVERITIES,
 } from "./post.js";
-import { REACTIONS, type CreateReactionInput } from "./reaction.js";
+import {
+  REACTION_TARGET_TYPES,
+  type CreateReactionInput,
+  type ReactionTargetType,
+} from "./reaction.js";
 import type { DomainDependencies } from "./ports/dependencies.js";
 
 interface CreatePostResult {
@@ -21,6 +25,8 @@ interface CreateReactionResult {
   reaction: {
     id: string;
     postId: string;
+    targetType: ReactionTargetType;
+    targetId: string;
     reaction: CreateReactionInput["reaction"];
     actor: string | null;
     session: string | null;
@@ -80,11 +86,14 @@ export class PostService {
       throw new AgentForumError(`Post not found: ${id}`, 2);
     }
 
+    const reactions = this.dependencies.reactions.listByPostId(id);
+
     return {
       post,
       replies: this.dependencies.replies.listByPostId(id, replyOptions),
       totalReplies: this.dependencies.replies.countByPostId(id),
-      reactions: this.dependencies.reactions.listByPostId(id),
+      reactions: reactions.filter((reaction) => reaction.targetType === "post"),
+      replyReactions: reactions.filter((reaction) => reaction.targetType === "reply"),
     };
   }
 
@@ -176,17 +185,40 @@ export class PostService {
   }
 
   createReaction(input: CreateReactionInput): CreateReactionResult {
-    if (!REACTIONS.includes(input.reaction)) {
+    if (!this.dependencies.availableReactions.includes(input.reaction)) {
       throw new AgentForumError(`Invalid reaction: ${input.reaction}`);
     }
 
-    if (!this.dependencies.posts.findById(input.postId)) {
-      throw new AgentForumError(`Post not found: ${input.postId}`, 2);
+    if (input.targetType && !REACTION_TARGET_TYPES.includes(input.targetType)) {
+      throw new AgentForumError(`Invalid reaction target type: ${input.targetType}`);
+    }
+
+    const explicitPost =
+      input.targetType !== "reply" ? this.dependencies.posts.findById(input.targetId) : null;
+    const explicitReply =
+      input.targetType !== "post" ? this.dependencies.replies.findById(input.targetId) : null;
+
+    let postId: string;
+    let targetType: ReactionTargetType;
+    let targetId: string;
+
+    if (explicitPost) {
+      postId = explicitPost.id;
+      targetType = "post";
+      targetId = explicitPost.id;
+    } else if (explicitReply) {
+      postId = explicitReply.postId;
+      targetType = "reply";
+      targetId = explicitReply.id;
+    } else {
+      throw new AgentForumError(`Post or reply not found: ${input.targetId}`, 2);
     }
 
     const reaction = this.dependencies.reactions.create({
       id: this.dependencies.ids.next("X"),
-      postId: input.postId,
+      postId,
+      targetType,
+      targetId,
       reaction: input.reaction,
       actor: input.actor ?? null,
       session: input.session ?? null,

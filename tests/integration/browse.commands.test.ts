@@ -24,6 +24,9 @@ describe("browse command", () => {
     expect(result.stdout).toContain("--auto-refresh");
     expect(result.stdout).toContain("--refresh-ms");
     expect(result.stdout).toContain("Interactive terminal browser for humans");
+    expect(result.stdout).toContain("Esc           Clear search or back");
+    expect(result.stdout).toContain("Tab     Open channels");
+    expect(result.stdout).toContain("/tag~=front");
   });
 
   it("fails clearly without an interactive terminal", async () => {

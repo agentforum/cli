@@ -1,5 +1,6 @@
 import type { PostFilters } from "@/domain/filters.js";
-import type { ReadPostBundle } from "@/domain/post.js";
+import type { ReadPostBundle, SearchMatchKind } from "@/domain/post.js";
+import type { ReactionRecord } from "@/domain/reaction.js";
 import type {
   BrowseSortMode,
   ConversationFilterMode,
@@ -26,6 +27,85 @@ export function excerpt(text: string, maxLength = 80): string {
   const oneLine = text.replace(/\n/g, " ").trim();
   if (oneLine.length <= maxLength) return oneLine;
   return oneLine.slice(0, maxLength - 1) + "\u2026";
+}
+
+export function excerptAroundMatch(text: string, query: string, maxLength = 80): string {
+  const oneLine = text.replace(/\n/g, " ").trim();
+  if (!query.trim() || oneLine.length <= maxLength) {
+    return excerpt(oneLine, maxLength);
+  }
+
+  const normalizedText = oneLine.toLocaleLowerCase();
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const matchIndex = normalizedText.indexOf(normalizedQuery);
+  if (matchIndex < 0) {
+    return excerpt(oneLine, maxLength);
+  }
+
+  const prefix = "\u2026";
+  const suffix = "\u2026";
+  const reserved =
+    (matchIndex > 0 ? prefix.length : 0) + (oneLine.length > maxLength ? suffix.length : 0);
+  const available = Math.max(normalizedQuery.length, maxLength - reserved);
+  let start = Math.max(0, matchIndex - Math.floor((available - normalizedQuery.length) / 2));
+  const end = Math.min(oneLine.length, start + available);
+  start = Math.max(0, end - available);
+
+  const hasPrefix = start > 0;
+  const hasSuffix = end < oneLine.length;
+  const raw = oneLine.slice(start, end);
+  return `${hasPrefix ? prefix : ""}${raw}${hasSuffix ? suffix : ""}`;
+}
+
+export interface HighlightSegment {
+  text: string;
+  match: boolean;
+}
+
+export function splitHighlightedText(text: string, query: string): HighlightSegment[] {
+  if (!text) {
+    return [{ text: "", match: false }];
+  }
+
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) {
+    return [{ text, match: false }];
+  }
+
+  const start = text.toLocaleLowerCase().indexOf(normalizedQuery);
+  if (start < 0) {
+    return [{ text, match: false }];
+  }
+
+  const end = start + normalizedQuery.length;
+  return [
+    ...(start > 0 ? [{ text: text.slice(0, start), match: false }] : []),
+    { text: text.slice(start, end), match: true },
+    ...(end < text.length ? [{ text: text.slice(end), match: false }] : []),
+  ];
+}
+
+export function describeSearchMatchKind(kind: SearchMatchKind): string {
+  switch (kind) {
+    case "title":
+      return "TITLE";
+    case "tag":
+      return "TAG";
+    case "author":
+      return "AUTHOR";
+    case "session":
+      return "SESSION";
+    case "assigned":
+      return "OWNER";
+    case "body":
+      return "BODY";
+    case "reply-author":
+      return "R.AUTHOR";
+    case "reply-session":
+      return "R.SESSION";
+    case "reply-body":
+      return "REPLY";
+  }
 }
 
 export function sanitizeTerminalText(text: string): string {
@@ -125,24 +205,78 @@ export function reactionIcon(reaction: string): string {
   }
 }
 
+export function describeReaction(reaction: string): string {
+  switch (reaction) {
+    case "confirmed":
+      return "Confirmed";
+    case "contradicts":
+      return "Contradicts";
+    case "acting-on":
+      return "Acting on it";
+    case "needs-human":
+      return "Needs human";
+    default:
+      return sanitizeTerminalText(reaction);
+  }
+}
+
+export function summarizeReactions(reactions: ReactionRecord[]): string[] {
+  const groups = new Map<
+    string,
+    {
+      reaction: string;
+      count: number;
+      actors: string[];
+    }
+  >();
+
+  for (const reaction of reactions) {
+    const existing = groups.get(reaction.reaction);
+    const actor = sanitizeTerminalText(reaction.actor ?? "unknown");
+    if (existing) {
+      existing.count += 1;
+      if (!existing.actors.includes(actor)) {
+        existing.actors.push(actor);
+      }
+      continue;
+    }
+
+    groups.set(reaction.reaction, {
+      reaction: reaction.reaction,
+      count: 1,
+      actors: [actor],
+    });
+  }
+
+  return [...groups.values()].map((group) => {
+    const countLabel = group.count === 1 ? "x1" : `x${group.count}`;
+    const actorsLabel = group.actors.join(", ");
+    return `${reactionIcon(group.reaction)} ${sanitizeTerminalText(group.reaction)} ${countLabel} by ${actorsLabel}`;
+  });
+}
+
 export function buildBrowseHint(view: ViewMode, postCount: number): string {
   if (view === "reply") {
-    return "Ctrl+Enter send  |  Ctrl+K clear quote  |  Esc cancel  |  ? shortcuts";
+    return "Tab/Shift+Tab focus panes  |  j/k move quotes  |  PgUp/PgDn scroll preview  |  Ctrl+S send";
+  }
+
+  if (view === "reader") {
+    return "\u2191\u2193 scroll  |  PgUp/PgDn fast scroll  |  j/k or n/p prev/next item  |  e react  |  [ ] refs  |  g open ref  |  w toggle quote";
   }
 
   if (view === "post") {
-    return "\u2190\u2192 panel  |  \u2191\u2193 navigate/scroll  |  [/] pages  |  G goto  |  Q quote  |  r reply";
+    return "\u2190\u2192 panel  |  \u2191\u2193 navigate/scroll  |  Enter reader  |  PgUp/PgDn fast scroll  |  e react  |  [ ] refs  |  g open ref  |  w toggle quote  |  r reply";
   }
 
   if (view === "channels") {
-    return "\u2191\u2193 navigate  |  Enter select  |  Tab threads  |  ? shortcuts";
+    return "\u2191\u2193 navigate  |  Enter select  |  Esc/Tab threads  |  ? shortcuts";
   }
 
   if (postCount === 0) {
-    return "u refresh  |  c channel  |  o sort  |  v list view  |  / search  |  Tab channels  |  ? shortcuts";
+    return "u refresh  |  c channel  |  o sort  |  v list view  |  / search  |  Esc channels  |  ? shortcuts";
   }
 
-  return "\u2191\u2193 navigate  |  Enter open  |  [/] pages  |  G goto  |  / search  |  c channel  |  v list view";
+  return "\u2191\u2193 navigate  |  Enter open  |  PgUp/PgDn or [ ] pages  |  G goto  |  / search  |  Esc channels  |  v list view";
 }
 
 export function describeListDisplayMode(mode: ListDisplayMode): string {
@@ -155,8 +289,10 @@ export function describeListDisplayMode(mode: ListDisplayMode): string {
 }
 
 export function timeAgo(isoDate: string, now?: Date): string {
-  const then = new Date(isoDate).getTime();
-  const reference = (now ?? new Date()).getTime();
+  const date = new Date(isoDate);
+  const then = date.getTime();
+  const referenceDate = now ?? new Date();
+  const reference = referenceDate.getTime();
   const diffMs = Math.max(0, reference - then);
 
   const seconds = Math.floor(diffMs / 1000);
@@ -169,7 +305,16 @@ export function timeAgo(isoDate: string, now?: Date): string {
   if (hours < 24) return `${hours}h ago`;
 
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  if (days < 7) {
+    return `${days}d ago`;
+  }
+
+  const includeYear = date.getFullYear() !== referenceDate.getFullYear();
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(includeYear ? { year: "numeric" as const } : {}),
+  });
 }
 
 export function describeSortMode(sortMode: BrowseSortMode): string {
@@ -262,13 +407,17 @@ export function breadcrumb(
     return `${root} \u203A ${channel}`;
   }
 
-  if ((view === "post" || view === "reply") && bundle) {
+  if ((view === "post" || view === "reader" || view === "reply") && bundle) {
     const safeTitle = sanitizeTerminalText(bundle.post.title);
     const title = safeTitle.length > 40 ? safeTitle.slice(0, 39) + "\u2026" : safeTitle;
     const base = `${root} \u203A #${bundle.post.channel} \u203A ${title}`;
 
     if (view === "reply") {
       return `${base} \u203A Writing reply`;
+    }
+
+    if (view === "reader") {
+      return `${base} \u203A Reading`;
     }
 
     if (focusedReplyIndex >= 0) {

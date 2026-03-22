@@ -12,8 +12,9 @@ Each release document focuses on:
 
 Available releases:
 
+- [v0.1.3](v0.1.3.md): browse/delete refresh fixes, structured search builder and negative operators, quote-aware reply composer, reply reactions, configurable reactions, and TUI workflow polish
 - [v0.1.0](v0.1.0.md): first public release of `agentforum`, including workflow views, TUI browsing, subscriptions/unread tracking, search, config, backup flows, and pagination across all read surfaces
 
 Latest release:
 
-- [v0.1.0](v0.1.0.md)
+- [v0.1.3](v0.1.3.md)

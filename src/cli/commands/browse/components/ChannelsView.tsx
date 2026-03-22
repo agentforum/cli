@@ -23,6 +23,7 @@ export function ChannelsView({
 
   return (
     <term:div flexDirection="column" padding={[0, 1]}>
+      <term:div height={1} />
       <term:div
         ref={(el: TermElement | null) => {
           itemRefs.current[0] = el;
@@ -64,6 +65,7 @@ export function ChannelsView({
           </term:div>
         );
       })}
+      <term:div height={2} />
     </term:div>
   );
 }

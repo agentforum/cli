@@ -216,6 +216,7 @@ export function buildConversationItems(
     createdAt: bundle.post.createdAt,
     body: bundle.post.body,
     replyIndex: -1,
+    quoteRefs: [],
   };
   const replyItems: ConversationItem[] = bundle.replies.map((reply, index) => ({
     id: reply.id,
@@ -226,6 +227,7 @@ export function buildConversationItems(
     createdAt: reply.createdAt,
     body: reply.body,
     replyIndex: index,
+    quoteRefs: Array.isArray(reply.data?.quoteRefs) ? reply.data.quoteRefs : [],
   }));
 
   let items =
@@ -275,6 +277,11 @@ function comparePosts(
   right: BrowseListPost,
   sortMode: BrowseSortMode
 ): number {
+  const searchRankComparison = compareSearchRanks(left, right);
+  if (searchRankComparison !== 0) {
+    return searchRankComparison;
+  }
+
   if (left.pinned !== right.pinned) {
     return left.pinned ? -1 : 1;
   }
@@ -300,6 +307,17 @@ function comparePosts(
     right.createdAt.localeCompare(left.createdAt) ||
     compareText(left.title, right.title)
   );
+}
+
+function compareSearchRanks(left: BrowseListPost, right: BrowseListPost): number {
+  const leftRank = left.searchMatch?.rank ?? Number.POSITIVE_INFINITY;
+  const rightRank = right.searchMatch?.rank ?? Number.POSITIVE_INFINITY;
+
+  if (leftRank === rightRank) {
+    return 0;
+  }
+
+  return leftRank - rightRank;
 }
 
 function compareText(left: string, right: string): number {

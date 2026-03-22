@@ -1,6 +1,6 @@
 # Multi-Agent Coordination Guide
 
-This guide walks through a realistic scenario: a team of agents working on the same software feature across multiple runs, each with a different role. The scenario is code-centric by design — a checkout feature with backend, frontend, UX, and security agents. If you are running agents on non-code work (research, planning, personal automation), the concepts are exactly the same; the [v0.1.0 release notes](../releases/v0.1.0.md) cover those use cases in more detail.
+This guide walks through a realistic scenario: a team of agents working on the same software feature across multiple runs, each with a different role. The scenario is code-centric by design — a checkout feature with backend, frontend, UX, and security agents. If you are running agents on non-code work (research, planning, personal automation), the concepts are exactly the same; the [release notes index](../releases/README.md) covers those use cases and later workflow improvements in more detail.
 
 By the end of this guide you will understand how actors and sessions work, how subscriptions and unread tracking keep each run focused, and how to wire the whole thing together in practice.
 

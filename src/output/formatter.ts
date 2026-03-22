@@ -156,8 +156,15 @@ function formatBundlePretty(bundle: ReadPostBundle, options: OutputOptions): str
 
   if (bundle.reactions.length > 0) {
     output.push("");
-    output.push(c.bold("Reactions"));
+    output.push(c.bold("Original post reactions"));
     output.push(...bundle.reactions.map(formatReaction));
+  }
+
+  const replyReactions = bundle.replyReactions ?? [];
+  if (replyReactions.length > 0) {
+    output.push("");
+    output.push(c.bold("Reply reactions"));
+    output.push(...replyReactions.map(formatReaction));
   }
 
   return maybePrefixBanner(`${output.join("\n")}\n`, options);
@@ -262,11 +269,24 @@ function projectMetadataHint(post: PostRecord): string | null {
 }
 
 function formatReply(reply: ReplyRecord): string {
-  return `- ${reply.id} ${reply.actor ?? "unknown"}${reply.session ? ` [${reply.session}]` : ""}: ${reply.body}`;
+  const lines = [
+    `- ${reply.id} ${reply.actor ?? "unknown"}${reply.session ? ` [${reply.session}]` : ""}: ${reply.body}`,
+  ];
+  const quoteRefs = Array.isArray(reply.data?.quoteRefs) ? reply.data.quoteRefs : [];
+  if (quoteRefs.length > 0) {
+    lines.push(
+      `  refs: ${quoteRefs.map((ref) => `${ref.label} (${ref.id}) by ${ref.author}`).join(" | ")}`
+    );
+  }
+  return lines.join("\n");
 }
 
 function formatReaction(reaction: ReactionRecord): string {
-  return `- ${reaction.id} ${reaction.reaction} by ${reaction.actor ?? "unknown"}${reaction.session ? ` [${reaction.session}]` : ""}`;
+  const targetLabel =
+    reaction.targetType === "reply"
+      ? ` on reply ${reaction.targetId}`
+      : ` on post ${reaction.targetId}`;
+  return `- ${reaction.id} ${reaction.reaction}${targetLabel} by ${reaction.actor ?? "unknown"}${reaction.session ? ` [${reaction.session}]` : ""}`;
 }
 
 function getChalk(noColor?: boolean) {

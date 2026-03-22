@@ -14,6 +14,19 @@ afterEach(() => {
 });
 
 describe("search command", () => {
+  it("shows structured qualifier examples in help output", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const result = await runCli(["search", "--help"], workspace);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Search posts by text and structured qualifiers");
+    expect(result.stdout).toContain("/tag~=front");
+    expect(result.stdout).toContain("/actor!=claude:backend");
+    expect(result.stdout).toContain("--tag <tag>");
+  });
+
   it("finds posts whose title matches the query", async () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
@@ -142,6 +155,188 @@ describe("search command", () => {
     const posts = JSON.parse(result.stdout) as Array<{ title: string }>;
     expect(posts.some((p) => p.title === "API contract")).toBe(true);
     expect(posts.every((p) => p.title !== "Unrelated")).toBe(true);
+  });
+
+  it("finds posts by post author and reply author", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const authored = await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "Owned by Claude",
+        "--body",
+        "Question body",
+        "--actor",
+        "claude:backend",
+        "--json",
+      ],
+      workspace
+    );
+    const authoredPost = JSON.parse(authored.stdout) as { id: string };
+
+    const replied = await runCli(
+      [
+        "post",
+        "--channel",
+        "frontend",
+        "--type",
+        "question",
+        "--title",
+        "Reply actor target",
+        "--body",
+        "Another question",
+        "--json",
+      ],
+      workspace
+    );
+    const repliedPost = JSON.parse(replied.stdout) as { id: string };
+
+    await runCli(
+      [
+        "reply",
+        "--post",
+        repliedPost.id,
+        "--body",
+        "Looking into it now",
+        "--actor",
+        "gemini:frontend",
+      ],
+      workspace
+    );
+
+    const authorResult = await runCli(["search", "claude:backend", "--json"], workspace);
+    const authorPosts = JSON.parse(authorResult.stdout) as Array<{ title: string }>;
+    expect(authorPosts.some((p) => p.title === "Owned by Claude")).toBe(true);
+
+    const replyActorResult = await runCli(["search", "gemini:frontend", "--json"], workspace);
+    const replyActorPosts = JSON.parse(replyActorResult.stdout) as Array<{ title: string }>;
+    expect(replyActorPosts.some((p) => p.title === "Reply actor target")).toBe(true);
+    expect(replyActorPosts.every((p) => p.title !== "Owned by Claude")).toBe(true);
+
+    expect(authoredPost.id).not.toBe(repliedPost.id);
+  });
+
+  it("matches text search case-insensitively for ascii queries", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "OAuth Token Rotation",
+        "--body",
+        "Uppercase in title",
+      ],
+      workspace
+    );
+
+    const result = await runCli(["search", "oauth", "--json"], workspace);
+
+    expect(result.exitCode).toBe(0);
+    const posts = JSON.parse(result.stdout) as Array<{ title: string }>;
+    expect(posts.some((p) => p.title === "OAuth Token Rotation")).toBe(true);
+  });
+
+  it("supports structured free search qualifiers for tags, actor, session, assigned, and reply session", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const created = await runCli(
+      [
+        "post",
+        "--channel",
+        "frontend",
+        "--type",
+        "question",
+        "--title",
+        "OAuth handoff needed",
+        "--body",
+        "Need to review the oauth queue",
+        "--tag",
+        "frontend",
+        "--actor",
+        "claude:backend",
+        "--session",
+        "run-042",
+        "--assign",
+        "gemini:frontend",
+        "--json",
+      ],
+      workspace
+    );
+    const post = JSON.parse(created.stdout) as { id: string };
+
+    await runCli(
+      ["reply", "--post", post.id, "--body", "Reply context", "--session", "review-007"],
+      workspace
+    );
+
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "frontend",
+        "--type",
+        "question",
+        "--title",
+        "OAuth unrelated",
+        "--body",
+        "Need to review the oauth queue",
+        "--tag",
+        "ops",
+        "--actor",
+        "other:actor",
+      ],
+      workspace
+    );
+
+    const actorTagResult = await runCli(
+      ["search", "oauth /actor=claude:backend /tag=frontend", "--json"],
+      workspace
+    );
+    expect(actorTagResult.stdout).toContain("OAuth handoff needed");
+    expect(actorTagResult.stdout).not.toContain("OAuth unrelated");
+
+    const sessionResult = await runCli(["search", "/session=run-042", "--json"], workspace);
+    expect(sessionResult.stdout).toContain("OAuth handoff needed");
+
+    const assignedResult = await runCli(
+      ["search", "/assigned=gemini:frontend", "--json"],
+      workspace
+    );
+    expect(assignedResult.stdout).toContain("OAuth handoff needed");
+
+    const replySessionResult = await runCli(
+      ["search", "/reply-session=review-007", "--json"],
+      workspace
+    );
+    expect(replySessionResult.stdout).toContain("OAuth handoff needed");
+
+    const partialTagResult = await runCli(["search", "/tag~=front", "--json"], workspace);
+    expect(partialTagResult.stdout).toContain("OAuth handoff needed");
+    expect(partialTagResult.stdout).not.toContain("OAuth unrelated");
+
+    const negativeActorResult = await runCli(
+      ["search", "/actor!=claude:backend", "--json"],
+      workspace
+    );
+    expect(negativeActorResult.stdout).toContain("OAuth unrelated");
+    expect(negativeActorResult.stdout).not.toContain("OAuth handoff needed");
+
+    const negativeTagContainsResult = await runCli(["search", "/tag!~=front", "--json"], workspace);
+    expect(negativeTagContainsResult.stdout).toContain("OAuth unrelated");
+    expect(negativeTagContainsResult.stdout).not.toContain("OAuth handoff needed");
   });
 
   it("returns empty array when nothing matches", async () => {
@@ -299,7 +494,7 @@ describe("search command", () => {
 
     const result = await runCli(["search", "contract", "--page-size", "0"], workspace);
 
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(3);
     expect(result.stderr).toContain("--page-size must be a positive integer.");
   });
 

@@ -22,6 +22,8 @@ Same keyboard shortcuts as \`af browse\` apply once inside.
 Example:
   af open P-123
   af open P-123 --actor claude:backend
+  af open P-123 --text "oauth /tag=frontend /tag~=front"
+  af open P-123 --text "handoff /actor!=claude:backend /tag!~=ops"
 `
       )
   ).action(async (id: string, options: OpenOptions) => {

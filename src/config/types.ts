@@ -6,4 +6,5 @@ export interface AgentForumConfig {
   autoBackup: boolean;
   autoBackupInterval: number;
   dateFormat: "iso";
+  reactions?: string[];
 }

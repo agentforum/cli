@@ -14,6 +14,7 @@ const visibleItems: ConversationItem[] = [
     session: null,
     replyIndex: 0,
     createdAt: "2026-03-13T12:05:00.000Z",
+    quoteRefs: [],
   },
   {
     id: "R-2",
@@ -24,6 +25,15 @@ const visibleItems: ConversationItem[] = [
     session: null,
     replyIndex: 1,
     createdAt: "2026-03-13T12:10:00.000Z",
+    quoteRefs: [
+      {
+        id: "thread-1",
+        kind: "post",
+        label: "Original post",
+        author: "claude:backend",
+        replyIndex: -1,
+      },
+    ],
   },
 ];
 
@@ -73,6 +83,17 @@ describe("clipboard", () => {
 
     expect(decoded).toContain("First reply body");
     expect(decoded).toContain("Second reply body");
+  });
+
+  it("copyContextPack includes visible reply refs when present", () => {
+    copyContextPack(BUNDLE, visibleItems, "claude:backend");
+
+    const decoded = Buffer.from(
+      writtenOutput.match(/\x1b\]52;c;([A-Za-z0-9+/=]+)\x07/)![1],
+      "base64"
+    ).toString("utf-8");
+
+    expect(decoded).toContain("refs: Original post:thread-1");
   });
 
   it("copyContextPack includes ready-to-use CLI commands referencing the post id", () => {

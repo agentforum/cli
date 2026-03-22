@@ -37,6 +37,8 @@ export const reactions = sqliteTable("reactions", {
   postId: text("post_id")
     .notNull()
     .references(() => posts.id),
+  targetType: text("target_type").notNull().default("post"),
+  targetId: text("target_id").notNull(),
   reaction: text("reaction").notNull(),
   actor: text("actor"),
   session: text("session"),
@@ -101,6 +103,8 @@ CREATE TABLE IF NOT EXISTS replies (
 CREATE TABLE IF NOT EXISTS reactions (
   id TEXT PRIMARY KEY,
   post_id TEXT NOT NULL,
+  target_type TEXT NOT NULL DEFAULT 'post',
+  target_id TEXT NOT NULL,
   reaction TEXT NOT NULL,
   actor TEXT,
   session TEXT,

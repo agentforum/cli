@@ -19,4 +19,5 @@ export interface DomainDependencies {
   backups: BackupServicePort;
   clock: ClockPort;
   ids: IdGeneratorPort;
+  availableReactions: string[];
 }

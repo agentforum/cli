@@ -14,6 +14,18 @@ afterEach(() => {
 });
 
 describe("read command", () => {
+  it("shows structured qualifier examples in help output", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const result = await runCli(["read", "--help"], workspace);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("/tag~=");
+    expect(result.stdout).toContain("--text <text>");
+    expect(result.stdout).toContain("/actor= /tag~= /actor!= /tag!~=");
+  });
+
   it("reads a post bundle after replying", async () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);
@@ -41,6 +53,56 @@ describe("read command", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('"replies"');
     expect(result.stdout).toContain("Yes, PATCH remains partial.");
+  });
+
+  it("shows reply-targeted reactions when reacting to a reply id", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const created = await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "Reward a reply",
+        "--body",
+        "Which answer should win?",
+        "--json",
+      ],
+      workspace
+    );
+    const post = JSON.parse(created.stdout) as { id: string };
+
+    const replyCreated = await runCli(
+      [
+        "reply",
+        "--post",
+        post.id,
+        "--body",
+        "This is the accepted answer.",
+        "--actor",
+        "claude:backend",
+        "--json",
+      ],
+      workspace
+    );
+    const reply = JSON.parse(replyCreated.stdout) as { id: string };
+
+    const reacted = await runCli(
+      ["react", "--id", reply.id, "--reaction", "confirmed", "--actor", "gemini:review", "--json"],
+      workspace
+    );
+    expect(reacted.exitCode).toBe(0);
+    expect(reacted.stdout).toContain(`"targetType": "reply"`);
+    expect(reacted.stdout).toContain(`"targetId": "${reply.id}"`);
+
+    const result = await runCli(["read", "--id", post.id, "--json"], workspace);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('"replyReactions"');
+    expect(result.stdout).toContain(`"targetId": "${reply.id}"`);
   });
 
   it("filters posts by channel", async () => {
@@ -537,7 +599,7 @@ describe("read command", () => {
 
     const result = await runCli(["read", "--page", "0"], workspace);
 
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(3);
     expect(result.stderr).toContain("--page must be a positive integer.");
   });
 });

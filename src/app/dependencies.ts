@@ -1,4 +1,5 @@
 import type { AgentForumConfig } from "@/config/types.js";
+import { normalizeReactionCatalog } from "@/domain/reaction.js";
 import { BackupService } from "./backup.service.js";
 import type { DomainDependencies } from "@/domain/ports/dependencies.js";
 import { NanoIdGenerator, SystemClock } from "@/domain/system.js";
@@ -32,5 +33,6 @@ export function createDomainDependencies(config: AgentForumConfig): DomainDepend
     }),
     clock: new SystemClock(),
     ids: new NanoIdGenerator(),
+    availableReactions: normalizeReactionCatalog(config.reactions),
   };
 }

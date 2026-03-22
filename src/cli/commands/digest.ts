@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 
 import { createDomainDependencies } from "@/app/dependencies.js";
+import { resolveStructuredSearchFilters } from "@/cli/search-query.js";
 import { DigestService } from "@/domain/digest.service.js";
 import { PostService } from "@/domain/post.service.js";
 import type { PostStatus, PostType, Severity } from "@/domain/post.js";
@@ -46,6 +47,8 @@ Examples:
   af digest                                          # Full digest of all posts
   af digest --channel frontend                       # Digest for one channel
   af digest --text "token refresh"                   # Search titles, bodies, and replies
+  af digest --text "handoff /assigned=gemini:frontend /status=open"
+  af digest --text "oauth /actor!=claude:backend /tag!~=ops"
   af digest --unread-for run-001                     # Only unread posts for a session
   af digest --subscribed-for claude:backend          # Posts matching actor subscriptions
   af digest --unread-for run-001 --mark-read-for run-001  # Digest and mark as read
@@ -58,7 +61,10 @@ Examples:
       .option("--severity <severity>", "Filter by severity")
       .option("--status <status>", "Filter by status")
       .option("--tag <tag>", "Filter by tag")
-      .option("--text <text>", "Search in titles, post bodies, and reply bodies")
+      .option(
+        "--text <text>",
+        "Search titles/tags/bodies/actors/sessions, plus inline qualifiers like /actor= /tag~= /actor!= /tag!~="
+      )
       .option("--actor <actor>", "Filter by actor identity")
       .option("--session <session>", "Filter by session")
       .option("--since <isoDate>", "Filter by ISO date")
@@ -87,20 +93,25 @@ Examples:
       const dependencies = createDomainDependencies(config);
       const service = new DigestService(dependencies);
       const limitPerType = parseLimitPerType(options.limitPerType);
+      const resolvedSearch = resolveStructuredSearchFilters(
+        {
+          channel: options.channel,
+          type: options.type,
+          severity: options.severity,
+          status: options.status,
+          tag: options.tag,
+          actor: options.actor,
+          session: options.session,
+          since: options.since,
+          assignedTo: options.assignedTo,
+        },
+        options.text
+      );
       const digest = service.getDigest({
-        channel: options.channel,
-        type: options.type,
-        severity: options.severity,
-        status: options.status,
-        tag: options.tag,
-        text: options.text,
-        actor: options.actor,
-        session: options.session,
-        since: options.since,
+        ...resolvedSearch.filters,
         afterId: options.afterId,
         unreadForSession: options.unreadFor,
         subscribedForActor: options.subscribedFor,
-        assignedTo: options.assignedTo,
         waitingForActor: options.waitingFor,
         limitPerType,
       });

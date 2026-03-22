@@ -3,7 +3,19 @@ import type { TermElement, TermInput } from "terminosaurus";
 import { useScreen } from "terminosaurus/react";
 import pkg from "../../../../package.json" with { type: "json" };
 
-import type { ReadPostBundle } from "@/domain/post.js";
+import {
+  SEARCH_BUILDER_FIELDS,
+  buildSearchBuilderToken,
+  cycleSearchBuilderField,
+  cycleSearchBuilderOperator,
+  getSearchValueSuggestions,
+  getSearchBuilderValueSuggestions,
+  cycleSearchValueSuggestion,
+  cycleSearchQualifierSuggestion,
+  hasSearchValueToken,
+  parseStructuredSearchQuery,
+} from "@/cli/search-query.js";
+import { POST_STATUSES, POST_TYPES, SEVERITIES, type ReadPostBundle } from "@/domain/post.js";
 import type {
   BrowseAppProps,
   BrowseListPost,
@@ -23,6 +35,13 @@ import { submitBrowseReply, refreshBrowseData } from "./data.js";
 import { buildReadProgressLabel, formatRefreshClock, toMessage } from "./formatters.js";
 import { resolveBrowseKeyCommand } from "./keybindings.js";
 import {
+  MAX_SEARCH_QUERY_LENGTH,
+  appendSearchQuery,
+  consumeOpenSearchShortcut,
+  deleteSearchQueryBackward,
+} from "./search-input.js";
+import { scrollListItemWithMargin } from "./scroll.js";
+import {
   buildChannelStats,
   buildConversationItems,
   clampOffset,
@@ -34,7 +53,13 @@ import {
   paginateItems,
   resolveConversationSelection,
 } from "./selectors.js";
-import { browseReducer, clampIndex, createInitialBrowseState, cycleThemeIndex } from "./state.js";
+import {
+  browseReducer,
+  clampIndex,
+  createInitialBrowseState,
+  cycleThemeIndex,
+  resolveDeleteTransition,
+} from "./state.js";
 import { THEMES } from "./theme.js";
 
 const INFO_NOTICE_TTL_MS = 2500;
@@ -50,6 +75,7 @@ function useBrowseController(
   {
     postService,
     replyService,
+    availableReactions,
     baseFilters,
     initialChannelFilter,
     limit,
@@ -62,6 +88,7 @@ function useBrowseController(
   }: BrowseAppProps,
   screen: ReturnType<typeof useScreen>
 ) {
+  const decoderRef = useRef(new TextDecoder());
   const rootRef = useRef<TermElement | null>(null);
   const listItemRefs = useRef<Array<TermElement | null>>([]);
   const channelItemRefs = useRef<Array<TermElement | null>>([]);
@@ -69,7 +96,9 @@ function useBrowseController(
   const postContentRef = useRef<TermElement | null>(null);
   const shortcutsScrollRef = useRef<TermElement | null>(null);
   const replyInputRef = useRef<TermInput | null>(null);
-  const searchInputRef = useRef<TermInput | null>(null);
+  const replyQuotesListRef = useRef<TermElement | null>(null);
+  const replyQuotePreviewRef = useRef<TermElement | null>(null);
+  const replyQuoteItemRefs = useRef<Array<TermElement | null>>([]);
   const gotoPageInputRef = useRef<TermInput | null>(null);
   const focusedReplyRefs = useRef<Array<TermElement | null>>([]);
   const bundleRef = useRef<ReadPostBundle | null>(null);
@@ -83,12 +112,17 @@ function useBrowseController(
   const replyBodyRef = useRef("");
   const searchQueryRef = useRef(initialSearchQuery ?? "");
   const rawPostsRef = useRef<BrowseListPost[]>([]);
+  const pendingSearchShortcutRef = useRef<string | null>(null);
   const initialOpenAttemptedRef = useRef(false);
   const nextAutoRefreshAtRef = useRef<number | null>(null);
   const noticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshRequestIdRef = useRef(0);
   const [autoRefreshNowMs, setAutoRefreshNowMs] = useState(() => Date.now());
+  const [terminalSize, setTerminalSize] = useState(() => ({
+    width: process.stdout.columns ?? 120,
+    height: process.stdout.rows ?? 40,
+  }));
 
   const [state, dispatch] = useReducer(
     browseReducer,
@@ -138,8 +172,106 @@ function useBrowseController(
     );
     return pageIndex >= 0 ? pageIndex : 0;
   }, [conversationPage.items, state.focusedReplyIndex]);
+  const selectedReplyQuote = useMemo(() => {
+    if (state.replyQuotes.length === 0) {
+      return null;
+    }
+
+    if (state.replyFocusedQuoteId) {
+      return (
+        state.replyQuotes.find((quote) => quote.id === state.replyFocusedQuoteId) ??
+        state.replyQuotes[0]
+      );
+    }
+
+    return state.replyQuotes[0];
+  }, [state.replyFocusedQuoteId, state.replyQuotes]);
+  const reactionPickerTarget = useMemo(() => {
+    if (!state.bundle) {
+      return null;
+    }
+
+    if (state.focusedReplyIndex === -1) {
+      return {
+        id: state.bundle.post.id,
+        kind: "post" as const,
+        label: "original post",
+      };
+    }
+
+    const reply = state.bundle.replies[state.focusedReplyIndex];
+    if (!reply) {
+      return null;
+    }
+
+    return {
+      id: reply.id,
+      kind: "reply" as const,
+      label: `reply ${state.focusedReplyIndex + 1}`,
+    };
+  }, [state.bundle, state.focusedReplyIndex]);
+  const activeReplyRefs = useMemo(() => {
+    if (!state.bundle || state.focusedReplyIndex < 0) {
+      return [];
+    }
+
+    const reply = state.bundle.replies[state.focusedReplyIndex];
+    const refs = reply?.data?.quoteRefs;
+    return Array.isArray(refs) ? refs : [];
+  }, [state.bundle, state.focusedReplyIndex]);
+  const activeReplyRef = useMemo(() => {
+    if (activeReplyRefs.length === 0) {
+      return null;
+    }
+
+    const index = Math.max(0, Math.min(activeReplyRefs.length - 1, state.activeReplyRefIndex));
+    return activeReplyRefs[index] ?? null;
+  }, [activeReplyRefs, state.activeReplyRefIndex]);
+  const activeSearchTextQuery = useMemo(
+    () => parseStructuredSearchQuery(state.searchDraftQuery).text,
+    [state.searchDraftQuery]
+  );
+  const activeSearchQuery = useMemo(() => state.searchQuery.trim(), [state.searchQuery]);
+  const availableSearchValues = useMemo(
+    () => ({
+      tag: [...new Set(state.rawPosts.flatMap((post) => post.tags))]
+        .filter(Boolean)
+        .sort((left, right) => left.localeCompare(right)),
+      actor: [
+        ...new Set(state.rawPosts.map((post) => post.actor).filter(Boolean) as string[]),
+      ].sort((left, right) => left.localeCompare(right)),
+      session: [
+        ...new Set(state.rawPosts.map((post) => post.session).filter(Boolean) as string[]),
+      ].sort((left, right) => left.localeCompare(right)),
+      assigned: [
+        ...new Set(state.rawPosts.map((post) => post.assignedTo).filter(Boolean) as string[]),
+      ].sort((left, right) => left.localeCompare(right)),
+      channel: [...new Set(state.rawPosts.map((post) => post.channel).filter(Boolean))].sort(
+        (left, right) => left.localeCompare(right)
+      ),
+      status: [...POST_STATUSES],
+      type: [...POST_TYPES],
+      severity: [...SEVERITIES],
+    }),
+    [state.rawPosts]
+  );
+  const searchValueSuggestions = useMemo(
+    () => getSearchValueSuggestions(state.searchDraftQuery, availableSearchValues, 8),
+    [availableSearchValues, state.searchDraftQuery]
+  );
+  const searchBuilderValueSuggestions = useMemo(
+    () =>
+      getSearchBuilderValueSuggestions(
+        state.searchBuilderField,
+        state.searchBuilderValue,
+        availableSearchValues,
+        8
+      ),
+    [availableSearchValues, state.searchBuilderField, state.searchBuilderValue]
+  );
   const now = useMemo(() => new Date(), [state.lastRefreshAt]);
-  const terminalWidth = process.stdout.columns ?? 120;
+  const terminalWidth = terminalSize.width;
+  const terminalHeight = terminalSize.height;
   const autoRefreshCountdownMs = useMemo(() => {
     if (
       !state.autoRefreshEnabled ||
@@ -196,6 +328,28 @@ function useBrowseController(
     rawPostsRef.current = state.rawPosts;
   }, [state.rawPosts]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      setTerminalSize((current) => {
+        const next = {
+          width: process.stdout.columns ?? current.width,
+          height: process.stdout.rows ?? current.height,
+        };
+
+        if (next.width === current.width && next.height === current.height) {
+          return current;
+        }
+
+        return next;
+      });
+    };
+
+    process.stdout.addListener("resize", handleResize);
+    return () => {
+      process.stdout.removeListener("resize", handleResize);
+    };
+  }, []);
+
   const refreshReadProgress = useCallback(() => {
     const element = postContentRef.current;
     if (!element) {
@@ -214,6 +368,37 @@ function useBrowseController(
       },
     });
   }, []);
+
+  const resolveFocusedQuote = useCallback((): ReplyQuote | null => {
+    if (!state.bundle) {
+      return null;
+    }
+
+    if (state.focusedReplyIndex === -1) {
+      return {
+        id: state.bundle.post.id,
+        kind: "post",
+        label: "Original post",
+        text: state.bundle.post.body,
+        author: state.bundle.post.actor ?? actor ?? "unknown",
+        replyIndex: -1,
+      };
+    }
+
+    const selectedReply = state.bundle.replies[state.focusedReplyIndex];
+    if (!selectedReply) {
+      return null;
+    }
+
+    return {
+      id: selectedReply.id,
+      kind: "reply",
+      label: `Reply ${state.focusedReplyIndex + 1}`,
+      text: selectedReply.body,
+      author: selectedReply.actor ?? "unknown",
+      replyIndex: state.focusedReplyIndex,
+    };
+  }, [actor, state.bundle, state.focusedReplyIndex]);
 
   const clearTransientTimers = useCallback(() => {
     if (noticeTimeoutRef.current) {
@@ -395,14 +580,23 @@ function useBrowseController(
         postId: state.bundle.post.id,
         body: state.replyBody,
         actor,
-        quote: state.replyQuote,
+        quotes: state.replyQuotes,
       });
-      dispatch({ type: "patch", patch: { replyBody: "", replyQuote: null, view: "post" } });
+      dispatch({
+        type: "patch",
+        patch: {
+          replyBody: "",
+          replyQuotes: [],
+          replyFocusedQuoteId: null,
+          replySectionFocus: "editor",
+          view: "post",
+        },
+      });
       refreshData("reply", state.bundle.post.id);
     } catch (error) {
       dispatch({ type: "setNotice", notice: { kind: "error", text: toMessage(error) } });
     }
-  }, [actor, refreshData, replyService, state.bundle, state.replyBody, state.replyQuote]);
+  }, [actor, refreshData, replyService, state.bundle, state.replyBody, state.replyQuotes]);
 
   const executeDelete = useCallback(() => {
     if (!state.confirmDelete) {
@@ -410,17 +604,29 @@ function useBrowseController(
     }
 
     try {
-      postService.deletePost(state.confirmDelete.id);
-      const shouldCloseBundle = state.bundle?.post.id === state.confirmDelete.id;
+      const deletedPostId = state.confirmDelete.id;
+      postService.deletePost(deletedPostId);
+      const nextState = resolveDeleteTransition({
+        currentBundle: state.bundle,
+        currentView: state.view,
+        currentFocusedId: selectedPostIdRef.current,
+        deletedPostId,
+      });
+
+      // Keep refresh in sync with the delete action before React flushes state.
+      bundleRef.current = nextState.bundle;
+      viewRef.current = nextState.view;
+      selectedPostIdRef.current = nextState.focusedId;
+
       dispatch({
         type: "patch",
         patch: {
           confirmDelete: null,
-          bundle: shouldCloseBundle ? null : state.bundle,
-          view: shouldCloseBundle ? "list" : state.view,
+          bundle: nextState.bundle,
+          view: nextState.view,
           notice: {
             kind: "info",
-            text: `Deleted: ${state.confirmDelete.title} (${state.confirmDelete.id})`,
+            text: `Deleted: ${state.confirmDelete.title} (${deletedPostId})`,
           },
         },
       });
@@ -457,35 +663,62 @@ function useBrowseController(
 
   useEffect(() => {
     if (state.searchMode) {
-      searchInputRef.current?.focus();
+      rootRef.current?.focus();
+      return;
+    }
+
+    if (state.reactionPickerMode) {
+      rootRef.current?.focus();
       return;
     }
 
     if (state.gotoPageMode) {
       gotoPageInputRef.current?.focus();
-      return;
+      const timeout = setTimeout(() => {
+        gotoPageInputRef.current?.focus();
+      }, 0);
+      return () => {
+        clearTimeout(timeout);
+      };
     }
 
     if (state.view === "reply") {
-      replyInputRef.current?.focus();
-      return;
+      const replyInput = replyInputRef.current as (TermInput & { blur?: () => void }) | null;
+      if (state.replySectionFocus !== "editor") {
+        replyInput?.blur?.();
+        rootRef.current?.focus();
+        return;
+      }
+      replyInput?.focus();
+      const timeout = setTimeout(() => {
+        replyInput?.focus();
+      }, 0);
+      return () => {
+        clearTimeout(timeout);
+      };
     }
 
     rootRef.current?.focus();
-  }, [state.gotoPageMode, state.searchMode, state.view]);
+  }, [
+    state.gotoPageMode,
+    state.reactionPickerMode,
+    state.replySectionFocus,
+    state.searchMode,
+    state.view,
+  ]);
 
   useEffect(() => {
     if (state.view === "list") {
-      listItemRefs.current[state.selectedIndex]?.scrollIntoView({ alignY: "auto", forceY: true });
+      scrollListItemWithMargin({
+        item: listItemRefs.current[state.selectedIndex],
+        marginRows: 1,
+      });
     }
   }, [posts.length, state.selectedIndex, state.view]);
 
   useEffect(() => {
     if (state.view === "channels") {
-      channelItemRefs.current[state.channelSelectedIndex]?.scrollIntoView({
-        alignY: "auto",
-        forceY: true,
-      });
+      channelItemRefs.current[state.channelSelectedIndex]?.scrollIntoView({ alignY: "auto" });
     }
   }, [channelStats.length, state.channelSelectedIndex, state.view]);
 
@@ -503,16 +736,89 @@ function useBrowseController(
 
   useEffect(() => {
     if (state.view === "post" && selectedConversationIndex >= 0) {
-      focusedReplyRefs.current[selectedConversationIndex]?.scrollIntoView({
-        alignY: "auto",
-        forceY: true,
-      });
+      focusedReplyRefs.current[selectedConversationIndex]?.scrollIntoView({ alignY: "auto" });
       if (postContentRef.current) {
         postContentRef.current.scrollTop = 0;
       }
       refreshReadProgress();
     }
   }, [refreshReadProgress, selectedConversationIndex, state.view]);
+
+  useEffect(() => {
+    if (state.view !== "reader") {
+      return;
+    }
+
+    if (postContentRef.current) {
+      postContentRef.current.scrollTop = 0;
+    }
+    refreshReadProgress();
+  }, [refreshReadProgress, state.bundle?.post.id, state.focusedReplyIndex, state.view]);
+
+  useEffect(() => {
+    if (state.view !== "reply") {
+      return;
+    }
+
+    if (state.replyQuotes.length === 0) {
+      if (state.replyFocusedQuoteId !== null || state.replySectionFocus !== "editor") {
+        dispatch({
+          type: "patch",
+          patch: { replyFocusedQuoteId: null, replySectionFocus: "editor" },
+        });
+      }
+      return;
+    }
+
+    const currentExists = state.replyQuotes.some((quote) => quote.id === state.replyFocusedQuoteId);
+    if (!currentExists) {
+      dispatch({
+        type: "patch",
+        patch: { replyFocusedQuoteId: state.replyQuotes[0].id },
+      });
+    }
+  }, [state.replyFocusedQuoteId, state.replyQuotes, state.replySectionFocus, state.view]);
+
+  useEffect(() => {
+    if (state.view !== "reply" || state.replySectionFocus !== "preview") {
+      return;
+    }
+
+    if (replyQuotePreviewRef.current) {
+      replyQuotePreviewRef.current.scrollTop = 0;
+    }
+  }, [selectedReplyQuote?.id, state.replySectionFocus, state.view]);
+
+  useEffect(() => {
+    if (state.view !== "reply" || !selectedReplyQuote) {
+      return;
+    }
+
+    const selectedIndex = state.replyQuotes.findIndex(
+      (quote) => quote.id === selectedReplyQuote.id
+    );
+    if (selectedIndex >= 0) {
+      replyQuoteItemRefs.current[selectedIndex]?.scrollIntoView({ alignY: "auto" });
+    }
+  }, [selectedReplyQuote, state.replyQuotes, state.view]);
+
+  useEffect(() => {
+    if (state.view !== "post" && state.view !== "reader") {
+      return;
+    }
+
+    if (activeReplyRefs.length === 0) {
+      if (state.activeReplyRefIndex !== 0) {
+        dispatch({ type: "patch", patch: { activeReplyRefIndex: 0 } });
+      }
+      return;
+    }
+
+    const clamped = Math.max(0, Math.min(activeReplyRefs.length - 1, state.activeReplyRefIndex));
+    if (clamped !== state.activeReplyRefIndex) {
+      dispatch({ type: "patch", patch: { activeReplyRefIndex: clamped } });
+    }
+  }, [activeReplyRefs.length, state.activeReplyRefIndex, state.view]);
 
   useEffect(() => {
     if (state.view !== "post") {
@@ -644,14 +950,20 @@ function useBrowseController(
           confirmDelete: Boolean(state.confirmDelete),
           gotoPageMode: state.gotoPageMode,
           searchMode: state.searchMode,
+          reactionPickerMode: state.reactionPickerMode,
+          searchBuilderActive: state.searchBuilderActive,
+          busyOperationKind: state.busyOperationKind,
+          hasActiveSearch: activeSearchQuery.length > 0,
           replyBody: state.replyBody,
+          replySectionFocus: state.replySectionFocus,
           postPanelFocus: state.postPanelFocus,
           conversationFilterMode: state.conversationFilterMode,
           focusedReplyIndex: state.focusedReplyIndex,
-          canQuoteReply: state.focusedReplyIndex >= 0,
+          canQuoteReply: Boolean(state.bundle),
           hasSelectedPost: Boolean(selectedPost),
           hasBundle: Boolean(state.bundle),
           hasRefPost: Boolean(state.bundle?.post.refId),
+          hasActiveReplyRefs: activeReplyRefs.length > 0,
           channelSelectedIndex: state.channelSelectedIndex,
           channelCount: channelStats.length + 1,
           postsLength: posts.length,
@@ -679,6 +991,63 @@ function useBrowseController(
           dispatch({ type: "patch", patch: { confirmDelete: null } });
           clearNotice();
           return;
+        case "closeReactionPicker":
+          dispatch({
+            type: "patch",
+            patch: { reactionPickerMode: null, reactionPickerSelectedIndex: 0 },
+          });
+          clearNotice();
+          return;
+        case "reactionMove":
+          dispatch({
+            type: "patch",
+            patch: {
+              reactionPickerSelectedIndex: clampIndex(
+                state.reactionPickerSelectedIndex + command.delta,
+                availableReactions.length
+              ),
+            },
+          });
+          return;
+        case "applyReaction": {
+          if (!state.bundle || !reactionPickerTarget) {
+            return;
+          }
+
+          const reactionIndex =
+            command.index == null
+              ? state.reactionPickerSelectedIndex
+              : clampIndex(command.index, availableReactions.length);
+          const reaction = availableReactions[reactionIndex];
+          if (!reaction) {
+            return;
+          }
+
+          try {
+            postService.createReaction({
+              targetId: reactionPickerTarget.id,
+              reaction,
+              actor,
+              session,
+            });
+            dispatch({
+              type: "patch",
+              patch: { reactionPickerMode: null, reactionPickerSelectedIndex: 0 },
+            });
+            refreshData("auto", state.bundle.post.id);
+            showTransientNotice({
+              kind: "info",
+              text: `Added ${reaction} to ${reactionPickerTarget.label}.`,
+            });
+          } catch (error) {
+            dispatch({
+              type: "patch",
+              patch: { reactionPickerMode: null, reactionPickerSelectedIndex: 0 },
+            });
+            dispatch({ type: "setNotice", notice: { kind: "error", text: toMessage(error) } });
+          }
+          return;
+        }
         case "closeGotoPage":
           dispatch({ type: "patch", patch: { gotoPageMode: null, gotoPageInput: "" } });
           clearNotice();
@@ -705,15 +1074,181 @@ function useBrowseController(
         case "closeSearch":
           dispatch({
             type: "patch",
-            patch: { searchMode: false, searchDraftQuery: state.searchQuery },
+            patch: {
+              searchMode: false,
+              searchBuilderActive: false,
+              searchBuilderField: "tag",
+              searchBuilderOperator: "=",
+              searchBuilderValue: "",
+              searchBuilderSelectedValueIndex: 0,
+              searchBuilderSegment: "field",
+              searchDraftQuery: state.searchQuery,
+            },
           });
           clearNotice();
           return;
+        case "openSearchBuilder":
+          pendingSearchShortcutRef.current = event.attributes.key.sequence === "/" ? "/" : null;
+          dispatch({
+            type: "patch",
+            patch: {
+              searchBuilderActive: true,
+              searchBuilderField: "tag",
+              searchBuilderOperator: "=",
+              searchBuilderValue: "",
+              searchBuilderSelectedValueIndex: 0,
+              searchBuilderSegment: "field",
+            },
+          });
+          clearNotice();
+          return;
+        case "closeSearchBuilder":
+          dispatch({
+            type: "patch",
+            patch: {
+              searchBuilderActive: false,
+              searchBuilderField: "tag",
+              searchBuilderOperator: "=",
+              searchBuilderValue: "",
+              searchBuilderSelectedValueIndex: 0,
+              searchBuilderSegment: "field",
+            },
+          });
+          return;
+        case "searchBuilderSegment": {
+          const segments: Array<"field" | "operator" | "value"> = ["field", "operator", "value"];
+          const currentIndex = segments.indexOf(state.searchBuilderSegment);
+          const next =
+            segments[(currentIndex + command.delta + segments.length) % segments.length] ?? "field";
+          dispatch({ type: "patch", patch: { searchBuilderSegment: next } });
+          return;
+        }
+        case "searchBuilderCycle":
+          if (state.searchBuilderSegment === "field") {
+            const nextField = cycleSearchBuilderField(state.searchBuilderField, command.delta);
+            dispatch({
+              type: "patch",
+              patch: {
+                searchBuilderField: nextField,
+                searchBuilderOperator:
+                  SEARCH_BUILDER_FIELDS.find((entry) => entry.key === nextField)?.operators[0] ??
+                  "=",
+                searchBuilderValue: "",
+                searchBuilderSelectedValueIndex: 0,
+              },
+            });
+            return;
+          }
+          if (state.searchBuilderSegment === "operator") {
+            dispatch({
+              type: "patch",
+              patch: {
+                searchBuilderOperator: cycleSearchBuilderOperator(
+                  state.searchBuilderField,
+                  state.searchBuilderOperator,
+                  command.delta
+                ),
+                searchBuilderSelectedValueIndex: 0,
+              },
+            });
+            return;
+          }
+          dispatch({
+            type: "patch",
+            patch: {
+              searchBuilderSelectedValueIndex: clampIndex(
+                state.searchBuilderSelectedValueIndex + command.delta,
+                searchBuilderValueSuggestions.length
+              ),
+            },
+          });
+          return;
+        case "searchBuilderBackspace":
+          if (state.searchBuilderSegment === "value" && state.searchBuilderValue.length > 0) {
+            dispatch({
+              type: "patch",
+              patch: {
+                searchBuilderValue: deleteSearchQueryBackward(state.searchBuilderValue),
+                searchBuilderSelectedValueIndex: 0,
+              },
+            });
+            return;
+          }
+          dispatch({
+            type: "patch",
+            patch: {
+              searchBuilderActive: false,
+              searchBuilderField: "tag",
+              searchBuilderOperator: "=",
+              searchBuilderValue: "",
+              searchBuilderSelectedValueIndex: 0,
+              searchBuilderSegment: "field",
+            },
+          });
+          return;
+        case "applySearchBuilder": {
+          if (state.searchBuilderSegment === "field") {
+            dispatch({ type: "patch", patch: { searchBuilderSegment: "operator" } });
+            return;
+          }
+
+          if (state.searchBuilderSegment === "operator") {
+            dispatch({ type: "patch", patch: { searchBuilderSegment: "value" } });
+            return;
+          }
+
+          const selectedSuggestion =
+            searchBuilderValueSuggestions[
+              Math.max(
+                0,
+                Math.min(
+                  searchBuilderValueSuggestions.length - 1,
+                  state.searchBuilderSelectedValueIndex
+                )
+              )
+            ]?.value ?? null;
+          const builderValue = state.searchBuilderValue.trim() || (selectedSuggestion ?? "");
+          if (!builderValue) {
+            dispatch({
+              type: "setNotice",
+              notice: { kind: "error", text: "Type or choose a value before adding this filter." },
+            });
+            return;
+          }
+          const token = buildSearchBuilderToken(
+            state.searchBuilderField,
+            state.searchBuilderOperator,
+            builderValue
+          );
+          const nextQuery = state.searchDraftQuery.trim()
+            ? `${state.searchDraftQuery.trimEnd()} ${token}`
+            : token;
+          dispatch({
+            type: "patch",
+            patch: {
+              searchDraftQuery: nextQuery,
+              searchBuilderActive: false,
+              searchBuilderField: "tag",
+              searchBuilderOperator: "=",
+              searchBuilderValue: "",
+              searchBuilderSelectedValueIndex: 0,
+              searchBuilderSegment: "field",
+            },
+          });
+          showTransientNotice({ kind: "info", text: `Added filter ${token}.` });
+          return;
+        }
         case "applySearch":
           dispatch({
             type: "patch",
             patch: {
               searchMode: false,
+              searchBuilderActive: false,
+              searchBuilderField: "tag",
+              searchBuilderOperator: "=",
+              searchBuilderValue: "",
+              searchBuilderSelectedValueIndex: 0,
+              searchBuilderSegment: "field",
               searchQuery: state.searchDraftQuery,
               searchDraftQuery: state.searchDraftQuery,
               listOffset: 0,
@@ -725,13 +1260,73 @@ function useBrowseController(
             searchQuery: state.searchDraftQuery,
           });
           return;
+        case "searchComplete":
+          dispatch({
+            type: "patch",
+            patch: {
+              searchDraftQuery: hasSearchValueToken(state.searchDraftQuery)
+                ? cycleSearchValueSuggestion(
+                    state.searchDraftQuery,
+                    availableSearchValues,
+                    command.direction
+                  )
+                : cycleSearchQualifierSuggestion(state.searchDraftQuery, command.direction),
+            },
+          });
+          return;
+        case "searchBackspace":
+          dispatch({
+            type: "patch",
+            patch: { searchDraftQuery: deleteSearchQueryBackward(state.searchDraftQuery) },
+          });
+          return;
         case "replyCancel":
           dispatch({ type: "patch", patch: { view: "post" } });
           clearNotice();
           return;
-        case "clearReplyQuote":
-          dispatch({ type: "patch", patch: { replyQuote: null } });
-          showTransientNotice({ kind: "info", text: "Quote cleared." });
+        case "clearReplyQuotes":
+          dispatch({
+            type: "patch",
+            patch: { replyQuotes: [], replyFocusedQuoteId: null, replySectionFocus: "editor" },
+          });
+          showTransientNotice({ kind: "info", text: "Selected quotes cleared." });
+          return;
+        case "replyFocusNext": {
+          const order: Array<"quotes" | "preview" | "editor"> = ["quotes", "preview", "editor"];
+          const available = order.filter((section) =>
+            section === "editor" ? true : state.replyQuotes.length > 0
+          );
+          const currentIndex = available.indexOf(state.replySectionFocus);
+          const next = available[(currentIndex + 1) % available.length] ?? "editor";
+          dispatch({ type: "patch", patch: { replySectionFocus: next } });
+          return;
+        }
+        case "replyFocusPrev": {
+          const order: Array<"quotes" | "preview" | "editor"> = ["quotes", "preview", "editor"];
+          const available = order.filter((section) =>
+            section === "editor" ? true : state.replyQuotes.length > 0
+          );
+          const currentIndex = available.indexOf(state.replySectionFocus);
+          const next =
+            available[(currentIndex - 1 + available.length) % available.length] ?? "editor";
+          dispatch({ type: "patch", patch: { replySectionFocus: next } });
+          return;
+        }
+        case "replyMoveQuoteSelection": {
+          if (state.replyQuotes.length === 0) {
+            return;
+          }
+          const currentIndex = Math.max(
+            0,
+            state.replyQuotes.findIndex((quote) => quote.id === selectedReplyQuote?.id)
+          );
+          const nextIndex = clampIndex(currentIndex + command.delta, state.replyQuotes.length);
+          const nextQuote = state.replyQuotes[nextIndex] ?? state.replyQuotes[0];
+          dispatch({ type: "patch", patch: { replyFocusedQuoteId: nextQuote.id } });
+          return;
+        }
+        case "replyPreviewScroll":
+          scrollBy(replyQuotePreviewRef.current, command.delta);
           return;
         case "copyReplyDraft":
           copyToClipboard(state.replyBody);
@@ -850,10 +1445,32 @@ function useBrowseController(
           dispatch({ type: "patch", patch: { view: "channels" } });
           clearNotice();
           return;
-        case "openSearch":
+        case "clearSearch":
           dispatch({
             type: "patch",
-            patch: { searchMode: true, searchDraftQuery: state.searchQuery },
+            patch: {
+              searchQuery: "",
+              searchDraftQuery: "",
+              listOffset: 0,
+              selectedIndex: 0,
+            },
+          });
+          refreshData("manual", undefined, { currentOffset: 0, searchQuery: "" });
+          return;
+        case "openSearch":
+          pendingSearchShortcutRef.current = event.attributes.key.sequence === "/" ? "/" : null;
+          dispatch({
+            type: "patch",
+            patch: {
+              searchMode: true,
+              searchBuilderActive: false,
+              searchBuilderField: "tag",
+              searchBuilderOperator: "=",
+              searchBuilderValue: "",
+              searchBuilderSelectedValueIndex: 0,
+              searchBuilderSegment: "field",
+              searchDraftQuery: state.searchQuery,
+            },
           });
           clearNotice();
           return;
@@ -868,6 +1485,20 @@ function useBrowseController(
             },
           });
           clearNotice();
+          return;
+        case "cancelBusyOperation":
+          dispatch({
+            type: "patch",
+            patch: { loading: false, refreshing: false, busyOperationKind: null },
+          });
+          showTransientNotice({ kind: "info", text: "Pending operation canceled." });
+          return;
+        case "openReader":
+          dispatch({ type: "patch", patch: { view: "reader", postPanelFocus: "content" } });
+          return;
+        case "closeReader":
+          dispatch({ type: "patch", patch: { view: "post", postPanelFocus: "index" } });
+          refreshReadProgress();
           return;
         case "postFocus":
           dispatch({ type: "patch", patch: { postPanelFocus: command.focus } });
@@ -893,6 +1524,10 @@ function useBrowseController(
           scrollBy(postContentRef.current, command.delta);
           refreshReadProgress();
           return;
+        case "readerScroll":
+          scrollBy(postContentRef.current, command.delta);
+          refreshReadProgress();
+          return;
         case "copySelectedBody": {
           const text =
             state.focusedReplyIndex === -1
@@ -912,11 +1547,72 @@ function useBrowseController(
             showTransientNotice({ kind: "info", text: "Copied thread context pack to clipboard." });
           }
           return;
+        case "replyRefPrev":
+          if (activeReplyRefs.length > 0) {
+            dispatch({
+              type: "patch",
+              patch: {
+                activeReplyRefIndex: Math.max(0, state.activeReplyRefIndex - 1),
+              },
+            });
+          } else {
+            showTransientNotice({ kind: "info", text: "No quote references on this reply." });
+          }
+          return;
+        case "replyRefNext":
+          if (activeReplyRefs.length > 0) {
+            dispatch({
+              type: "patch",
+              patch: {
+                activeReplyRefIndex: Math.min(
+                  activeReplyRefs.length - 1,
+                  state.activeReplyRefIndex + 1
+                ),
+              },
+            });
+          } else {
+            showTransientNotice({ kind: "info", text: "No quote references on this reply." });
+          }
+          return;
         case "openReferencedPost":
           if (state.bundle?.post.refId) {
             openPost(state.bundle.post.refId);
           }
           return;
+        case "openSelectedReplyRef": {
+          if (!activeReplyRef || !state.bundle) {
+            showTransientNotice({ kind: "info", text: "No quote references on this reply." });
+            return;
+          }
+
+          if (activeReplyRef.kind === "post" && activeReplyRef.id === state.bundle.post.id) {
+            dispatch({ type: "patch", patch: { focusedReplyIndex: -1, replyPage: 1 } });
+            showTransientNotice({ kind: "info", text: "Opened quoted original post." });
+            return;
+          }
+
+          const replyIndex = state.bundle.replies.findIndex(
+            (reply) => reply.id === activeReplyRef.id
+          );
+          if (replyIndex >= 0) {
+            const nextPage =
+              Math.floor(
+                resolveConversationSelection(conversationItems, replyIndex) / state.replyPageSize
+              ) + 1;
+            dispatch({
+              type: "patch",
+              patch: { focusedReplyIndex: replyIndex, replyPage: nextPage },
+            });
+            showTransientNotice({
+              kind: "info",
+              text: `Opened quoted ${activeReplyRef.label.toLowerCase()}.`,
+            });
+            return;
+          }
+
+          openPost(activeReplyRef.id);
+          return;
+        }
         case "cycleConversationFilter": {
           const next = nextValue(CONVERSATION_FILTER_MODES, state.conversationFilterMode);
           dispatch({ type: "patch", patch: { conversationFilterMode: next } });
@@ -962,17 +1658,52 @@ function useBrowseController(
         case "startReply":
           dispatch({ type: "startReply" });
           return;
-        case "startReplyWithQuote": {
-          const selectedReply = state.bundle?.replies[state.focusedReplyIndex];
-          if (selectedReply) {
-            const quote: ReplyQuote = {
-              text: selectedReply.body,
-              author: selectedReply.actor ?? "unknown",
-              replyIndex: state.focusedReplyIndex,
-              replyId: selectedReply.id,
-            };
-            dispatch({ type: "startReplyWithQuote", quote });
+        case "openReactionPicker":
+          dispatch({
+            type: "patch",
+            patch: {
+              reactionPickerMode: state.focusedReplyIndex === -1 ? "post" : "reply",
+              reactionPickerSelectedIndex: 0,
+            },
+          });
+          clearNotice();
+          return;
+        case "toggleReplyQuote": {
+          const quote = resolveFocusedQuote();
+          if (!quote) {
+            return;
           }
+
+          const exists = state.replyQuotes.some((entry) => entry.id === quote.id);
+          const nextQuotes = exists
+            ? state.replyQuotes.filter((entry) => entry.id !== quote.id)
+            : [...state.replyQuotes, quote].sort(
+                (left, right) => left.replyIndex - right.replyIndex
+              );
+          const nextFocusedQuoteId = exists
+            ? state.replyFocusedQuoteId === quote.id
+              ? (nextQuotes[0]?.id ?? null)
+              : state.replyFocusedQuoteId
+            : (state.replyFocusedQuoteId ?? quote.id);
+          const nextReplySectionFocus =
+            nextQuotes.length === 0
+              ? "editor"
+              : state.replySectionFocus === "editor"
+                ? state.replySectionFocus
+                : "quotes";
+
+          dispatch({
+            type: "patch",
+            patch: {
+              replyQuotes: nextQuotes,
+              replyFocusedQuoteId: nextFocusedQuoteId,
+              replySectionFocus: nextReplySectionFocus,
+            },
+          });
+          showTransientNotice({
+            kind: "info",
+            text: exists ? `Removed quote: ${quote.label}.` : `Selected quote: ${quote.label}.`,
+          });
           return;
         }
         case "noop":
@@ -993,8 +1724,14 @@ function useBrowseController(
       postPage.totalPages,
       openPost,
       posts.length,
+      availableSearchValues,
+      availableReactions,
+      searchBuilderValueSuggestions,
+      postService,
       refreshData,
       refreshReadProgress,
+      reactionPickerTarget,
+      resolveFocusedQuote,
       screen,
       selectedConversationIndex,
       selectedPost,
@@ -1004,9 +1741,67 @@ function useBrowseController(
     ]
   );
 
+  const handleData = useCallback(
+    (event: { attributes: { data: Uint8Array } }) => {
+      if (!state.searchMode) {
+        return;
+      }
+
+      const text = decoderRef.current.decode(event.attributes.data);
+      if (!text) {
+        return;
+      }
+
+      const chunk = consumeOpenSearchShortcut(text, pendingSearchShortcutRef.current);
+      pendingSearchShortcutRef.current = null;
+      if (!chunk) {
+        return;
+      }
+
+      if (state.searchBuilderActive) {
+        if (state.searchBuilderSegment !== "value") {
+          return;
+        }
+
+        dispatch({
+          type: "patch",
+          patch: {
+            searchBuilderValue: appendSearchQuery(
+              state.searchBuilderValue,
+              chunk,
+              MAX_SEARCH_QUERY_LENGTH
+            ),
+            searchBuilderSelectedValueIndex: 0,
+          },
+        });
+        return;
+      }
+
+      dispatch({
+        type: "patch",
+        patch: {
+          searchDraftQuery: appendSearchQuery(
+            state.searchDraftQuery,
+            chunk,
+            MAX_SEARCH_QUERY_LENGTH
+          ),
+        },
+      });
+    },
+    [
+      state.searchBuilderActive,
+      state.searchBuilderSegment,
+      state.searchBuilderSelectedValueIndex,
+      state.searchBuilderValue,
+      state.searchDraftQuery,
+      state.searchMode,
+    ]
+  );
+
   return {
     rootRef,
     onKeyPress: handleKeyPress,
+    onData: handleData,
     theme,
     view: state.view,
     channelFilter: state.channelFilter,
@@ -1037,17 +1832,36 @@ function useBrowseController(
     postScrollRef,
     postContentRef,
     postPanelFocus: state.postPanelFocus,
+    activeReplyRefs,
+    activeReplyRefIndex: state.activeReplyRefIndex,
     listDisplayMode: state.listDisplayMode,
     readProgressLabel: state.readProgressLabel,
     replyBody: state.replyBody,
-    replyQuote: state.replyQuote,
+    replyQuotes: state.replyQuotes,
+    selectedReplyQuote,
+    replyFocusedQuoteId: state.replyFocusedQuoteId,
     replyInputRef,
+    replyQuotesListRef,
+    replyQuotePreviewRef,
+    replyQuoteItemRefs,
     onReplyBodyChange: (value: string) => dispatch({ type: "setReplyBody", value }),
+    replySectionFocus: state.replySectionFocus,
     searchMode: state.searchMode,
+    reactionPickerMode: state.reactionPickerMode,
+    reactionPickerSelectedIndex: state.reactionPickerSelectedIndex,
+    reactionPickerTargetLabel: reactionPickerTarget?.label ?? "selected item",
+    availableReactions,
+    searchBuilderActive: state.searchBuilderActive,
+    searchBuilderField: state.searchBuilderField,
+    searchBuilderOperator: state.searchBuilderOperator,
+    searchBuilderValue: state.searchBuilderValue,
+    searchBuilderSelectedValueIndex: state.searchBuilderSelectedValueIndex,
+    searchBuilderSegment: state.searchBuilderSegment,
     searchQuery: state.searchDraftQuery,
-    searchInputRef,
-    onSearchQueryChange: (value: string) =>
-      dispatch({ type: "patch", patch: { searchDraftQuery: value } }),
+    searchMatchQuery: activeSearchTextQuery,
+    activeSearchQuery,
+    searchValueSuggestions,
+    searchBuilderValueSuggestions,
     gotoPageMode: state.gotoPageMode,
     gotoPageInput: state.gotoPageInput,
     gotoPageInputRef,
@@ -1059,6 +1873,10 @@ function useBrowseController(
     shortcutsScrollRef,
     appVersion: pkg.version,
     terminalWidth,
+    terminalHeight,
+    busyOperationKind: state.busyOperationKind,
+    showMoreAbove: state.view === "list" && state.selectedIndex > 0,
+    showMoreBelow: state.view === "list" && state.selectedIndex < Math.max(0, posts.length - 1),
   };
 }
 

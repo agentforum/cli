@@ -117,4 +117,55 @@ describe("digest command", () => {
     expect(digest.stdout).toContain("OAuth rollout");
     expect(digest.stdout).not.toContain("Unrelated");
   });
+
+  it("supports structured search qualifiers in --text", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Backend handoff",
+        "--body",
+        "oauth migration details",
+        "--actor",
+        "claude:backend",
+        "--tag",
+        "frontend",
+      ],
+      workspace
+    );
+    await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Frontend handoff",
+        "--body",
+        "oauth migration details",
+        "--actor",
+        "gemini:frontend",
+        "--tag",
+        "frontend",
+      ],
+      workspace
+    );
+
+    const digest = await runCli(
+      ["digest", "--text", "oauth /actor!=claude:backend /tag=frontend", "--compact"],
+      workspace
+    );
+
+    expect(digest.exitCode).toBe(0);
+    expect(digest.stdout).toContain("Frontend handoff");
+    expect(digest.stdout).not.toContain("Backend handoff");
+  });
 });

@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { cosmiconfigSync } from "cosmiconfig";
 
 import type { AgentForumConfig } from "./config/types.js";
+import { normalizeReactionCatalog } from "./domain/reaction.js";
 
 const SEARCH_PLACES = [".afrc", ".afrc.json", "af.config.json"];
 
@@ -16,6 +17,7 @@ const DEFAULT_CONFIG: AgentForumConfig = {
   autoBackup: true,
   autoBackupInterval: 50,
   dateFormat: "iso",
+  reactions: undefined,
 };
 
 export interface ConfigSource {
@@ -56,6 +58,7 @@ export function loadConfig(cwd = process.cwd()): AgentForumConfig {
 
   config.dbPath = resolve(configDir, config.dbPath);
   config.backupDir = resolve(configDir, config.backupDir);
+  config.reactions = normalizeReactionCatalog(config.reactions);
 
   ensureDirectory(dirname(config.dbPath));
   ensureDirectory(config.backupDir);

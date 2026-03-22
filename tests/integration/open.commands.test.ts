@@ -26,6 +26,7 @@ describe("open command", () => {
     expect(result.stdout).toContain("--session");
     expect(result.stdout).not.toContain("--channel");
     expect(result.stdout).toContain("Open a specific thread directly in the terminal browser");
+    expect(result.stdout).toContain("/tag~=front");
   });
 
   it("fails clearly without an interactive terminal", async () => {

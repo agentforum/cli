@@ -13,22 +13,36 @@ import type {
   Notice,
   PaginatedItems,
   ReplyQuote,
+  ReplySectionFocus,
   ViewMode,
 } from "@/cli/commands/browse/types.js";
+import { MAX_SEARCH_QUERY_LENGTH } from "@/cli/commands/browse/search-input.js";
+import type {
+  SearchBuilderFieldKey,
+  SearchBuilderOperator,
+  SearchValueSuggestion,
+} from "@/cli/search-query.js";
 import { ChannelsView } from "./ChannelsView.js";
 import { FooterBar } from "./FooterBar.js";
 import { GotoPageModal } from "./GotoPageModal.js";
 import { HeaderBar } from "./HeaderBar.js";
 import { ListView } from "./ListView.js";
-import { PostContextBar } from "./PostContextBar.js";
 import { PostView } from "./PostView.js";
+import { ReactionPickerModal } from "./ReactionPickerModal.js";
+import { ReaderView } from "./ReaderView.js";
 import { ReplyComposer } from "./ReplyComposer.js";
 import { SearchBar } from "./SearchBar.js";
 import { ShortcutsModal } from "./ShortcutsModal.js";
 
+const ROOT_VERTICAL_PADDING = 2;
+const HEADER_BLOCK_HEIGHT = 6;
+const COMPACT_FOOTER_BLOCK_HEIGHT = 6;
+const RELAXED_FOOTER_BLOCK_HEIGHT = 5;
+
 export function BrowseScreen({
   rootRef,
   onKeyPress,
+  onData,
   theme,
   view,
   channelFilter,
@@ -59,16 +73,36 @@ export function BrowseScreen({
   postScrollRef,
   postContentRef,
   postPanelFocus,
+  activeReplyRefs,
+  activeReplyRefIndex,
   listDisplayMode,
   readProgressLabel,
   replyBody,
-  replyQuote,
+  replyQuotes,
+  selectedReplyQuote,
+  replySectionFocus,
+  replyFocusedQuoteId,
   replyInputRef,
+  replyQuotesListRef,
+  replyQuotePreviewRef,
+  replyQuoteItemRefs,
   onReplyBodyChange,
   searchMode,
+  reactionPickerMode,
+  reactionPickerSelectedIndex,
+  reactionPickerTargetLabel,
+  availableReactions,
+  searchBuilderActive,
+  searchBuilderField,
+  searchBuilderOperator,
+  searchBuilderValue,
+  searchBuilderSelectedValueIndex,
+  searchBuilderSegment,
   searchQuery,
-  searchInputRef,
-  onSearchQueryChange,
+  searchMatchQuery,
+  activeSearchQuery,
+  searchValueSuggestions,
+  searchBuilderValueSuggestions,
   gotoPageMode,
   gotoPageInput,
   gotoPageInputRef,
@@ -79,6 +113,10 @@ export function BrowseScreen({
   shortcutsScrollRef,
   appVersion,
   terminalWidth,
+  terminalHeight,
+  showMoreAbove,
+  showMoreBelow,
+  busyOperationKind,
 }: {
   rootRef: React.MutableRefObject<TermElement | null>;
   onKeyPress: (event: {
@@ -93,6 +131,7 @@ export function BrowseScreen({
       };
     };
   }) => void;
+  onData: (event: { attributes: { data: Uint8Array } }) => void;
   theme: BrowseTheme;
   view: ViewMode;
   channelFilter: string;
@@ -123,16 +162,42 @@ export function BrowseScreen({
   postScrollRef: React.MutableRefObject<TermElement | null>;
   postContentRef: React.MutableRefObject<TermElement | null>;
   postPanelFocus: "index" | "content";
+  activeReplyRefs: Array<{
+    id: string;
+    kind: "post" | "reply";
+    label: string;
+    author: string;
+    replyIndex: number;
+  }>;
+  activeReplyRefIndex: number;
   listDisplayMode: "compact" | "semantic";
   readProgressLabel: string;
   replyBody: string;
-  replyQuote: ReplyQuote | null;
+  replyQuotes: ReplyQuote[];
+  selectedReplyQuote: ReplyQuote | null;
+  replySectionFocus: ReplySectionFocus;
+  replyFocusedQuoteId: string | null;
   replyInputRef: React.MutableRefObject<TermInput | null>;
+  replyQuotesListRef: React.MutableRefObject<TermElement | null>;
+  replyQuotePreviewRef: React.MutableRefObject<TermElement | null>;
+  replyQuoteItemRefs: React.MutableRefObject<Array<TermElement | null>>;
   onReplyBodyChange: (value: string) => void;
   searchMode: boolean;
+  reactionPickerMode: "post" | "reply" | null;
+  reactionPickerSelectedIndex: number;
+  reactionPickerTargetLabel: string;
+  availableReactions: string[];
+  searchBuilderActive: boolean;
+  searchBuilderField: SearchBuilderFieldKey;
+  searchBuilderOperator: SearchBuilderOperator;
+  searchBuilderValue: string;
+  searchBuilderSelectedValueIndex: number;
+  searchBuilderSegment: "field" | "operator" | "value";
   searchQuery: string;
-  searchInputRef: React.MutableRefObject<TermInput | null>;
-  onSearchQueryChange: (value: string) => void;
+  searchMatchQuery: string;
+  activeSearchQuery: string;
+  searchValueSuggestions: SearchValueSuggestion[];
+  searchBuilderValueSuggestions: SearchValueSuggestion[];
   gotoPageMode: GotoPageMode | null;
   gotoPageInput: string;
   gotoPageInputRef: React.MutableRefObject<TermInput | null>;
@@ -143,7 +208,23 @@ export function BrowseScreen({
   shortcutsScrollRef: React.MutableRefObject<TermElement | null>;
   appVersion: string;
   terminalWidth: number;
+  terminalHeight: number;
+  showMoreAbove: boolean;
+  showMoreBelow: boolean;
+  busyOperationKind: "search" | "refresh" | null;
 }) {
+  const compactFooter = terminalWidth < 120;
+  const footerBlockHeight = compactFooter
+    ? COMPACT_FOOTER_BLOCK_HEIGHT
+    : RELAXED_FOOTER_BLOCK_HEIGHT;
+  const mainBodyHeight =
+    view === "post" || view === "reply"
+      ? undefined
+      : Math.max(
+          3,
+          terminalHeight - ROOT_VERTICAL_PADDING - HEADER_BLOCK_HEIGHT - footerBlockHeight
+        );
+
   return (
     <term:div
       ref={rootRef}
@@ -155,12 +236,14 @@ export function BrowseScreen({
       color={theme.fg}
       focusEvents
       onKeyPress={onKeyPress}
+      onData={onData}
     >
       <HeaderBar
         view={view}
         channelFilter={channelFilter}
         bundle={bundle}
         focusedReplyIndex={focusedReplyIndex}
+        appVersion={appVersion}
         sortMode={sortMode}
         autoRefreshEnabled={autoRefreshEnabled}
         refreshMs={refreshMs}
@@ -169,21 +252,15 @@ export function BrowseScreen({
         theme={theme}
         refreshing={refreshing}
         terminalWidth={terminalWidth}
+        showMoreAbove={showMoreAbove}
+        activeSearchQuery={activeSearchQuery}
       />
-
-      {view === "post" && bundle ? (
-        <PostContextBar
-          bundle={bundle}
-          focusedReplyIndex={focusedReplyIndex}
-          actor={actor}
-          now={now}
-          theme={theme}
-        />
-      ) : null}
 
       <term:div
         flexGrow={1}
         flexShrink={1}
+        height={mainBodyHeight}
+        minHeight={0}
         overflow={view === "post" ? undefined : "scroll"}
         padding={[0, 0]}
       >
@@ -220,6 +297,10 @@ export function BrowseScreen({
             now={now}
             theme={theme}
             displayMode={listDisplayMode}
+            terminalWidth={terminalWidth}
+            searchQuery={searchMatchQuery}
+            activeSearchQuery={activeSearchQuery}
+            totalCount={postPage.totalCount}
           />
         ) : view === "post" ? (
           <PostView
@@ -236,18 +317,44 @@ export function BrowseScreen({
             indexScrollRef={postScrollRef}
             contentScrollRef={postContentRef}
             panelFocus={postPanelFocus}
+            activeReplyRefs={activeReplyRefs}
+            activeReplyRefIndex={activeReplyRefIndex}
             readProgressLabel={readProgressLabel}
             terminalWidth={terminalWidth}
+            quotedItemIds={new Set(replyQuotes.map((quote) => quote.id))}
+            quotedCount={replyQuotes.length}
+          />
+        ) : view === "reader" ? (
+          <ReaderView
+            bundle={bundle}
+            actor={actor}
+            now={now}
+            theme={theme}
+            focusedIndex={focusedReplyIndex}
+            scrollRef={postContentRef}
+            readProgressLabel={readProgressLabel}
+            activeReplyRefs={activeReplyRefs}
+            activeReplyRefIndex={activeReplyRefIndex}
+            quotedItemIds={new Set(replyQuotes.map((quote) => quote.id))}
+            quotedCount={replyQuotes.length}
           />
         ) : (
           <ReplyComposer
             bundle={bundle}
             replyBody={replyBody}
-            replyQuote={replyQuote}
+            replyQuotes={replyQuotes}
+            selectedReplyQuote={selectedReplyQuote}
+            replySectionFocus={replySectionFocus}
+            replyFocusedQuoteId={replyFocusedQuoteId}
             actor={actor}
             inputRef={replyInputRef}
+            quotesListRef={replyQuotesListRef}
+            quotePreviewRef={replyQuotePreviewRef}
+            quoteItemRefs={replyQuoteItemRefs}
             onReplyBodyChange={onReplyBodyChange}
             theme={theme}
+            terminalWidth={terminalWidth}
+            terminalHeight={terminalHeight}
           />
         )}
       </term:div>
@@ -266,16 +373,34 @@ export function BrowseScreen({
         conversationItemsLength={conversationPage.totalCount}
         conversationPage={conversationPage}
         listDisplayMode={listDisplayMode}
-        appVersion={appVersion}
         terminalWidth={terminalWidth}
+        showMoreBelow={showMoreBelow}
+        activeSearchQuery={activeSearchQuery}
+        busyOperationKind={busyOperationKind}
       />
 
       {searchMode ? (
         <SearchBar
           theme={theme}
-          inputRef={searchInputRef}
           value={searchQuery}
-          onChange={onSearchQueryChange}
+          terminalWidth={terminalWidth}
+          maxLength={MAX_SEARCH_QUERY_LENGTH}
+          valueSuggestions={searchValueSuggestions}
+          builderActive={searchBuilderActive}
+          builderField={searchBuilderField}
+          builderOperator={searchBuilderOperator}
+          builderValue={searchBuilderValue}
+          builderSelectedValueIndex={searchBuilderSelectedValueIndex}
+          builderSegment={searchBuilderSegment}
+          builderValueSuggestions={searchBuilderValueSuggestions}
+        />
+      ) : null}
+      {reactionPickerMode ? (
+        <ReactionPickerModal
+          theme={theme}
+          selectedIndex={reactionPickerSelectedIndex}
+          targetLabel={reactionPickerTargetLabel}
+          reactions={availableReactions}
         />
       ) : null}
       {gotoPageMode ? (

@@ -32,8 +32,10 @@ export function FooterBar({
   conversationItemsLength,
   conversationPage,
   listDisplayMode,
-  appVersion,
   terminalWidth,
+  showMoreBelow,
+  activeSearchQuery,
+  busyOperationKind,
 }: {
   notice: Notice;
   theme: BrowseTheme;
@@ -48,11 +50,21 @@ export function FooterBar({
   conversationItemsLength: number;
   conversationPage: PaginatedItems<ConversationItem>;
   listDisplayMode: ListDisplayMode;
-  appVersion: string;
   terminalWidth: number;
+  showMoreBelow: boolean;
+  activeSearchQuery: string;
+  busyOperationKind: "search" | "refresh" | null;
 }) {
   const compact = terminalWidth < 110;
-  const leftText = sanitizeTerminalText(notice?.text ?? buildBrowseHint(view, postsLength));
+  const relaxed = terminalWidth >= 120;
+  const leftText = sanitizeTerminalText(
+    notice?.text ??
+      (busyOperationKind === "search"
+        ? `Searching ${activeSearchQuery || "threads"}  |  Esc cancel`
+        : activeSearchQuery && view === "list"
+          ? `Search active: ${activeSearchQuery}`
+          : buildBrowseHint(view, postsLength))
+  );
   const statusText = `${
     view === "list"
       ? `${buildPageLabel(postPage.page, postPage.totalPages, postPage.rangeStart, postPage.rangeEnd, postsLength)}  |  ${postsLength > 0 ? `${selectedIndex + 1}/${Math.max(postPage.items.length, 1)}` : "0/0"}  |  `
@@ -65,8 +77,8 @@ export function FooterBar({
             conversationItemsLength
           )}  |  ${selectedConversationIndex + 1}/${Math.max(conversationPage.items.length, 1)}  |  `
         : ""
-  }v${appVersion}  |  view ${describeListDisplayMode(listDisplayMode)}`;
-  const commandText = "? shortcuts  |  t theme  |  a auto  |  Ctrl+C exit";
+  }view ${describeListDisplayMode(listDisplayMode)}`;
+  const commandText = "? help  |  t theme  |  a auto  |  Ctrl+C exit";
 
   return (
     <term:div
@@ -76,16 +88,42 @@ export function FooterBar({
       padding={[0, 1]}
       marginTop={1}
       flexDirection="column"
+      flexShrink={0}
     >
       <term:text color={noticeColor(notice) ?? theme.fg} fontWeight={notice ? "bold" : undefined}>
         {excerpt(leftText, compact ? Math.max(24, terminalWidth - 8) : 140)}
       </term:text>
-      <term:text color={theme.muted}>
-        {excerpt(statusText, compact ? Math.max(24, terminalWidth - 8) : 140)}
-      </term:text>
-      <term:text color={theme.muted}>
-        {excerpt(commandText, compact ? Math.max(24, terminalWidth - 8) : 140)}
-      </term:text>
+      {relaxed ? (
+        <term:div flexDirection="row">
+          <term:text color={theme.muted}>
+            {excerpt(statusText, Math.max(28, terminalWidth - 44))}
+          </term:text>
+          <term:text flexGrow={1} />
+          <term:text color={theme.muted}>{excerpt(commandText, 48)}</term:text>
+          {showMoreBelow ? (
+            <term:text color={theme.muted} textAlign="right" whiteSpace="pre">
+              {"  ↓ more"}
+            </term:text>
+          ) : null}
+        </term:div>
+      ) : (
+        <>
+          <term:text color={theme.muted}>
+            {excerpt(statusText, compact ? Math.max(24, terminalWidth - 8) : 140)}
+          </term:text>
+          <term:div flexDirection="row">
+            <term:text color={theme.muted}>
+              {excerpt(commandText, compact ? Math.max(24, terminalWidth - 18) : 120)}
+            </term:text>
+            <term:text flexGrow={1} />
+            {showMoreBelow ? (
+              <term:text color={theme.muted} textAlign="right">
+                {"↓ more"}
+              </term:text>
+            ) : null}
+          </term:div>
+        </>
+      )}
     </term:div>
   );
 }

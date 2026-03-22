@@ -53,6 +53,7 @@ export function toBrowsePost(
     reactionCount: 0,
     lastReplyExcerpt: null,
     lastReplyActor: null,
+    searchMatch: null,
     ...overrides,
   };
 }

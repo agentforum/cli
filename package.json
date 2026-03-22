@@ -75,6 +75,7 @@
     "drizzle-orm": "^0.45.1",
     "nanoid": "^5.1.6",
     "react": "^18",
+    "search-query-parser": "^1.6.0",
     "terminosaurus": "3.0.0-rc.11"
   },
   "devDependencies": {

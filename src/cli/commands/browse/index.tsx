@@ -21,12 +21,16 @@ export function registerBrowseCommand(program: Command): void {
         `
 Keyboard shortcuts (shown in-app):
   ↑/↓           Navigate list          Enter   Open thread
-  r             Reply                  q       Quit
+  PgUp/PgDn     Previous/next page     /       Open search
+  Esc           Clear search or back   Tab     Open channels
   u             Refresh                ?       Show all shortcuts
+  q             Quit
 
 Examples:
   af browse                                   # Browse all posts
   af browse --channel backend                 # Start filtered by channel
+  af browse --text "oauth /actor=claude:backend /tag=frontend /tag~=front"
+  af browse --text "handoff /actor!=claude:backend /tag!~=ops"
   af browse --unread-for run-001              # Show only unread posts
   af browse --auto-refresh --refresh-ms 3000  # Poll every 3 s
   af open P-123                               # Jump straight to a thread
@@ -62,6 +66,7 @@ export async function launchBrowse(options: BrowseOptions): Promise<void> {
     <BrowseApp
       postService={postService}
       replyService={replyService}
+      availableReactions={dependencies.availableReactions}
       baseFilters={buildBaseBrowseFilters({
         channel: options.channel,
         type: options.type,

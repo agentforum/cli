@@ -8,7 +8,12 @@ const baseState = {
   confirmDelete: false,
   gotoPageMode: null,
   searchMode: false,
+  reactionPickerMode: null,
+  searchBuilderActive: false,
+  busyOperationKind: null,
+  hasActiveSearch: false,
   replyBody: "",
+  replySectionFocus: "editor" as const,
   postPanelFocus: "index" as const,
   conversationFilterMode: "all" as const,
   focusedReplyIndex: -1,
@@ -16,6 +21,7 @@ const baseState = {
   hasSelectedPost: true,
   hasBundle: true,
   hasRefPost: false,
+  hasActiveReplyRefs: false,
   channelSelectedIndex: 0,
   channelCount: 3,
   postsLength: 2,
@@ -74,6 +80,12 @@ describe("browse keybindings", () => {
     expect(resolveBrowseKeyCommand(baseState, key("]", { name: "]" }))).toEqual({
       type: "listPageNext",
     });
+    expect(resolveBrowseKeyCommand(baseState, key("\u001B[5~", { name: "pageup" }))).toEqual({
+      type: "listPagePrev",
+    });
+    expect(resolveBrowseKeyCommand(baseState, key("\u001B[6~", { name: "pagedown" }))).toEqual({
+      type: "listPageNext",
+    });
     expect(resolveBrowseKeyCommand(baseState, key("G", { name: "G", shift: true }))).toEqual({
       type: "openGotoPage",
       mode: "list",
@@ -82,6 +94,106 @@ describe("browse keybindings", () => {
       type: "openGotoPage",
       mode: "list",
     });
+    expect(resolveBrowseKeyCommand(baseState, key("\u001B", { name: "escape" }))).toEqual({
+      type: "openChannels",
+    });
+  });
+
+  it("clears the active search from list view with escape", () => {
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, hasActiveSearch: true },
+        key("\u001B", { name: "escape" })
+      )
+    ).toEqual({
+      type: "clearSearch",
+    });
+  });
+
+  it("maps channels navigation and back actions", () => {
+    const channelsState = { ...baseState, view: "channels" as const };
+    expect(resolveBrowseKeyCommand(channelsState, key("\u001B", { name: "escape" }))).toEqual({
+      type: "channelsBack",
+    });
+    expect(resolveBrowseKeyCommand(channelsState, key("\t", { name: "tab" }))).toEqual({
+      type: "channelsBack",
+    });
+  });
+
+  it("maps search editing commands", () => {
+    const searchState = { ...baseState, searchMode: true as const };
+    expect(resolveBrowseKeyCommand(searchState, key("a", { name: "a" }))).toEqual({
+      type: "noop",
+    });
+    expect(resolveBrowseKeyCommand(searchState, key(" ", { name: "space" }))).toEqual({
+      type: "noop",
+    });
+    expect(resolveBrowseKeyCommand(searchState, key("\u007F", { name: "backspace" }))).toEqual({
+      type: "searchBackspace",
+    });
+    expect(resolveBrowseKeyCommand(searchState, key("\t", { name: "tab" }))).toEqual({
+      type: "searchComplete",
+      direction: 1,
+    });
+    expect(resolveBrowseKeyCommand(searchState, key("\u001B[Z", { name: "backtab" }))).toEqual({
+      type: "searchComplete",
+      direction: -1,
+    });
+    expect(resolveBrowseKeyCommand(searchState, key("\t", { name: "tab", shift: true }))).toEqual({
+      type: "searchComplete",
+      direction: -1,
+    });
+    expect(resolveBrowseKeyCommand(searchState, key("/", { name: "/" }))).toEqual({
+      type: "openSearchBuilder",
+    });
+  });
+
+  it("maps search builder navigation and apply commands", () => {
+    const builderState = {
+      ...baseState,
+      searchMode: true as const,
+      searchBuilderActive: true as const,
+    };
+    expect(resolveBrowseKeyCommand(builderState, key("\u001B[C", { name: "right" }))).toEqual({
+      type: "searchBuilderSegment",
+      delta: 1,
+    });
+    expect(resolveBrowseKeyCommand(builderState, key("\u001B[A", { name: "up" }))).toEqual({
+      type: "searchBuilderCycle",
+      delta: -1,
+    });
+    expect(resolveBrowseKeyCommand(builderState, key("\u007F", { name: "backspace" }))).toEqual({
+      type: "searchBuilderBackspace",
+    });
+    expect(resolveBrowseKeyCommand(builderState, key("\r", { name: "enter" }))).toEqual({
+      type: "applySearchBuilder",
+    });
+  });
+
+  it("maps reaction-picker commands before the underlying view", () => {
+    const reactionState = {
+      ...baseState,
+      view: "post" as const,
+      reactionPickerMode: "reply" as const,
+    };
+    expect(resolveBrowseKeyCommand(reactionState, key("\u001B", { name: "escape" }))).toEqual({
+      type: "closeReactionPicker",
+    });
+    expect(resolveBrowseKeyCommand(reactionState, key("j", { name: "j" }))).toEqual({
+      type: "reactionMove",
+      delta: 1,
+    });
+    expect(resolveBrowseKeyCommand(reactionState, key("2", { name: "2" }))).toEqual({
+      type: "applyReaction",
+      index: 1,
+    });
+    expect(resolveBrowseKeyCommand(reactionState, key("5", { name: "5" }))).toEqual({
+      type: "applyReaction",
+      index: 4,
+    });
+    expect(resolveBrowseKeyCommand(reactionState, key("\r", { name: "enter" }))).toEqual({
+      type: "applyReaction",
+    });
   });
 
   it("maps reply-mode commands", () => {
@@ -89,14 +201,47 @@ describe("browse keybindings", () => {
     expect(resolveBrowseKeyCommand(replyState, key("\u001B", { name: "escape" }))).toEqual({
       type: "replyCancel",
     });
+    expect(resolveBrowseKeyCommand(replyState, key("\t", { name: "tab" }))).toEqual({
+      type: "replyFocusNext",
+    });
+    expect(resolveBrowseKeyCommand(replyState, key("\u001B[Z", { name: "backtab" }))).toEqual({
+      type: "replyFocusPrev",
+    });
     expect(resolveBrowseKeyCommand(replyState, key("k", { name: "k", ctrl: true }))).toEqual({
-      type: "clearReplyQuote",
+      type: "clearReplyQuotes",
     });
     expect(resolveBrowseKeyCommand(replyState, key("y", { name: "y", ctrl: true }))).toEqual({
       type: "copyReplyDraft",
     });
-    expect(resolveBrowseKeyCommand(replyState, key("\r", { name: "enter", ctrl: true }))).toEqual({
+    expect(resolveBrowseKeyCommand(replyState, key("s", { name: "s", ctrl: true }))).toEqual({
       type: "submitReply",
+    });
+    expect(
+      resolveBrowseKeyCommand(
+        { ...replyState, replySectionFocus: "quotes" as const },
+        key("j", { name: "j" })
+      )
+    ).toEqual({
+      type: "replyMoveQuoteSelection",
+      delta: 1,
+    });
+    expect(
+      resolveBrowseKeyCommand(
+        { ...replyState, replySectionFocus: "quotes" as const },
+        key("\u001B[6~", { name: "pagedown" })
+      )
+    ).toEqual({
+      type: "replyMoveQuoteSelection",
+      delta: 5,
+    });
+    expect(
+      resolveBrowseKeyCommand(
+        { ...replyState, replySectionFocus: "preview" as const },
+        key("\u001B[6~", { name: "pagedown" })
+      )
+    ).toEqual({
+      type: "replyPreviewScroll",
+      delta: 12,
     });
   });
 
@@ -105,11 +250,16 @@ describe("browse keybindings", () => {
       ...baseState,
       view: "post" as const,
       hasRefPost: true,
-      canQuoteReply: true,
       focusedReplyIndex: 1,
     };
     expect(resolveBrowseKeyCommand(postState, key("r", { name: "r" }))).toEqual({
       type: "startReply",
+    });
+    expect(resolveBrowseKeyCommand(postState, key("e", { name: "e" }))).toEqual({
+      type: "openReactionPicker",
+    });
+    expect(resolveBrowseKeyCommand(postState, key("R", { name: "R", shift: true }))).toEqual({
+      type: "openReactionPicker",
     });
     expect(resolveBrowseKeyCommand(postState, key("g", { name: "g" }))).toEqual({
       type: "openReferencedPost",
@@ -118,16 +268,217 @@ describe("browse keybindings", () => {
       type: "postFocus",
       focus: "content",
     });
+    expect(resolveBrowseKeyCommand(postState, key("\u001B[5~", { name: "pageup" }))).toEqual({
+      type: "postScroll",
+      delta: -12,
+    });
+    expect(resolveBrowseKeyCommand(postState, key("\u001B[6~", { name: "pagedown" }))).toEqual({
+      type: "postScroll",
+      delta: 12,
+    });
     expect(resolveBrowseKeyCommand(postState, key("Q", { name: "Q", shift: true }))).toEqual({
-      type: "startReplyWithQuote",
+      type: "toggleReplyQuote",
+    });
+    expect(
+      resolveBrowseKeyCommand({ ...postState, hasActiveReplyRefs: true }, key("]", { name: "]" }))
+    ).toEqual({
+      type: "replyRefNext",
+    });
+    expect(
+      resolveBrowseKeyCommand({ ...postState, hasActiveReplyRefs: true }, key("g", { name: "g" }))
+    ).toEqual({
+      type: "openSelectedReplyRef",
     });
     expect(resolveBrowseKeyCommand(postState, key("X", { name: "X", shift: true }))).toEqual({
       type: "copyContextPack",
     });
-    expect(resolveBrowseKeyCommand(postState, key("Q", { name: "q", shift: false }))).toEqual({
-      type: "startReplyWithQuote",
+    expect(resolveBrowseKeyCommand(postState, key("x", { name: "x", shift: false }))).toEqual({
+      type: "copyContextPack",
     });
-    expect(resolveBrowseKeyCommand(postState, key("X", { name: "x", shift: false }))).toEqual({
+    expect(resolveBrowseKeyCommand(postState, key("o", { name: "o", shift: false }))).toEqual({
+      type: "cycleConversationSort",
+    });
+    expect(resolveBrowseKeyCommand(postState, key("w", { name: "w", shift: false }))).toEqual({
+      type: "toggleReplyQuote",
+    });
+  });
+
+  it("opens and closes reader mode from the thread view", () => {
+    const postState = {
+      ...baseState,
+      view: "post" as const,
+      conversationItemsLength: 3,
+      postPanelFocus: "index" as const,
+    };
+
+    expect(resolveBrowseKeyCommand(postState, key("\r", { name: "enter" }))).toEqual({
+      type: "openReader",
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...postState, postPanelFocus: "content" as const },
+        key("\r", { name: "enter" })
+      )
+    ).toEqual({
+      type: "openReader",
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const },
+        key("\u001B", { name: "escape" })
+      )
+    ).toEqual({
+      type: "closeReader",
+    });
+    expect(
+      resolveBrowseKeyCommand({ ...baseState, view: "reader" as const }, key("e", { name: "e" }))
+    ).toEqual({
+      type: "openReactionPicker",
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("\u001B[5~", { name: "pageup" })
+      )
+    ).toEqual({
+      type: "readerScroll",
+      delta: -12,
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("\u001B[6~", { name: "pagedown" })
+      )
+    ).toEqual({
+      type: "readerScroll",
+      delta: 12,
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("\u001B[A", { name: "up" })
+      )
+    ).toEqual({
+      type: "readerScroll",
+      delta: -3,
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("\u001B[B", { name: "down" })
+      )
+    ).toEqual({
+      type: "readerScroll",
+      delta: 3,
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("j", { name: "j" })
+      )
+    ).toEqual({
+      type: "postMoveConversation",
+      delta: 1,
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("k", { name: "k" })
+      )
+    ).toEqual({
+      type: "postMoveConversation",
+      delta: -1,
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("n", { name: "n" })
+      )
+    ).toEqual({
+      type: "postMoveConversation",
+      delta: 1,
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("p", { name: "p" })
+      )
+    ).toEqual({
+      type: "postMoveConversation",
+      delta: -1,
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("y", { name: "y" })
+      )
+    ).toEqual({
+      type: "copySelectedBody",
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("r", { name: "r" })
+      )
+    ).toEqual({
+      type: "startReply",
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("w", { name: "w" })
+      )
+    ).toEqual({
+      type: "toggleReplyQuote",
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        {
+          ...baseState,
+          view: "reader" as const,
+          conversationItemsLength: 3,
+          hasActiveReplyRefs: true,
+        },
+        key("[", { name: "[" })
+      )
+    ).toEqual({
+      type: "replyRefPrev",
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        {
+          ...baseState,
+          view: "reader" as const,
+          conversationItemsLength: 3,
+          hasActiveReplyRefs: true,
+        },
+        key("g", { name: "g" })
+      )
+    ).toEqual({
+      type: "openSelectedReplyRef",
+    });
+
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "reader" as const, conversationItemsLength: 3 },
+        key("X", { name: "X", shift: true })
+      )
+    ).toEqual({
       type: "copyContextPack",
     });
   });

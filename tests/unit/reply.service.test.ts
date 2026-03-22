@@ -39,6 +39,49 @@ describe("ReplyService", () => {
     expect(bundle.replies).toHaveLength(1);
   });
 
+  it("persists structured quote refs in reply data", () => {
+    config = createTestConfig();
+    const dependencies = createDomainDependencies(config);
+    const postService = new PostService(dependencies);
+    const replyService = new ReplyService(dependencies);
+    const post = postService.createPost({
+      channel: "backend",
+      type: "question",
+      title: "Need PATCH clarification",
+      body: "Can PATCH omit phoneNumber?",
+    });
+
+    const reply = replyService.createReply({
+      postId: post.post.id,
+      body: "Agreed.",
+      data: {
+        quoteRefs: [
+          {
+            id: post.post.id,
+            kind: "post",
+            label: "Original post",
+            author: "claude:backend",
+            replyIndex: -1,
+          },
+        ],
+      },
+    });
+
+    const bundle = postService.getPost(post.post.id);
+    expect(reply.data).toEqual({
+      quoteRefs: [
+        {
+          id: post.post.id,
+          kind: "post",
+          label: "Original post",
+          author: "claude:backend",
+          replyIndex: -1,
+        },
+      ],
+    });
+    expect(bundle.replies[0]?.data).toEqual(reply.data);
+  });
+
   it("rejects replies for unknown posts", () => {
     config = createTestConfig();
     const replyService = new ReplyService(createDomainDependencies(config));

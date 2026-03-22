@@ -1,6 +1,7 @@
 import type React from "react";
 import type { TermElement, TermInput } from "terminosaurus";
 
+import type { SearchBuilderFieldKey, SearchBuilderOperator } from "@/cli/search-query.js";
 import type {
   PostFilters,
   PostStatus,
@@ -8,7 +9,8 @@ import type {
   ReadPostBundle,
   Severity,
 } from "@/domain/types.js";
-import type { PostRecord } from "@/domain/post.js";
+import type { ReplyQuoteRef } from "@/domain/reply.js";
+import type { PostRecord, SearchMatchRecord } from "@/domain/post.js";
 import type { PostService } from "@/domain/post.service.js";
 import type { ReplyService } from "@/domain/reply.service.js";
 
@@ -44,11 +46,13 @@ export interface BrowseOptions {
   refreshMs?: string;
 }
 
-export type ViewMode = "list" | "post" | "reply" | "channels";
+export type ViewMode = "list" | "post" | "reader" | "reply" | "channels";
 export type Notice = { kind: "info" | "error"; text: string } | null;
 export type RefreshReason = "initial" | "manual" | "auto" | "reply";
 export type PanelFocus = "index" | "content";
 export type GotoPageMode = "list" | "thread";
+export type ReplySectionFocus = "quotes" | "preview" | "editor";
+export type ReactionPickerMode = "post" | "reply" | null;
 
 export type KeyLike = {
   name: string;
@@ -90,6 +94,7 @@ export interface BrowseListPost extends PostRecord {
   reactionCount: number;
   lastReplyExcerpt: string | null;
   lastReplyActor: string | null;
+  searchMatch: SearchMatchRecord | null;
 }
 
 export interface ConversationItem {
@@ -101,13 +106,16 @@ export interface ConversationItem {
   createdAt: string;
   body: string;
   replyIndex: number;
+  quoteRefs: ReplyQuoteRef[];
 }
 
 export interface ReplyQuote {
+  id: string;
+  kind: "post" | "reply";
+  label: string;
   text: string;
   author: string;
   replyIndex: number;
-  replyId: string;
 }
 
 export interface PaginatedItems<T> {
@@ -132,14 +140,18 @@ export interface BrowseRefs {
   channelItemRefs: React.MutableRefObject<Array<TermElement | null>>;
   postScrollRef: React.MutableRefObject<TermElement | null>;
   postContentRef: React.MutableRefObject<TermElement | null>;
+  readerScrollRef: React.MutableRefObject<TermElement | null>;
   shortcutsScrollRef: React.MutableRefObject<TermElement | null>;
   replyInputRef: React.MutableRefObject<TermInput | null>;
+  replyQuotesListRef: React.MutableRefObject<TermElement | null>;
+  replyQuotePreviewRef: React.MutableRefObject<TermElement | null>;
   focusedReplyRefs: React.MutableRefObject<Array<TermElement | null>>;
 }
 
 export interface BrowseAppProps {
   postService: PostService;
   replyService: ReplyService;
+  availableReactions: string[];
   baseFilters: PostFilters;
   initialChannelFilter: string;
   limit: number;
@@ -159,7 +171,10 @@ export interface BrowseState {
   channelSelectedIndex: number;
   bundle: ReadPostBundle | null;
   replyBody: string;
-  replyQuote: ReplyQuote | null;
+  replyQuotes: ReplyQuote[];
+  replyFocusedQuoteId: string | null;
+  replySectionFocus: ReplySectionFocus;
+  activeReplyRefIndex: number;
   loading: boolean;
   refreshing: boolean;
   notice: Notice;
@@ -172,6 +187,7 @@ export interface BrowseState {
   confirmDelete: BrowseListPost | null;
   focusedReplyIndex: number;
   postPanelFocus: PanelFocus;
+  readerMode: boolean;
   conversationFilterMode: ConversationFilterMode;
   conversationSortMode: ConversationSortMode;
   replyPage: number;
@@ -181,7 +197,16 @@ export interface BrowseState {
   gotoPageMode: GotoPageMode | null;
   gotoPageInput: string;
   searchMode: boolean;
+  reactionPickerMode: ReactionPickerMode;
+  reactionPickerSelectedIndex: number;
+  searchBuilderActive: boolean;
+  searchBuilderField: SearchBuilderFieldKey;
+  searchBuilderOperator: SearchBuilderOperator;
+  searchBuilderValue: string;
+  searchBuilderSelectedValueIndex: number;
+  searchBuilderSegment: "field" | "operator" | "value";
   searchQuery: string;
   searchDraftQuery: string;
+  busyOperationKind: "search" | "refresh" | null;
   changedPostIds: string[];
 }

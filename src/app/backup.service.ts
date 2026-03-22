@@ -209,6 +209,11 @@ export class BackupService implements BackupServicePort {
       }
 
       for (const reaction of payload.reactions) {
+        const normalizedReaction = {
+          ...reaction,
+          targetType: reaction.targetType ?? "post",
+          targetId: reaction.targetId ?? reaction.postId,
+        };
         const existingReaction = reactionsById.get(reaction.id);
         if (existingReaction) {
           classifyExistingRecord(
@@ -216,24 +221,24 @@ export class BackupService implements BackupServicePort {
             "reactions",
             reaction.id,
             existingReaction,
-            reaction,
+            normalizedReaction,
             "different reaction already exists"
           );
           continue;
         }
 
-        if (!postsById.has(reaction.postId)) {
+        if (!postsById.has(normalizedReaction.postId)) {
           addConflict(
             report,
             "reactions",
             reaction.id,
-            `parent post is missing: ${reaction.postId}`
+            `parent post is missing: ${normalizedReaction.postId}`
           );
           continue;
         }
 
-        this.dependencies.reactions.create(reaction);
-        reactionsById.set(reaction.id, reaction);
+        this.dependencies.reactions.create(normalizedReaction);
+        reactionsById.set(reaction.id, normalizedReaction);
         incrementImportCount(report.created, "reactions");
       }
 

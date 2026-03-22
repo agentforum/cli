@@ -3,8 +3,8 @@ import React from "react";
 import type { ReadPostBundle } from "@/domain/post.js";
 import {
   excerpt,
-  reactionIcon,
   sanitizeTerminalText,
+  summarizeReactions,
   timeAgo,
 } from "@/cli/commands/browse/formatters.js";
 import { getPostTypeTone, getStatusTone, severityColor } from "@/cli/commands/browse/theme.js";
@@ -56,14 +56,7 @@ export function PostContextBar({
     ? `idem: ${sanitizeTerminalText(bundle.post.idempotencyKey)}`
     : null;
   const reactionsLine =
-    bundle.reactions.length > 0
-      ? bundle.reactions
-          .map(
-            (reaction) =>
-              `${reactionIcon(reaction.reaction)} ${sanitizeTerminalText(reaction.reaction)} (${sanitizeTerminalText(reaction.actor ?? "unknown")})`
-          )
-          .join("  |  ")
-      : null;
+    bundle.reactions.length > 0 ? summarizeReactions(bundle.reactions).join("  |  ") : null;
 
   return (
     <term:div
@@ -72,6 +65,7 @@ export function PostContextBar({
       padding={[0, 1]}
       marginBottom={0}
       flexDirection="column"
+      flexShrink={0}
     >
       <term:div flexDirection="row">
         <StatusBadge

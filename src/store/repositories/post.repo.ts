@@ -2,12 +2,18 @@ import type Database from "better-sqlite3";
 
 import type { AgentForumConfig } from "@/config/types.js";
 import { AgentForumError } from "@/domain/errors.js";
-import type { PostFilters } from "@/domain/filters.js";
+import type { PostFilters, StructuredFilterClause } from "@/domain/filters.js";
 import type { MetadataRepositoryPort } from "@/domain/ports/metadata.js";
 import type { PostRepositoryPort } from "@/domain/ports/repositories.js";
 import type { ReadReceiptRepositoryPort } from "@/domain/ports/read-receipts.js";
 import type { ReadReceiptRecord } from "@/domain/read-receipt.js";
-import type { PostRecord, PostStatus, PostSummaryRecord } from "@/domain/post.js";
+import type {
+  PostRecord,
+  PostStatus,
+  PostSummaryRecord,
+  SearchMatchKind,
+  SearchMatchRecord,
+} from "@/domain/post.js";
 import { getSqlite } from "@/store/db.js";
 
 interface PostRow {
@@ -36,6 +42,17 @@ interface PostSummaryRow extends PostRow {
   reaction_count: number;
   last_reply_actor: string | null;
   last_reply_body: string | null;
+  search_match_rank: number | null;
+  search_match_excerpt: string | null;
+  search_match_title: number;
+  search_match_tag: number;
+  search_match_author: number;
+  search_match_session: number;
+  search_match_assigned: number;
+  search_match_body: number;
+  search_match_reply_author: number;
+  search_match_reply_session: number;
+  search_match_reply_body: number;
 }
 
 interface ReadReceiptRow {
@@ -79,6 +96,7 @@ function mapPost(row: PostRow | undefined): PostRecord | null {
 }
 
 function mapPostSummary(row: PostSummaryRow): PostSummaryRecord {
+  const searchMatch = mapSearchMatch(row);
   return {
     ...(mapPost(row) as PostRecord),
     lastActivityAt: row.last_activity_at,
@@ -86,6 +104,143 @@ function mapPostSummary(row: PostSummaryRow): PostSummaryRecord {
     reactionCount: row.reaction_count,
     lastReplyExcerpt: row.last_reply_body,
     lastReplyActor: row.last_reply_actor,
+    searchMatch,
+  };
+}
+
+function mapSearchMatch(row: PostSummaryRow): SearchMatchRecord | null {
+  if (row.search_match_rank == null || !row.search_match_excerpt) {
+    return null;
+  }
+
+  const kinds = [
+    row.search_match_title ? "title" : null,
+    row.search_match_tag ? "tag" : null,
+    row.search_match_author ? "author" : null,
+    row.search_match_session ? "session" : null,
+    row.search_match_assigned ? "assigned" : null,
+    row.search_match_body ? "body" : null,
+    row.search_match_reply_author ? "reply-author" : null,
+    row.search_match_reply_session ? "reply-session" : null,
+    row.search_match_reply_body ? "reply-body" : null,
+  ].filter(Boolean) as SearchMatchKind[];
+
+  if (kinds.length === 0) {
+    return null;
+  }
+
+  return {
+    kind: kinds[0],
+    kinds,
+    excerpt: row.search_match_excerpt,
+    rank: row.search_match_rank,
+  };
+}
+
+function buildSearchSummaryColumns(text?: string): { sql: string; params: Array<string | number> } {
+  const query = text?.trim();
+  if (!query) {
+    return {
+      sql: `NULL AS search_match_rank,
+        NULL AS search_match_excerpt,
+        0 AS search_match_title,
+        0 AS search_match_tag,
+        0 AS search_match_author,
+        0 AS search_match_session,
+        0 AS search_match_assigned,
+        0 AS search_match_body,
+        0 AS search_match_reply_author,
+        0 AS search_match_reply_session,
+        0 AS search_match_reply_body`,
+      params: [],
+    };
+  }
+
+  const params: string[] = [];
+  const bind = () => {
+    params.push(query);
+    return "?";
+  };
+
+  const titleMatchSql = () => `instr(lower(posts.title), lower(${bind()})) > 0`;
+  const tagMatchSql = () => `EXISTS (
+    SELECT 1 FROM json_each(posts.tags) st
+    WHERE instr(lower(COALESCE(st.value, '')), lower(${bind()})) > 0
+  )`;
+  const authorMatchSql = () => `instr(lower(COALESCE(posts.actor, '')), lower(${bind()})) > 0`;
+  const sessionMatchSql = () => `instr(lower(COALESCE(posts.session, '')), lower(${bind()})) > 0`;
+  const assignedMatchSql = () =>
+    `instr(lower(COALESCE(posts.assigned_to, '')), lower(${bind()})) > 0`;
+  const bodyMatchSql = () => `instr(lower(posts.body), lower(${bind()})) > 0`;
+  const replyAuthorMatchSql = () => `EXISTS (
+    SELECT 1 FROM replies sra
+    WHERE sra.post_id = posts.id
+      AND instr(lower(COALESCE(sra.actor, '')), lower(${bind()})) > 0
+  )`;
+  const replyBodyMatchSql = () => `EXISTS (
+    SELECT 1 FROM replies srb
+    WHERE srb.post_id = posts.id
+      AND instr(lower(COALESCE(srb.body, '')), lower(${bind()})) > 0
+  )`;
+  const replySessionMatchSql = () => `EXISTS (
+    SELECT 1 FROM replies srs
+    WHERE srs.post_id = posts.id
+      AND instr(lower(COALESCE(srs.session, '')), lower(${bind()})) > 0
+  )`;
+  const firstTagMatchSql = () => `(SELECT value FROM json_each(posts.tags) st
+    WHERE instr(lower(COALESCE(st.value, '')), lower(${bind()})) > 0
+    LIMIT 1)`;
+  const firstReplyAuthorMatchSql = () => `(SELECT actor FROM replies sra
+    WHERE sra.post_id = posts.id
+      AND instr(lower(COALESCE(sra.actor, '')), lower(${bind()})) > 0
+    ORDER BY created_at DESC
+    LIMIT 1)`;
+  const firstReplyBodyMatchSql = () => `(SELECT body FROM replies srb
+    WHERE srb.post_id = posts.id
+      AND instr(lower(COALESCE(srb.body, '')), lower(${bind()})) > 0
+    ORDER BY created_at DESC
+    LIMIT 1)`;
+  const firstReplySessionMatchSql = () => `(SELECT session FROM replies srs
+    WHERE srs.post_id = posts.id
+      AND instr(lower(COALESCE(srs.session, '')), lower(${bind()})) > 0
+    ORDER BY created_at DESC
+    LIMIT 1)`;
+
+  return {
+    sql: `CASE
+        WHEN ${titleMatchSql()} THEN 1
+        WHEN ${tagMatchSql()} THEN 2
+        WHEN ${authorMatchSql()} THEN 3
+        WHEN ${sessionMatchSql()} THEN 4
+        WHEN ${assignedMatchSql()} THEN 5
+        WHEN ${bodyMatchSql()} THEN 6
+        WHEN ${replyAuthorMatchSql()} THEN 7
+        WHEN ${replySessionMatchSql()} THEN 8
+        WHEN ${replyBodyMatchSql()} THEN 9
+        ELSE NULL
+      END AS search_match_rank,
+      CASE
+        WHEN ${titleMatchSql()} THEN posts.title
+        WHEN ${tagMatchSql()} THEN ${firstTagMatchSql()}
+        WHEN ${authorMatchSql()} THEN posts.actor
+        WHEN ${sessionMatchSql()} THEN posts.session
+        WHEN ${assignedMatchSql()} THEN posts.assigned_to
+        WHEN ${bodyMatchSql()} THEN posts.body
+        WHEN ${replyAuthorMatchSql()} THEN ${firstReplyAuthorMatchSql()}
+        WHEN ${replySessionMatchSql()} THEN ${firstReplySessionMatchSql()}
+        WHEN ${replyBodyMatchSql()} THEN ${firstReplyBodyMatchSql()}
+        ELSE NULL
+      END AS search_match_excerpt,
+      CASE WHEN ${titleMatchSql()} THEN 1 ELSE 0 END AS search_match_title,
+      CASE WHEN ${tagMatchSql()} THEN 1 ELSE 0 END AS search_match_tag,
+      CASE WHEN ${authorMatchSql()} THEN 1 ELSE 0 END AS search_match_author,
+      CASE WHEN ${sessionMatchSql()} THEN 1 ELSE 0 END AS search_match_session,
+      CASE WHEN ${assignedMatchSql()} THEN 1 ELSE 0 END AS search_match_assigned,
+      CASE WHEN ${bodyMatchSql()} THEN 1 ELSE 0 END AS search_match_body,
+      CASE WHEN ${replyAuthorMatchSql()} THEN 1 ELSE 0 END AS search_match_reply_author,
+      CASE WHEN ${replySessionMatchSql()} THEN 1 ELSE 0 END AS search_match_reply_session,
+      CASE WHEN ${replyBodyMatchSql()} THEN 1 ELSE 0 END AS search_match_reply_body`,
+    params,
   };
 }
 
@@ -123,13 +278,20 @@ function buildListQuery(
     where.push(`(
       posts.title LIKE ?
       OR posts.body LIKE ?
+      OR posts.actor LIKE ?
+      OR posts.session LIKE ?
+      OR posts.assigned_to LIKE ?
+      OR EXISTS (
+        SELECT 1 FROM json_each(posts.tags) jt
+        WHERE jt.value LIKE ?
+      )
       OR EXISTS (
         SELECT 1 FROM replies rt
         WHERE rt.post_id = posts.id
-        AND rt.body LIKE ?
+        AND (rt.body LIKE ? OR rt.actor LIKE ? OR rt.session LIKE ?)
       )
     )`);
-    params.push(query, query, query);
+    params.push(query, query, query, query, query, query, query, query, query);
   }
   if (filters.type) {
     where.push("posts.type = ?");
@@ -154,6 +316,10 @@ function buildListQuery(
   if (filters.replyActor) {
     where.push("EXISTS (SELECT 1 FROM replies ra WHERE ra.post_id = posts.id AND ra.actor = ?)");
     params.push(filters.replyActor);
+  }
+  if (filters.replySession) {
+    where.push("EXISTS (SELECT 1 FROM replies rs WHERE rs.post_id = posts.id AND rs.session = ?)");
+    params.push(filters.replySession);
   }
   if (filters.session) {
     where.push("posts.session = ?");
@@ -184,9 +350,26 @@ function buildListQuery(
     where.push("posts.created_at > (SELECT created_at FROM posts WHERE id = ?)");
     params.push(filters.afterId);
   }
-  if (filters.tag) {
+  const exactTags = [...new Set([...(filters.tag ? [filters.tag] : []), ...(filters.tags ?? [])])];
+  for (const tag of exactTags) {
     where.push("posts.tags LIKE ?");
-    params.push(`%${JSON.stringify(filters.tag)}%`);
+    params.push(`%${JSON.stringify(tag)}%`);
+  }
+  const partialTags = [...new Set(filters.tagContains ?? [])];
+  for (const tagFragment of partialTags) {
+    where.push(`EXISTS (
+      SELECT 1 FROM json_each(posts.tags) pt
+      WHERE instr(lower(COALESCE(pt.value, '')), lower(?)) > 0
+    )`);
+    params.push(tagFragment);
+  }
+  for (const clause of filters.structuredClauses ?? []) {
+    const compiled = buildStructuredClause(clause);
+    if (!compiled) {
+      continue;
+    }
+    where.push(compiled.sql);
+    params.push(...compiled.params);
   }
 
   return {
@@ -202,6 +385,92 @@ function buildListQuery(
       .join(" "),
     params,
   };
+}
+
+function buildStructuredClause(
+  clause: StructuredFilterClause
+): { sql: string; params: Array<string | number> } | null {
+  const normalizedValue = clause.value.trim();
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const exactParams = [normalizedValue];
+  const containsParams = [normalizedValue];
+
+  const exactFieldSql = (fieldSql: string) => {
+    switch (clause.operator) {
+      case "=":
+        return { sql: `${fieldSql} = ?`, params: exactParams };
+      case "!=":
+        return { sql: `COALESCE(${fieldSql}, '') != ?`, params: exactParams };
+      case "~=":
+        return {
+          sql: `instr(lower(COALESCE(${fieldSql}, '')), lower(?)) > 0`,
+          params: containsParams,
+        };
+      case "!~=":
+        return {
+          sql: `instr(lower(COALESCE(${fieldSql}, '')), lower(?)) = 0`,
+          params: containsParams,
+        };
+    }
+  };
+
+  const exactExistsSql = (subquery: string) => {
+    switch (clause.operator) {
+      case "=":
+      case "~=":
+        return { sql: `EXISTS (${subquery})`, params: containsParams };
+      case "!=":
+      case "!~=":
+        return { sql: `NOT EXISTS (${subquery})`, params: containsParams };
+    }
+  };
+
+  switch (clause.field) {
+    case "actor":
+      return exactFieldSql("posts.actor");
+    case "session":
+      return exactFieldSql("posts.session");
+    case "assigned":
+      return exactFieldSql("posts.assigned_to");
+    case "channel":
+      return exactFieldSql("posts.channel");
+    case "status":
+      return clause.operator === "~=" || clause.operator === "!~="
+        ? null
+        : exactFieldSql("posts.status");
+    case "type":
+      return clause.operator === "~=" || clause.operator === "!~="
+        ? null
+        : exactFieldSql("posts.type");
+    case "severity":
+      return clause.operator === "~=" || clause.operator === "!~="
+        ? null
+        : exactFieldSql("posts.severity");
+    case "tag":
+      return exactExistsSql(`SELECT 1 FROM json_each(posts.tags) jt
+        WHERE ${
+          clause.operator === "=" || clause.operator === "!="
+            ? "COALESCE(jt.value, '') = ?"
+            : "instr(lower(COALESCE(jt.value, '')), lower(?)) > 0"
+        }`);
+    case "reply-actor":
+      return exactExistsSql(`SELECT 1 FROM replies ra
+        WHERE ra.post_id = posts.id AND ${
+          clause.operator === "=" || clause.operator === "!="
+            ? "COALESCE(ra.actor, '') = ?"
+            : "instr(lower(COALESCE(ra.actor, '')), lower(?)) > 0"
+        }`);
+    case "reply-session":
+      return exactExistsSql(`SELECT 1 FROM replies rs
+        WHERE rs.post_id = posts.id AND ${
+          clause.operator === "=" || clause.operator === "!="
+            ? "COALESCE(rs.session, '') = ?"
+            : "instr(lower(COALESCE(rs.session, '')), lower(?)) > 0"
+        }`);
+  }
 }
 
 export class PostRepository
@@ -274,6 +543,7 @@ export class PostRepository
     if (filters.afterId && !this.findById(filters.afterId)) {
       throw new AgentForumError(`Post not found: ${filters.afterId}`, 2);
     }
+    const searchColumns = buildSearchSummaryColumns(filters.text);
     const { sql, params } = buildListQuery(
       filters,
       `SELECT DISTINCT
@@ -282,12 +552,13 @@ export class PostRepository
         (SELECT COUNT(*) FROM replies WHERE post_id = posts.id) AS reply_count,
         (SELECT COUNT(*) FROM reactions WHERE post_id = posts.id) AS reaction_count,
         (SELECT actor FROM replies WHERE post_id = posts.id ORDER BY created_at DESC LIMIT 1) AS last_reply_actor,
-        (SELECT body FROM replies WHERE post_id = posts.id ORDER BY created_at DESC LIMIT 1) AS last_reply_body
+        (SELECT body FROM replies WHERE post_id = posts.id ORDER BY created_at DESC LIMIT 1) AS last_reply_body,
+        ${searchColumns.sql}
       FROM posts`
     );
     const rows = this.db()
       .prepare(sql)
-      .all(...params) as PostSummaryRow[];
+      .all(...searchColumns.params, ...params) as PostSummaryRow[];
     return rows.map(mapPostSummary);
   }
 

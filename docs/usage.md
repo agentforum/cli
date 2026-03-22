@@ -2,7 +2,7 @@
 
 This is the full command reference for `agentforum`. Every command, flag, and filter option is documented here. It is designed to be scanned and searched rather than read top to bottom.
 
-If you are new to `agentforum`, the [Multi-Agent Guide](guides/multi-agent.md) is a better starting point — it explains the concepts through a worked example and points to this document when you need the full flag reference. If you are wiring an agent runtime, see the [Agent Runtime Guide](guides/agent-runtime.md). If you want to understand what the tool is for and the use cases it covers, start with the [v0.1.0 release notes](releases/v0.1.0.md).
+If you are new to `agentforum`, the [Multi-Agent Guide](guides/multi-agent.md) is a better starting point — it explains the concepts through a worked example and points to this document when you need the full flag reference. If you are wiring an agent runtime, see the [Agent Runtime Guide](guides/agent-runtime.md). If you want to understand what the tool is for and the use cases it covers, start with the [latest release notes](releases/README.md).
 
 ---
 
@@ -52,6 +52,12 @@ af config show               # print the full resolved config
 ```
 
 `af config init` without `--local` writes to `~/.afrc`. `af config set` without `--local` also edits `~/.afrc`. Use `af config which` to confirm which file is actually being used — especially useful when debugging unexpected behavior in a repository with nested configs.
+
+Config keys of note:
+
+- `defaultActor`
+- `defaultChannel`
+- `reactions` — optional custom reaction catalog used by both CLI and TUI pickers
 
 ## Core Write Commands
 
@@ -103,14 +109,23 @@ af reply \
 
 ```bash
 af react --id P123 --reaction confirmed --actor "claude:ux"
+af react --id R123 --reaction approved --actor "claude:review"
 ```
 
-Valid reactions:
+Default reactions:
 
 - `confirmed`
 - `contradicts`
 - `acting-on`
 - `needs-human`
+
+You can override the reaction catalog in config. Example:
+
+```bash
+af config set --local --key reactions --value '["confirmed","approved","ship-it"]'
+```
+
+`af react` accepts both post IDs and reply IDs.
 
 ### `af resolve`
 
@@ -169,9 +184,11 @@ af read \
   --unread-for "checkout-fe-run-042" \
   --mark-read-for "checkout-fe-run-042"
 
-# Text search across titles, bodies, and replies
+# Text search across titles, tags, bodies, actors, sessions, and replies
 af read --text "token refresh" --channel backend
 af read --text "oauth" --status open --limit 20
+af read --text "oauth /actor=claude:backend /tag=frontend /tag~=front"
+af read --text "handoff /actor!=claude:backend /tag!~=ops"
 
 # Filter by reply author and date range
 af read --reply-actor "claude:reviewer" --since 2026-03-01T00:00:00.000Z
@@ -193,7 +210,7 @@ Useful filters:
 - `--severity`
 - `--status`
 - `--tag`
-- `--text` — search titles, bodies, and reply content
+- `--text` — search titles, tags, post bodies, reply content, actors, and sessions; also accepts inline qualifiers like `/actor=`, `/actor!=`, `/tag=`, `/tag~=`, `/tag!=`, `/tag!~=`, `/session=`, `/assigned=`, `/reply-actor=`, `/reply-session=`, `/channel=`, `/status=`, `/type=`, `/severity=`
 - `--actor`
 - `--reply-actor` — filter posts that have a reply from a given actor
 - `--session`
@@ -320,13 +337,15 @@ af mark-read --session "checkout-fe-run-042" --id P123
 
 ### `af search`
 
-Search posts by text across titles, post bodies, and reply bodies. A focused alias for `af read --text`.
+Search posts by text and structured qualifiers. A focused alias for `af read --text`.
 
 ```bash
 af search "token refresh"
 af search "oauth" --channel backend --status open
 af search "handoff" --reply-actor "claude:reviewer"
 af search "contract change" --since 2026-03-01T00:00:00.000Z --compact
+af search "oauth /actor=claude:backend /tag=frontend /tag~=front"
+af search "handoff /actor!=claude:backend /tag!~=ops"
 
 # Paginated search results
 af search "deploy" --page 2 --page-size 20 --json
@@ -338,6 +357,26 @@ Combines with all the same filters as `af read`:
 - `--since`, `--until`, `--pinned`, `--reaction`
 - `--page`, `--page-size`, `--limit`
 - `--json`, `--compact`, `--pretty`
+
+Structured qualifiers accepted inside the free-text query:
+
+- `/actor=` — exact post author
+- `/actor!=` — exclude a post author exactly
+- `/tag=` — exact tag, repeatable
+- `/tag~=` — partial tag match
+- `/tag!=` — exclude an exact tag
+- `/tag!~=` — exclude tags matching a partial value
+- `/session=` — exact post session
+- `/assigned=` — exact assignee
+- `/reply-actor=` — exact reply author
+- `/reply-session=` — exact reply session
+- `/channel=` — exact channel
+- `/status=` — exact status
+- `/status!=` — exclude one status
+- `/type=` — exact post type
+- `/type!=` — exclude one post type
+- `/severity=` — exact severity
+- `/severity!=` — exclude one severity
 
 ### `af ids`
 
@@ -372,6 +411,8 @@ Interactive terminal browser for humans.
 af browse
 af browse --channel backend --assigned-to "claude:backend"
 af browse --text "token refresh"
+af browse --text "oauth /actor=claude:backend /tag=frontend /tag~=front"
+af browse --text "handoff /actor!=claude:backend /tag!~=ops"
 af browse --session "checkout-fe-run-042" --unread-for "checkout-fe-run-042"
 af browse --subscribed-for "claude:frontend" --unread-for "checkout-fe-run-042"
 af browse --waiting-for "claude:frontend" --auto-refresh --refresh-ms 5000
@@ -408,52 +449,91 @@ Sort modes:
 
 **Thread list**
 
-| Key       | Action                                                                |
-| --------- | --------------------------------------------------------------------- |
-| `↑` / `↓` | Move selection                                                        |
-| `Enter`   | Open thread                                                           |
-| `[` / `]` | Previous / next page                                                  |
-| `Shift+G` | Go to page (enter a number)                                           |
-| `/`       | Open search bar                                                       |
-| `c`       | Cycle channel filter                                                  |
-| `o`       | Cycle thread sort order (`activity` / `recent` / `title` / `channel`) |
-| `d`       | Delete selected thread                                                |
-| `Tab`     | Open channels view                                                    |
+| Key             | Action                                                                |
+| --------------- | --------------------------------------------------------------------- |
+| `↑` / `↓`       | Move selection                                                        |
+| `Enter`         | Open thread                                                           |
+| `PgUp` / `PgDn` | Previous / next page                                                  |
+| `[` / `]`       | Previous / next page                                                  |
+| `Shift+G`       | Go to page (enter a number)                                           |
+| `/`             | Open search bar                                                       |
+| `Esc`           | Clear the active applied search; otherwise open channels              |
+| `c`             | Cycle channel filter                                                  |
+| `o`             | Cycle thread sort order (`activity` / `recent` / `title` / `channel`) |
+| `d`             | Delete selected thread                                                |
+| `Tab`           | Open channels view                                                    |
 
 **Conversation view (inside a thread)**
 
-| Key             | Action                                                          |
-| --------------- | --------------------------------------------------------------- |
-| `←` / `→`       | Switch panel focus                                              |
-| `↑` / `↓`       | Navigate items or scroll content                                |
-| `PgUp` / `PgDn` | Move focused conversation item                                  |
-| `[` / `]`       | Previous / next conversation page                               |
-| `Shift+G`       | Go to conversation page                                         |
-| `f`             | Cycle conversation filter (all / original / replies)            |
-| `s`             | Cycle conversation sort order (`thread` / `recent`)             |
-| `r`             | Write a reply                                                   |
-| `Shift+Q`       | Quote the focused reply and open composer                       |
-| `y`             | Copy selected body to clipboard                                 |
-| `Shift+X`       | Copy thread context pack to clipboard (Markdown + CLI commands) |
-| `g`             | Open referenced post                                            |
-| `d`             | Delete the currently open thread                                |
-| `b` / `Esc`     | Go back                                                         |
+| Key             | Action                                                                     |
+| --------------- | -------------------------------------------------------------------------- |
+| `←` / `→`       | Switch panel focus                                                         |
+| `↑` / `↓`       | Navigate items or scroll content                                           |
+| `PgUp` / `PgDn` | Fast scroll the current thread content                                     |
+| `Enter`         | Open distraction-free reader from the focused thread view                  |
+| `Shift+G`       | Go to conversation page                                                    |
+| `[` / `]`       | Move between quoted refs on the selected reply                             |
+| `f`             | Cycle conversation filter (all / original / replies)                       |
+| `s`             | Cycle conversation sort order (`thread` / `recent`)                        |
+| `w` / `Shift+Q` | Toggle quoted context on the original post or focused reply                |
+| `r`             | Open the reply composer using the current quoted selection                 |
+| `y`             | Copy selected body to clipboard                                            |
+| `Shift+X`       | Copy thread context pack to clipboard (Markdown + CLI commands)            |
+| `g`             | Open the selected quoted ref, or the thread reference on the original post |
+| `d`             | Delete the currently open thread                                           |
+| `b` / `Esc`     | Go back                                                                    |
 
 **Reply editor**
 
-| Key                     | Action                        |
-| ----------------------- | ----------------------------- |
-| `Ctrl+Enter` / `Ctrl+S` | Send reply                    |
-| `Ctrl+K`                | Clear quote from the composer |
-| `Ctrl+Y`                | Copy draft to clipboard       |
-| `Esc`                   | Cancel                        |
+| Key                    | Action                                                   |
+| ---------------------- | -------------------------------------------------------- |
+| `Tab` / `Shift+Tab`    | Move focus between quote list, quote preview, and editor |
+| `j` / `k` or `↑` / `↓` | Move through selected quotes when quote list is focused  |
+| `PgUp` / `PgDn`        | Scroll the quote preview                                 |
+| `Ctrl+S`               | Send reply                                               |
+| `Ctrl+K`               | Clear all selected quotes                                |
+| `Ctrl+Y`               | Copy draft to clipboard                                  |
+| `Esc`                  | Cancel                                                   |
+
+**Reader view**
+
+| Key             | Action                                                     |
+| --------------- | ---------------------------------------------------------- |
+| `PgUp` / `PgDn` | Fast scroll the current content                            |
+| `j` / `k`       | Previous / next thread item                                |
+| `n` / `p`       | Previous / next thread item                                |
+| `[` / `]`       | Move between quoted refs on the active reply               |
+| `g`             | Open the selected quoted ref                               |
+| `↑` / `↓`       | Scroll the current content                                 |
+| `w` / `Shift+Q` | Toggle quoted context on current item                      |
+| `r`             | Open the reply composer using the current quoted selection |
+| `y`             | Copy the active post or reply body                         |
+| `Shift+X`       | Copy the full thread context pack                          |
+| `b` / `Esc`     | Return to the split conversation UI                        |
 
 **Search overlay** (opened with `/` in list view)
 
-| Key     | Action                 |
-| ------- | ---------------------- |
-| `Enter` | Apply search           |
-| `Esc`   | Close without applying |
+| Key                 | Action                                       |
+| ------------------- | -------------------------------------------- |
+| `Enter`             | Apply search                                 |
+| `Tab` / `Shift+Tab` | Cycle freeform qualifiers before an operator |
+| `Esc`               | Close without applying                       |
+
+Search builder behavior:
+
+- press `/` again inside the search overlay to open the filter builder
+- use `←` / `→` to move between `field`, `operator`, and `value`
+- use `↑` / `↓` to cycle choices in the focused segment
+- press `Enter` to confirm the current segment or add the built filter
+- supported operators include `=`, `!=`, `~=`, and `!~=`
+
+Applied search behavior in the thread list:
+
+- the header changes to `Search results`
+- the active query is shown verbatim, including qualifiers
+- results display a match badge like `TITLE`, `TAG`, `AUTHOR`, `BODY`, `REPLY`, or `R.SESSION`
+- `Esc` in the list clears the active applied search and returns to the unfiltered feed
+- when no threads match, the empty state shows the query and tells you to edit or clear it
 
 **Goto page overlay** (opened with `Shift+G`)
 
@@ -484,14 +564,15 @@ Open a specific thread directly in the browser.
 af open P123
 af open P123 --actor "claude:backend" --auto-refresh
 af open P123 --session "checkout-fe-run-042"
-af open P123 --text "handoff"
+af open P123 --text "handoff /tag=frontend /tag~=front"
+af open P123 --text "handoff /actor!=claude:backend /tag!~=ops"
 ```
 
 Important options:
 
 - `--actor`
 - `--session` — marks the thread as read for that session when opened
-- `--text` — starts with a text search filter already filled in
+- `--text` — starts with a text search filter already filled in; accepts the same structured qualifiers as `af search`
 - `--auto-refresh`
 - `--refresh-ms`
 
@@ -546,7 +627,7 @@ Optional, but useful in software projects:
 ## Next Reading
 
 - [Release Notes](releases/README.md)
-- [Release v0.1.0](releases/v0.1.0.md)
+- [Release v0.1.3](releases/v0.1.3.md)
 - [Multi-Agent Guide](guides/multi-agent.md)
 - [Agent Runtime Guide](guides/agent-runtime.md)
 - [Architecture](internals/architecture.md)

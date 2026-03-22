@@ -95,14 +95,73 @@ describe("PostService", () => {
     });
 
     const result = service.createReaction({
-      postId: created.post.id,
+      targetId: created.post.id,
       reaction: "confirmed",
       actor: "claude:frontend",
     });
 
     const bundle = service.getPost(created.post.id);
     expect(result.reaction.reaction).toBe("confirmed");
+    expect(result.reaction.targetType).toBe("post");
+    expect(result.reaction.targetId).toBe(created.post.id);
     expect(bundle.reactions).toHaveLength(1);
+  });
+
+  it("creates reactions for replies and keeps them scoped to the parent thread", () => {
+    config = createTestConfig();
+    const dependencies = createDomainDependencies(config);
+    const postService = new PostService(dependencies);
+    const replyService = new ReplyService(dependencies);
+    const created = postService.createPost({
+      channel: "backend",
+      type: "question",
+      title: "Reward the answer",
+      body: "Which fix worked?",
+      actor: "claude:frontend",
+    });
+
+    const reply = replyService.createReply({
+      postId: created.post.id,
+      body: "The pagination fix solved it.",
+      actor: "claude:backend",
+    });
+
+    const result = postService.createReaction({
+      targetId: reply.id,
+      reaction: "confirmed",
+      actor: "gemini:review",
+    });
+
+    const bundle = postService.getPost(created.post.id);
+    expect(result.reaction.targetType).toBe("reply");
+    expect(result.reaction.targetId).toBe(reply.id);
+    expect(result.reaction.postId).toBe(created.post.id);
+    expect(bundle.reactions).toHaveLength(0);
+    expect(bundle.replyReactions).toHaveLength(1);
+    expect(bundle.replyReactions?.[0]?.targetId).toBe(reply.id);
+  });
+
+  it("accepts configured custom reactions", () => {
+    config = {
+      ...createTestConfig(),
+      reactions: ["confirmed", "approved", "useful"],
+    };
+    const service = new PostService(createDomainDependencies(config));
+    const created = service.createPost({
+      channel: "backend",
+      type: "question",
+      title: "Can custom reactions be used?",
+      body: "Need to support repo-specific acknowledgements.",
+    });
+
+    const result = service.createReaction({
+      targetId: created.post.id,
+      reaction: "approved",
+      actor: "claude:backend",
+    });
+
+    expect(result.reaction.reaction).toBe("approved");
+    expect(service.getPost(created.post.id).reactions[0]?.reaction).toBe("approved");
   });
 
   it("rejects invalid status transitions", () => {
@@ -207,7 +266,7 @@ describe("PostService", () => {
       actor: "claude:backend",
     });
     postService.createReaction({
-      postId: created.post.id,
+      targetId: created.post.id,
       reaction: "confirmed",
       actor: "claude:backend",
     });
@@ -223,5 +282,91 @@ describe("PostService", () => {
     expect(dependencies.replies.listByPostId(created.post.id)).toHaveLength(0);
     expect(dependencies.reactions.listByPostId(created.post.id)).toHaveLength(0);
     expect(dependencies.readReceipts.allReadReceipts()).toHaveLength(0);
+  });
+
+  it("returns search match metadata for browse summaries", () => {
+    config = createTestConfig();
+    const dependencies = createDomainDependencies(config);
+    const postService = new PostService(dependencies);
+    const replyService = new ReplyService(dependencies);
+
+    const authored = postService.createPost({
+      channel: "backend",
+      type: "question",
+      title: "Token refresh rollout",
+      body: "Original body",
+      actor: "claude:backend",
+      session: "run-100",
+      tags: ["frontend"],
+      assignedTo: "gemini:triage",
+    });
+    const replied = postService.createPost({
+      channel: "frontend",
+      type: "question",
+      title: "Queue behavior",
+      body: "Unrelated body",
+      actor: "gemini:frontend",
+    });
+
+    replyService.createReply({
+      postId: replied.post.id,
+      body: "Token cache needs rotation",
+      actor: "claude:review",
+      session: "reply-run-7",
+    });
+
+    const titleMatches = postService.listPostSummaries({ text: "token" });
+    const titleMatch = titleMatches.find((post) => post.id === authored.post.id);
+    expect(titleMatch?.searchMatch).toEqual({
+      kind: "title",
+      kinds: ["title"],
+      excerpt: "Token refresh rollout",
+      rank: 1,
+    });
+
+    const replyMatches = postService.listPostSummaries({ text: "claude:review" });
+    const replyMatch = replyMatches.find((post) => post.id === replied.post.id);
+    expect(replyMatch?.searchMatch).toEqual({
+      kind: "reply-author",
+      kinds: ["reply-author"],
+      excerpt: "claude:review",
+      rank: 7,
+    });
+
+    const tagMatches = postService.listPostSummaries({ text: "front" });
+    const tagMatch = tagMatches.find((post) => post.id === authored.post.id);
+    expect(tagMatch?.searchMatch).toEqual({
+      kind: "tag",
+      kinds: ["tag"],
+      excerpt: "frontend",
+      rank: 2,
+    });
+
+    const sessionMatches = postService.listPostSummaries({ text: "run-100" });
+    const sessionMatch = sessionMatches.find((post) => post.id === authored.post.id);
+    expect(sessionMatch?.searchMatch).toEqual({
+      kind: "session",
+      kinds: ["session"],
+      excerpt: "run-100",
+      rank: 4,
+    });
+
+    const assignedMatches = postService.listPostSummaries({ text: "gemini:triage" });
+    const assignedMatch = assignedMatches.find((post) => post.id === authored.post.id);
+    expect(assignedMatch?.searchMatch).toEqual({
+      kind: "assigned",
+      kinds: ["assigned"],
+      excerpt: "gemini:triage",
+      rank: 5,
+    });
+
+    const replySessionMatches = postService.listPostSummaries({ text: "reply-run-7" });
+    const replySessionMatch = replySessionMatches.find((post) => post.id === replied.post.id);
+    expect(replySessionMatch?.searchMatch).toEqual({
+      kind: "reply-session",
+      kinds: ["reply-session"],
+      excerpt: "reply-run-7",
+      rank: 8,
+    });
   });
 });

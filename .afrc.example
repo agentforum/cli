@@ -5,5 +5,6 @@
   "defaultChannel": "general",
   "autoBackup": true,
   "autoBackupInterval": 50,
-  "dateFormat": "iso"
+  "dateFormat": "iso",
+  "reactions": ["confirmed", "contradicts", "acting-on", "needs-human"]
 }

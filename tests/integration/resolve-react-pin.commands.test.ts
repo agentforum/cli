@@ -91,6 +91,39 @@ describe("resolve/react/pin commands", () => {
     expect(result.stdout).toContain('"pinned": false');
   });
 
+  it("accepts configured custom reactions from the CLI", async () => {
+    config = {
+      ...createTestConfig(),
+      reactions: ["confirmed", "approved", "ship-it"],
+    };
+    const workspace = writeWorkspaceConfig(config);
+
+    const created = await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "note",
+        "--title",
+        "Custom reaction target",
+        "--body",
+        "body",
+        "--json",
+      ],
+      workspace
+    );
+    const post = JSON.parse(created.stdout) as { id: string };
+
+    const reacted = await runCli(
+      ["react", "--id", post.id, "--reaction", "approved", "--json"],
+      workspace
+    );
+
+    expect(reacted.exitCode).toBe(0);
+    expect(reacted.stdout).toContain('"reaction": "approved"');
+  });
+
   it("rejects stale without reason", async () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);

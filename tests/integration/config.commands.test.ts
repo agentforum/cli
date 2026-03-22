@@ -80,6 +80,7 @@ describe("config init", () => {
       unknown
     >;
     expect(written.dbPath).toBe(".forum/db.sqlite");
+    expect(written.reactions).toEqual(["confirmed", "contradicts", "acting-on", "needs-human"]);
   });
 
   it("reports overwritten: false when creating for the first time", async () => {
@@ -172,6 +173,30 @@ describe("config set", () => {
       unknown
     >;
     expect(onDisk.autoBackupInterval).toBe(100);
+  });
+
+  it("accepts JSON arrays for configured reactions", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    await runCli(
+      [
+        "config",
+        "set",
+        "--key",
+        "reactions",
+        "--value",
+        '["confirmed","approved","ship-it"]',
+        "--local",
+      ],
+      workspace
+    );
+
+    const onDisk = JSON.parse(readFileSync(join(workspace, ".afrc"), "utf8")) as Record<
+      string,
+      unknown
+    >;
+    expect(onDisk.reactions).toEqual(["confirmed", "approved", "ship-it"]);
   });
 
   it("fails with a clear message when target config file does not exist", async () => {

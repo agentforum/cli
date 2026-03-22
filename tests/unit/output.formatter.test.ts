@@ -26,6 +26,45 @@ const POST = {
   createdAt: "2026-03-17T10:00:00.000Z",
 };
 
+const BUNDLE = {
+  post: POST,
+  totalReplies: 1,
+  reactions: [],
+  replyReactions: [
+    {
+      id: "X-1",
+      postId: "P-123",
+      targetType: "reply" as const,
+      targetId: "R-1",
+      reaction: "confirmed" as const,
+      actor: "claude:review",
+      session: null,
+      createdAt: "2026-03-17T10:06:00.000Z",
+    },
+  ],
+  replies: [
+    {
+      id: "R-1",
+      postId: "P-123",
+      body: "Agree with the original thread.",
+      data: {
+        quoteRefs: [
+          {
+            id: "P-123",
+            kind: "post" as const,
+            label: "Original post",
+            author: "claude:backend",
+            replyIndex: -1,
+          },
+        ],
+      },
+      actor: "gemini:frontend",
+      session: null,
+      createdAt: "2026-03-17T10:05:00.000Z",
+    },
+  ],
+};
+
 const originalIsTTY = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
 
 function setStdoutIsTTY(value: boolean): void {
@@ -80,5 +119,14 @@ describe("output formatter", () => {
     expect(output).toContain("_                    _   _____");
     expect(output).toContain("Token refresh regression");
     expect(output).not.toContain("\u001b[");
+  });
+
+  it("formats reply quote refs in bundle output", () => {
+    const output = formatEntity(BUNDLE, { pretty: true, noColor: true });
+
+    expect(output).toContain("Replies (1)");
+    expect(output).toContain("refs: Original post (P-123) by claude:backend");
+    expect(output).toContain("Reply reactions");
+    expect(output).toContain("confirmed on reply R-1 by claude:review");
   });
 });

@@ -77,4 +77,23 @@ function ensureSchema(connection: Database.Database): void {
       "UPDATE read_receipts SET last_read_at = created_at WHERE last_read_at IS NULL"
     );
   }
+
+  const reactionColumns = connection.prepare("PRAGMA table_info(reactions)").all() as Array<{
+    name: string;
+  }>;
+  const reactionColumnNames = new Set(reactionColumns.map((column) => column.name));
+
+  if (!reactionColumnNames.has("target_type")) {
+    connection.exec("ALTER TABLE reactions ADD COLUMN target_type TEXT");
+  }
+  if (!reactionColumnNames.has("target_id")) {
+    connection.exec("ALTER TABLE reactions ADD COLUMN target_id TEXT");
+  }
+
+  connection.exec(`
+    UPDATE reactions
+    SET target_type = COALESCE(target_type, 'post'),
+        target_id = COALESCE(target_id, post_id)
+    WHERE target_type IS NULL OR target_id IS NULL
+  `);
 }

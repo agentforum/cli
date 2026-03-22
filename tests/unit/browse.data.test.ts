@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { refreshBrowseData, toBrowseListPost } from "@/cli/commands/browse/data.js";
+import {
+  refreshBrowseData,
+  submitBrowseReply,
+  toBrowseListPost,
+} from "@/cli/commands/browse/data.js";
 import { BUNDLE, POSTS } from "./browse.fixtures.js";
 
 describe("browse data adapter", () => {
@@ -12,9 +16,37 @@ describe("browse data adapter", () => {
       reactionCount: 0,
       lastReplyExcerpt: "Second reply body with extra details",
       lastReplyActor: "claude:frontend",
+      searchMatch: null,
     });
     expect(row.replyCount).toBe(2);
     expect(row.lastReplyExcerpt).toContain("Second reply body");
+  });
+
+  it("preserves search match metadata on browse list posts", () => {
+    const row = toBrowseListPost(
+      {
+        ...POSTS[0],
+        lastActivityAt: "2026-03-13T12:10:00.000Z",
+        replyCount: 2,
+        reactionCount: 0,
+        lastReplyExcerpt: "Second reply body with extra details",
+        lastReplyActor: "claude:frontend",
+        searchMatch: {
+          kind: "reply-body",
+          kinds: ["reply-body", "author"],
+          excerpt: "claude says token rotation is blocked",
+          rank: 5,
+        },
+      },
+      "token"
+    );
+
+    expect(row.searchMatch).toEqual({
+      kind: "reply-body",
+      kinds: ["reply-body", "author"],
+      excerpt: "claude says token rotation is blocked",
+      rank: 5,
+    });
   });
 
   it("refreshes visible browse data and preserves bundle when available", () => {
@@ -27,6 +59,7 @@ describe("browse data adapter", () => {
           reactionCount: 0,
           lastReplyExcerpt: null,
           lastReplyActor: null,
+          searchMatch: null,
         })),
       getPost: () => BUNDLE,
     } as never;
@@ -60,6 +93,7 @@ describe("browse data adapter", () => {
           reactionCount: 0,
           lastReplyExcerpt: "Latest",
           lastReplyActor: "claude:frontend",
+          searchMatch: null,
         },
       ],
       getPost: () => BUNDLE,
@@ -81,6 +115,7 @@ describe("browse data adapter", () => {
           reactionCount: 0,
           lastReplyExcerpt: "Older",
           lastReplyActor: "claude:backend",
+          searchMatch: null,
         },
       ],
       currentBundle: BUNDLE,
@@ -88,5 +123,63 @@ describe("browse data adapter", () => {
     });
 
     expect(result.changedPostIds).toEqual(["P-1"]);
+  });
+
+  it("builds a reply body with multiple quoted items in thread order", () => {
+    let capturedBody = "";
+    let capturedData: Record<string, unknown> | null = null;
+    const replyService = {
+      createReply: (input: { body: string; data?: Record<string, unknown> | null }) => {
+        capturedBody = input.body;
+        capturedData = input.data ?? null;
+      },
+    } as never;
+
+    submitBrowseReply(replyService, {
+      postId: "thread-1",
+      body: "I agree with both points.",
+      actor: "claude:backend",
+      quotes: [
+        {
+          id: "R-2",
+          kind: "reply",
+          label: "Reply 2",
+          text: "Second reply body",
+          author: "claude:frontend",
+          replyIndex: 1,
+        },
+        {
+          id: "thread-1",
+          kind: "post",
+          label: "Original post",
+          text: "Original body",
+          author: "claude:backend",
+          replyIndex: -1,
+        },
+      ],
+    });
+
+    expect(capturedBody).toContain("> [@claude:backend · original post · ref thread-1]");
+    expect(capturedBody).toContain("> [@claude:frontend · reply 2 · ref R-2]");
+    expect(capturedBody.indexOf("original post")).toBeLessThan(capturedBody.indexOf("reply 2"));
+    expect(capturedBody).toContain("I agree with both points.");
+    expect(capturedData).toEqual({
+      quoteRefs: [
+        {
+          id: "thread-1",
+          kind: "post",
+          label: "Original post",
+          author: "claude:backend",
+          replyIndex: -1,
+        },
+        {
+          id: "R-2",
+          kind: "reply",
+          label: "Reply 2",
+          author: "claude:frontend",
+          replyIndex: 1,
+        },
+      ],
+    });
   });
 });

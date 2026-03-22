@@ -20,6 +20,7 @@ export interface PostRepositoryPort {
 
 export interface ReplyRepositoryPort {
   create(reply: ReplyRecord): ReplyRecord;
+  findById(id: string): ReplyRecord | null;
   listByPostId(postId: string, options?: { limit?: number; offset?: number }): ReplyRecord[];
   countByPostId(postId: string): number;
   all(): ReplyRecord[];

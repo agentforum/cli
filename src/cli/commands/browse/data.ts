@@ -1,8 +1,9 @@
 import type { PostFilters, PostSummaryRecord, ReadPostBundle } from "@/domain/types.js";
 import type { PostService } from "@/domain/post.service.js";
 import type { ReplyService } from "@/domain/reply.service.js";
+import { resolveStructuredSearchFilters } from "@/cli/search-query.js";
 import type { BrowseListPost, BrowseSortMode, ReplyQuote } from "./types.js";
-import { excerpt } from "./formatters.js";
+import { excerpt, sanitizeTerminalText } from "./formatters.js";
 import {
   filterAndSortPosts,
   paginateItems,
@@ -35,13 +36,10 @@ export interface RefreshBrowseDataResult {
 }
 
 export function refreshBrowseData(params: RefreshBrowseDataParams): RefreshBrowseDataResult {
+  const resolvedSearch = resolveStructuredSearchFilters(params.baseFilters, params.searchQuery);
   const nextBrowsePosts = params.postService
-    .listPostSummaries({
-      ...params.baseFilters,
-      text: params.searchQuery?.trim() || undefined,
-      limit: undefined,
-    })
-    .map(toBrowseListPost);
+    .listPostSummaries({ ...resolvedSearch.filters, limit: undefined })
+    .map((post) => toBrowseListPost(post, resolvedSearch.textQuery));
   const sortedPosts = filterAndSortPosts(nextBrowsePosts, {
     channelFilter: params.channelFilter,
     sortMode: params.sortMode,
@@ -81,35 +79,78 @@ export function toBrowseListPost(post: PostSummaryRecord): BrowseListPost {
   return {
     ...post,
     lastReplyExcerpt: post.lastReplyExcerpt ? excerpt(post.lastReplyExcerpt) : null,
+    searchMatch: post.searchMatch
+      ? {
+          ...post.searchMatch,
+          excerpt: sanitizeTerminalText(post.searchMatch.excerpt),
+          kinds: [...post.searchMatch.kinds],
+        }
+      : null,
   };
 }
 
 export function submitBrowseReply(
   replyService: ReplyService,
-  params: { postId: string; body: string; actor?: string; quote?: ReplyQuote | null }
+  params: { postId: string; body: string; actor?: string; quotes?: ReplyQuote[] }
 ): void {
   replyService.createReply({
     postId: params.postId,
-    body: buildReplyBody(params.body, params.quote),
+    body: buildReplyBody(params.body, params.quotes),
+    data: buildReplyData(params.quotes),
     actor: params.actor,
   });
 }
 
-function buildReplyBody(body: string, quote?: ReplyQuote | null): string {
-  if (!quote) {
+function buildReplyBody(body: string, quotes?: ReplyQuote[]): string {
+  if (!quotes || quotes.length === 0) {
     return body;
   }
 
-  const quotedLines = quote.text
-    .trim()
-    .split("\n")
-    .slice(0, 6)
-    .map((line) => `> ${line}`)
-    .join("\n");
+  const blocks = [...quotes]
+    .sort((left, right) => left.replyIndex - right.replyIndex)
+    .map((quote) => {
+      const quotedLines = quote.text
+        .trim()
+        .split("\n")
+        .slice(0, 6)
+        .map((line) => `> ${line}`)
+        .join("\n");
 
-  return [`> [@${quote.author} · reply #${quote.replyIndex + 1}]`, quotedLines, "", body].join(
-    "\n"
-  );
+      return [
+        `> [@${quote.author} · ${quote.label.toLowerCase()} · ref ${quote.id}]`,
+        quotedLines,
+      ].join("\n");
+    });
+
+  return [...blocks, "", body].join("\n\n");
+}
+
+function buildReplyData(
+  quotes?: ReplyQuote[]
+): {
+  quoteRefs: Array<{
+    id: string;
+    kind: "post" | "reply";
+    label: string;
+    author: string;
+    replyIndex: number;
+  }>;
+} | null {
+  if (!quotes || quotes.length === 0) {
+    return null;
+  }
+
+  return {
+    quoteRefs: [...quotes]
+      .sort((left, right) => left.replyIndex - right.replyIndex)
+      .map((quote) => ({
+        id: quote.id,
+        kind: quote.kind,
+        label: quote.label,
+        author: quote.author,
+        replyIndex: quote.replyIndex,
+      })),
+  };
 }
 
 function collectChangedPostIds(

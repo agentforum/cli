@@ -53,12 +53,33 @@ export interface PostRecord {
   createdAt: string;
 }
 
+export const SEARCH_MATCH_KINDS = [
+  "title",
+  "tag",
+  "author",
+  "session",
+  "assigned",
+  "body",
+  "reply-author",
+  "reply-session",
+  "reply-body",
+] as const;
+export type SearchMatchKind = (typeof SEARCH_MATCH_KINDS)[number];
+
+export interface SearchMatchRecord {
+  kind: SearchMatchKind;
+  kinds: SearchMatchKind[];
+  excerpt: string;
+  rank: number;
+}
+
 export interface PostSummaryRecord extends PostRecord {
   lastActivityAt: string;
   replyCount: number;
   reactionCount: number;
   lastReplyExcerpt: string | null;
   lastReplyActor: string | null;
+  searchMatch: SearchMatchRecord | null;
 }
 
 export interface ReadPostBundle {
@@ -66,4 +87,5 @@ export interface ReadPostBundle {
   replies: ReplyRecord[];
   totalReplies: number;
   reactions: ReactionRecord[];
+  replyReactions?: ReactionRecord[];
 }
