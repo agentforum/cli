@@ -7,7 +7,7 @@ import {
   describeSortMode,
   excerpt,
 } from "@/cli/commands/browse/formatters.js";
-import type { BrowseTheme } from "@/cli/commands/browse/types.js";
+import type { BrowseTheme, ViewMode } from "@/cli/commands/browse/types.js";
 
 export function HeaderBar({
   view,
@@ -26,7 +26,7 @@ export function HeaderBar({
   showMoreAbove,
   activeSearchQuery,
 }: {
-  view: "list" | "post" | "reader" | "reply" | "channels";
+  view: ViewMode;
   channelFilter: string;
   bundle: ReadPostBundle | null;
   focusedReplyIndex: number;
@@ -94,7 +94,11 @@ export function HeaderBar({
               ? "Reading mode"
               : view === "reply"
                 ? "Reply composer"
-                : "Browse threads"}
+                : view === "compose-post"
+                  ? "Post composer"
+                  : view === "compose-subscription"
+                    ? "Channel subscription"
+                    : "Browse threads"}
       </term:text>
       <term:text color={theme.muted}>{detailText}</term:text>
     </term:div>

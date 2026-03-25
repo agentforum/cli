@@ -1,8 +1,18 @@
 import type { PostFilters, PostSummaryRecord, ReadPostBundle } from "@/domain/types.js";
 import type { PostService } from "@/domain/post.service.js";
 import type { ReplyService } from "@/domain/reply.service.js";
+import type { SubscriptionService } from "@/domain/subscription.service.js";
 import { resolveStructuredSearchFilters } from "@/cli/search-query.js";
-import type { BrowseListPost, BrowseSortMode, ReplyQuote } from "./types.js";
+import { parseJsonData, parseTagInput } from "@/cli/write-helpers.js";
+import { POST_TYPES, SEVERITIES } from "@/domain/post.js";
+import { AgentForumError } from "@/domain/errors.js";
+import type {
+  BrowseListPost,
+  BrowseSortMode,
+  PostComposerDraft,
+  ReplyQuote,
+  SubscriptionComposerDraft,
+} from "./types.js";
 import { excerpt, sanitizeTerminalText } from "./formatters.js";
 import {
   filterAndSortPosts,
@@ -25,6 +35,44 @@ export interface RefreshBrowseDataParams {
   focusedId?: string;
 }
 
+export function buildInitialPostComposerDraft(params: {
+  actor?: string;
+  session?: string;
+  defaultChannel: string;
+  channel?: string;
+  refId?: string | null;
+}): PostComposerDraft {
+  return {
+    channel: params.channel ?? "",
+    type: POST_TYPES[0],
+    title: "",
+    body: "",
+    severity: "",
+    data: "",
+    tags: "",
+    actor: params.actor ?? "",
+    session: params.session ?? "",
+    refId: params.refId ?? "",
+    blocking: "",
+    pinned: "",
+    assignedTo: "",
+    idempotencyKey: "",
+  };
+}
+
+export function buildInitialSubscriptionComposerDraft(params: {
+  actor?: string;
+  defaultChannel: string;
+  channel?: string;
+}): SubscriptionComposerDraft {
+  return {
+    mode: "subscribe",
+    actor: params.actor ?? "",
+    channel: params.channel ?? "",
+    tags: "",
+  };
+}
+
 export interface RefreshBrowseDataResult {
   rawPosts: BrowseListPost[];
   visiblePosts: BrowseListPost[];
@@ -35,11 +83,13 @@ export interface RefreshBrowseDataResult {
   changedPostIds: string[];
 }
 
-export function refreshBrowseData(params: RefreshBrowseDataParams): RefreshBrowseDataResult {
+export async function refreshBrowseData(
+  params: RefreshBrowseDataParams
+): Promise<RefreshBrowseDataResult> {
   const resolvedSearch = resolveStructuredSearchFilters(params.baseFilters, params.searchQuery);
-  const nextBrowsePosts = params.postService
-    .listPostSummaries({ ...resolvedSearch.filters, limit: undefined })
-    .map((post) => toBrowseListPost(post, resolvedSearch.textQuery));
+  const nextBrowsePosts = (
+    await params.postService.listPostSummaries({ ...resolvedSearch.filters, limit: undefined })
+  ).map((post) => toBrowseListPost(post, resolvedSearch.textQuery));
   const sortedPosts = filterAndSortPosts(nextBrowsePosts, {
     channelFilter: params.channelFilter,
     sortMode: params.sortMode,
@@ -61,7 +111,7 @@ export function refreshBrowseData(params: RefreshBrowseDataParams): RefreshBrows
 
   let bundle = params.currentBundle;
   if (params.currentBundle) {
-    bundle = params.postService.getPost(params.currentBundle.post.id);
+    bundle = await params.postService.getPost(params.currentBundle.post.id);
   }
 
   return {
@@ -89,16 +139,90 @@ export function toBrowseListPost(post: PostSummaryRecord): BrowseListPost {
   };
 }
 
-export function submitBrowseReply(
+export async function submitBrowseReply(
   replyService: ReplyService,
   params: { postId: string; body: string; actor?: string; quotes?: ReplyQuote[] }
-): void {
-  replyService.createReply({
+): Promise<void> {
+  await replyService.createReply({
     postId: params.postId,
     body: buildReplyBody(params.body, params.quotes),
     data: buildReplyData(params.quotes),
     actor: params.actor,
   });
+}
+
+export async function submitBrowsePost(
+  postService: PostService,
+  draft: PostComposerDraft
+): Promise<{ id: string }> {
+  const type = draft.type.trim();
+  if (!POST_TYPES.includes(type as (typeof POST_TYPES)[number])) {
+    throw new AgentForumError(`Invalid type: ${draft.type || "(empty)"}`);
+  }
+
+  const severity = draft.severity.trim();
+  if (severity && !SEVERITIES.includes(severity as (typeof SEVERITIES)[number])) {
+    throw new AgentForumError(`Invalid severity: ${draft.severity}`);
+  }
+
+  const result = await postService.createPost({
+    channel: draft.channel.trim(),
+    type: type as (typeof POST_TYPES)[number],
+    title: draft.title.trim(),
+    body: draft.body,
+    severity: severity ? (severity as (typeof SEVERITIES)[number]) : null,
+    data: parseJsonData(draft.data.trim() || undefined),
+    tags: parseTagInput(draft.tags),
+    actor: draft.actor.trim() || null,
+    session: draft.session.trim() || null,
+    refId: draft.refId.trim() || null,
+    blocking: parseBooleanInput(draft.blocking),
+    pinned: parseBooleanInput(draft.pinned),
+    assignedTo: draft.assignedTo.trim() || null,
+    idempotencyKey: draft.idempotencyKey.trim() || null,
+  });
+
+  return { id: result.post.id };
+}
+
+export async function submitBrowseSubscription(
+  subscriptionService: SubscriptionService,
+  draft: SubscriptionComposerDraft
+): Promise<{ removed?: number }> {
+  const mode = draft.mode.trim();
+  if (mode !== "subscribe" && mode !== "unsubscribe") {
+    throw new AgentForumError(`Invalid mode: ${draft.mode || "(empty)"}`);
+  }
+
+  if (mode === "unsubscribe") {
+    const removed = await subscriptionService.unsubscribe(
+      draft.actor.trim(),
+      draft.channel.trim(),
+      parseTagInput(draft.tags)
+    );
+    return { removed };
+  }
+
+  await subscriptionService.subscribe(
+    draft.actor.trim(),
+    draft.channel.trim(),
+    parseTagInput(draft.tags)
+  );
+  return {};
+}
+
+function parseBooleanInput(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  if (["true", "yes", "y", "1", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["false", "no", "n", "0", "off"].includes(normalized)) {
+    return false;
+  }
+  throw new AgentForumError(`Invalid boolean value: ${value}`);
 }
 
 function buildReplyBody(body: string, quotes?: ReplyQuote[]): string {
@@ -125,9 +249,7 @@ function buildReplyBody(body: string, quotes?: ReplyQuote[]): string {
   return [...blocks, "", body].join("\n\n");
 }
 
-function buildReplyData(
-  quotes?: ReplyQuote[]
-): {
+function buildReplyData(quotes?: ReplyQuote[]): {
   quoteRefs: Array<{
     id: string;
     kind: "post" | "reply";

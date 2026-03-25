@@ -13,6 +13,7 @@ import type { ReplyQuoteRef } from "@/domain/reply.js";
 import type { PostRecord, SearchMatchRecord } from "@/domain/post.js";
 import type { PostService } from "@/domain/post.service.js";
 import type { ReplyService } from "@/domain/reply.service.js";
+import type { SubscriptionService } from "@/domain/subscription.service.js";
 
 export const DEFAULT_REFRESH_MS = 5000;
 export const DEFAULT_REPLY_PAGE_SIZE = 20;
@@ -25,6 +26,25 @@ export const CONVERSATION_SORT_MODES = ["thread", "recent"] as const;
 export type ConversationSortMode = (typeof CONVERSATION_SORT_MODES)[number];
 export const CONVERSATION_FILTER_MODES = ["all", "original", "replies"] as const;
 export type ConversationFilterMode = (typeof CONVERSATION_FILTER_MODES)[number];
+export const POST_COMPOSER_FIELDS = [
+  "channel",
+  "type",
+  "title",
+  "body",
+  "severity",
+  "data",
+  "tags",
+  "actor",
+  "session",
+  "refId",
+  "blocking",
+  "pinned",
+  "assignedTo",
+  "idempotencyKey",
+] as const;
+export type PostComposerField = (typeof POST_COMPOSER_FIELDS)[number];
+export const SUBSCRIPTION_COMPOSER_FIELDS = ["mode", "actor", "channel", "tags"] as const;
+export type SubscriptionComposerField = (typeof SUBSCRIPTION_COMPOSER_FIELDS)[number];
 
 export interface BrowseOptions {
   id?: string;
@@ -46,13 +66,95 @@ export interface BrowseOptions {
   refreshMs?: string;
 }
 
-export type ViewMode = "list" | "post" | "reader" | "reply" | "channels";
+export type ViewMode =
+  | "list"
+  | "post"
+  | "reader"
+  | "reply"
+  | "channels"
+  | "compose-post"
+  | "compose-subscription";
 export type Notice = { kind: "info" | "error"; text: string } | null;
-export type RefreshReason = "initial" | "manual" | "auto" | "reply";
+export type RefreshReason = "initial" | "manual" | "auto" | "reply" | "post";
 export type PanelFocus = "index" | "content";
 export type GotoPageMode = "list" | "thread";
 export type ReplySectionFocus = "quotes" | "preview" | "editor";
 export type ReactionPickerMode = "post" | "reply" | null;
+export type SubscribeMode = "subscribe" | "unsubscribe";
+export type ConfirmDiscardTarget = "reply" | "compose-post" | "compose-subscription" | null;
+export type ComposerPickerTarget =
+  | { composer: "post"; field: PostComposerField }
+  | { composer: "subscription"; field: SubscriptionComposerField };
+
+export interface SelectionModalItem {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export interface PostComposerDraft {
+  channel: string;
+  type: string;
+  title: string;
+  body: string;
+  severity: string;
+  data: string;
+  tags: string;
+  actor: string;
+  session: string;
+  refId: string;
+  blocking: string;
+  pinned: string;
+  assignedTo: string;
+  idempotencyKey: string;
+}
+
+export interface SubscriptionComposerDraft {
+  mode: string;
+  actor: string;
+  channel: string;
+  tags: string;
+}
+
+export type ComposerFieldKind = "text" | "multiline" | "enum";
+
+export function getVisiblePostComposerFields(draft: PostComposerDraft): PostComposerField[] {
+  const fields: PostComposerField[] = ["channel", "type", "title", "body"];
+
+  if (draft.type.trim() === "finding") {
+    fields.push("severity");
+  }
+
+  fields.push("data", "tags", "actor", "session", "refId");
+
+  if (draft.type.trim() === "question") {
+    fields.push("blocking");
+  }
+
+  fields.push("pinned", "assignedTo", "idempotencyKey");
+  return fields;
+}
+
+export function getPostComposerFieldKind(field: PostComposerField): ComposerFieldKind {
+  switch (field) {
+    case "body":
+    case "data":
+      return "multiline";
+    case "type":
+    case "severity":
+    case "blocking":
+    case "pinned":
+      return "enum";
+    default:
+      return "text";
+  }
+}
+
+export function getSubscriptionComposerFieldKind(
+  field: SubscriptionComposerField
+): ComposerFieldKind {
+  return field === "mode" ? "enum" : "text";
+}
 
 export type KeyLike = {
   name: string;
@@ -151,6 +253,7 @@ export interface BrowseRefs {
 export interface BrowseAppProps {
   postService: PostService;
   replyService: ReplyService;
+  subscriptionService: SubscriptionService;
   availableReactions: string[];
   baseFilters: PostFilters;
   initialChannelFilter: string;
@@ -161,6 +264,7 @@ export interface BrowseAppProps {
   initialAutoRefresh: boolean;
   initialPostId?: string;
   initialSearchQuery?: string;
+  defaultChannel: string;
 }
 
 export interface BrowseState {
@@ -185,6 +289,8 @@ export interface BrowseState {
   sortMode: BrowseSortMode;
   themeIndex: number;
   confirmDelete: BrowseListPost | null;
+  confirmQuit: boolean;
+  confirmDiscardTarget: ConfirmDiscardTarget;
   focusedReplyIndex: number;
   postPanelFocus: PanelFocus;
   readerMode: boolean;
@@ -199,6 +305,13 @@ export interface BrowseState {
   searchMode: boolean;
   reactionPickerMode: ReactionPickerMode;
   reactionPickerSelectedIndex: number;
+  postComposerDraft: PostComposerDraft;
+  postComposerField: PostComposerField;
+  subscriptionComposerDraft: SubscriptionComposerDraft;
+  subscriptionComposerField: SubscriptionComposerField;
+  composerPickerTarget: ComposerPickerTarget | null;
+  composerPickerQuery: string;
+  composerPickerSelectedIndex: number;
   searchBuilderActive: boolean;
   searchBuilderField: SearchBuilderFieldKey;
   searchBuilderOperator: SearchBuilderOperator;
@@ -207,6 +320,6 @@ export interface BrowseState {
   searchBuilderSegment: "field" | "operator" | "value";
   searchQuery: string;
   searchDraftQuery: string;
-  busyOperationKind: "search" | "refresh" | null;
+  busyOperationKind: "search" | "refresh" | "submit-post" | "submit-subscription" | null;
   changedPostIds: string[];
 }

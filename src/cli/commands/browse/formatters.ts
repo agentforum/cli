@@ -260,6 +260,14 @@ export function buildBrowseHint(view: ViewMode, postCount: number): string {
     return "Tab/Shift+Tab focus panes  |  j/k move quotes  |  PgUp/PgDn scroll preview  |  Ctrl+S send";
   }
 
+  if (view === "compose-post") {
+    return "Tab/Shift+Tab fields  |  left list follows focus  |  ←/→ options  |  Ctrl+S create post";
+  }
+
+  if (view === "compose-subscription") {
+    return "Tab/Shift+Tab fields  |  left list follows focus  |  ←/→ mode  |  Ctrl+S save subscription";
+  }
+
   if (view === "reader") {
     return "\u2191\u2193 scroll  |  PgUp/PgDn fast scroll  |  j/k or n/p prev/next item  |  e react  |  [ ] refs  |  g open ref  |  w toggle quote";
   }
@@ -269,14 +277,14 @@ export function buildBrowseHint(view: ViewMode, postCount: number): string {
   }
 
   if (view === "channels") {
-    return "\u2191\u2193 navigate  |  Enter select  |  Esc/Tab threads  |  ? shortcuts";
+    return "\u2191\u2193 navigate  |  Enter select  |  n new post  |  s subscribe  |  Esc/Tab threads";
   }
 
   if (postCount === 0) {
-    return "u refresh  |  c channel  |  o sort  |  v list view  |  / search  |  Esc channels  |  ? shortcuts";
+    return "u refresh  |  n new post  |  c channel  |  o sort  |  / search  |  Esc channels";
   }
 
-  return "\u2191\u2193 navigate  |  Enter open  |  PgUp/PgDn or [ ] pages  |  G goto  |  / search  |  Esc channels  |  v list view";
+  return "\u2191\u2193 navigate  |  Enter open  |  n new post  |  PgUp/PgDn or [ ] pages  |  / search";
 }
 
 export function describeListDisplayMode(mode: ListDisplayMode): string {
@@ -407,7 +415,14 @@ export function breadcrumb(
     return `${root} \u203A ${channel}`;
   }
 
-  if ((view === "post" || view === "reader" || view === "reply") && bundle) {
+  if (
+    (view === "post" ||
+      view === "reader" ||
+      view === "reply" ||
+      view === "compose-post" ||
+      view === "compose-subscription") &&
+    bundle
+  ) {
     const safeTitle = sanitizeTerminalText(bundle.post.title);
     const title = safeTitle.length > 40 ? safeTitle.slice(0, 39) + "\u2026" : safeTitle;
     const base = `${root} \u203A #${bundle.post.channel} \u203A ${title}`;
@@ -420,6 +435,14 @@ export function breadcrumb(
       return `${base} \u203A Reading`;
     }
 
+    if (view === "compose-post") {
+      return `${base} \u203A New post`;
+    }
+
+    if (view === "compose-subscription") {
+      return `${base} \u203A Channel subscription`;
+    }
+
     if (focusedReplyIndex >= 0) {
       return `${base} \u203A Reply #${focusedReplyIndex + 1}`;
     }
@@ -427,15 +450,34 @@ export function breadcrumb(
     return base;
   }
 
+  if (view === "compose-post") {
+    return channelFilter === ALL_CHANNELS
+      ? `${root} \u203A New post`
+      : `${root} \u203A ${channel} \u203A New post`;
+  }
+
+  if (view === "compose-subscription") {
+    return channelFilter === ALL_CHANNELS
+      ? `${root} \u203A Channel subscription`
+      : `${root} \u203A ${channel} \u203A Channel subscription`;
+  }
+
   return root;
 }
 
-export function noticeColor(notice: Notice): string | null {
+export function noticeColor(
+  notice: Notice,
+  theme?: { danger: string; success: string; info: string }
+): string | null {
   if (!notice) {
     return null;
   }
 
-  return notice.kind === "error" ? "red" : "green";
+  if (!theme) {
+    return notice.kind === "error" ? "red" : "green";
+  }
+
+  return notice.kind === "error" ? theme.danger : theme.info;
 }
 
 export function formatRefreshClock(): string {

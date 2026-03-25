@@ -36,6 +36,7 @@ export function FooterBar({
   showMoreBelow,
   activeSearchQuery,
   busyOperationKind,
+  composerProgress,
 }: {
   notice: Notice;
   theme: BrowseTheme;
@@ -53,7 +54,8 @@ export function FooterBar({
   terminalWidth: number;
   showMoreBelow: boolean;
   activeSearchQuery: string;
-  busyOperationKind: "search" | "refresh" | null;
+  busyOperationKind: "search" | "refresh" | "submit-post" | "submit-subscription" | null;
+  composerProgress?: string | null;
 }) {
   const compact = terminalWidth < 110;
   const relaxed = terminalWidth >= 120;
@@ -61,9 +63,13 @@ export function FooterBar({
     notice?.text ??
       (busyOperationKind === "search"
         ? `Searching ${activeSearchQuery || "threads"}  |  Esc cancel`
-        : activeSearchQuery && view === "list"
-          ? `Search active: ${activeSearchQuery}`
-          : buildBrowseHint(view, postsLength))
+        : busyOperationKind === "submit-post"
+          ? "Creating post..."
+          : busyOperationKind === "submit-subscription"
+            ? "Saving channel subscription..."
+            : activeSearchQuery && view === "list"
+              ? `Search active: ${activeSearchQuery}`
+              : buildBrowseHint(view, postsLength))
   );
   const statusText = `${
     view === "list"
@@ -76,9 +82,16 @@ export function FooterBar({
             conversationPage.rangeEnd,
             conversationItemsLength
           )}  |  ${selectedConversationIndex + 1}/${Math.max(conversationPage.items.length, 1)}  |  `
-        : ""
+        : (view === "compose-post" || view === "compose-subscription") && composerProgress
+          ? `${composerProgress}  |  `
+          : ""
   }view ${describeListDisplayMode(listDisplayMode)}`;
-  const commandText = "? help  |  t theme  |  a auto  |  Ctrl+C exit";
+  const commandText =
+    view === "compose-post"
+      ? "Tab/Shift+Tab fields  |  Enter picker  |  ←/→ options  |  Ctrl+S create  |  Esc back"
+      : view === "compose-subscription"
+        ? "Tab/Shift+Tab fields  |  Enter picker  |  ←/→ options  |  Ctrl+S save  |  Esc back"
+        : "? help  |  t theme  |  a auto  |  Ctrl+C exit";
 
   return (
     <term:div
@@ -90,7 +103,10 @@ export function FooterBar({
       flexDirection="column"
       flexShrink={0}
     >
-      <term:text color={noticeColor(notice) ?? theme.fg} fontWeight={notice ? "bold" : undefined}>
+      <term:text
+        color={noticeColor(notice, theme) ?? theme.fg}
+        fontWeight={notice ? "bold" : undefined}
+      >
         {excerpt(leftText, compact ? Math.max(24, terminalWidth - 8) : 140)}
       </term:text>
       {relaxed ? (

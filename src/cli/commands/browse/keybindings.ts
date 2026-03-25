@@ -5,11 +5,13 @@ export type BrowseKeyState = {
   readerMode: boolean;
   showShortcutsHelp: boolean;
   confirmDelete: boolean;
+  confirmQuit: boolean;
+  confirmDiscard: boolean;
   gotoPageMode: "list" | "thread" | null;
   searchMode: boolean;
   reactionPickerMode: "post" | "reply" | null;
   searchBuilderActive: boolean;
-  busyOperationKind: "search" | "refresh" | null;
+  busyOperationKind: "search" | "refresh" | "submit-post" | "submit-subscription" | null;
   hasActiveSearch: boolean;
   replyBody: string;
   replySectionFocus: "quotes" | "preview" | "editor";
@@ -26,6 +28,10 @@ export type BrowseKeyState = {
   postsLength: number;
   selectedConversationIndex: number;
   conversationItemsLength: number;
+  composeFieldKind: "text" | "multiline" | "enum" | null;
+  composeFieldSupportsPicker: boolean;
+  composePickerOpen: boolean;
+  composeSuggestionCount: number;
 };
 
 export type BrowseKeyCommand =
@@ -60,7 +66,22 @@ export type BrowseKeyCommand =
   | { type: "replyPreviewScroll"; delta: number }
   | { type: "copyReplyDraft" }
   | { type: "submitReply" }
+  | { type: "composePostCancel" }
+  | { type: "composePostNextField"; delta: 1 | -1 }
+  | { type: "composePostCycleOption"; delta: 1 | -1 }
+  | { type: "composeOpenPicker" }
+  | { type: "composeClosePicker" }
+  | { type: "composeMovePicker"; delta: number }
+  | { type: "composeApplyPicker"; index?: number }
+  | { type: "submitPost" }
+  | { type: "composeSubscriptionCancel" }
+  | { type: "composeSubscriptionNextField"; delta: 1 | -1 }
+  | { type: "composeSubscriptionCycleOption"; delta: 1 | -1 }
+  | { type: "submitSubscription" }
   | { type: "quit" }
+  | { type: "cancelQuit" }
+  | { type: "confirmDiscard" }
+  | { type: "cancelDiscard" }
   | { type: "toggleShortcuts" }
   | { type: "cycleTheme" }
   | { type: "toggleAutoRefresh" }
@@ -99,11 +120,30 @@ export type BrowseKeyCommand =
   | { type: "deleteCurrentThread" }
   | { type: "backFromPost" }
   | { type: "startReply" }
-  | { type: "toggleReplyQuote" };
+  | { type: "toggleReplyQuote" }
+  | { type: "openPostComposer" }
+  | { type: "openSubscriptionComposer" };
 
 export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): BrowseKeyCommand {
   if (isCtrlKey(key, "c")) {
     return { type: "terminate" };
+  }
+
+  if (state.confirmQuit) {
+    if (isEscapeKey(key)) {
+      return { type: "cancelQuit" };
+    }
+    if (isCharacterKey(key, "q")) {
+      return { type: "quit" };
+    }
+    return { type: "cancelQuit" };
+  }
+
+  if (state.confirmDiscard) {
+    if (isEscapeKey(key)) {
+      return { type: "confirmDiscard" };
+    }
+    return { type: "cancelDiscard" };
   }
 
   if (state.showShortcutsHelp) {
@@ -148,6 +188,26 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
     const quickPickIndex = getDigitQuickPickIndex(key);
     if (quickPickIndex != null) {
       return { type: "applyReaction", index: quickPickIndex };
+    }
+    return { type: "noop" };
+  }
+
+  if (state.composePickerOpen) {
+    if (isEscapeKey(key)) {
+      return { type: "composeClosePicker" };
+    }
+    if (isEnterKey(key)) {
+      return { type: "composeApplyPicker" };
+    }
+    if (isUpKey(key) || isCharacterKey(key, "k")) {
+      return { type: "composeMovePicker", delta: -1 };
+    }
+    if (isDownKey(key) || isCharacterKey(key, "j")) {
+      return { type: "composeMovePicker", delta: 1 };
+    }
+    const quickPickIndex = getDigitQuickPickIndex(key);
+    if (quickPickIndex != null && quickPickIndex < state.composeSuggestionCount) {
+      return { type: "composeApplyPicker", index: quickPickIndex };
     }
     return { type: "noop" };
   }
@@ -267,6 +327,56 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
     return { type: "noop" };
   }
 
+  if (state.view === "compose-post") {
+    if (isEscapeKey(key)) {
+      return { type: "composePostCancel" };
+    }
+    if (state.composeFieldSupportsPicker && isEnterKey(key)) {
+      return { type: "composeOpenPicker" };
+    }
+    if (state.composeFieldKind === "enum" && isLeftKey(key)) {
+      return { type: "composePostCycleOption", delta: -1 };
+    }
+    if (state.composeFieldKind === "enum" && isRightKey(key)) {
+      return { type: "composePostCycleOption", delta: 1 };
+    }
+    if (isShiftTabKey(key)) {
+      return { type: "composePostNextField", delta: -1 };
+    }
+    if (isTabKey(key)) {
+      return { type: "composePostNextField", delta: 1 };
+    }
+    if (isCtrlKey(key, "s")) {
+      return { type: "submitPost" };
+    }
+    return { type: "noop" };
+  }
+
+  if (state.view === "compose-subscription") {
+    if (isEscapeKey(key)) {
+      return { type: "composeSubscriptionCancel" };
+    }
+    if (state.composeFieldSupportsPicker && isEnterKey(key)) {
+      return { type: "composeOpenPicker" };
+    }
+    if (state.composeFieldKind === "enum" && isLeftKey(key)) {
+      return { type: "composeSubscriptionCycleOption", delta: -1 };
+    }
+    if (state.composeFieldKind === "enum" && isRightKey(key)) {
+      return { type: "composeSubscriptionCycleOption", delta: 1 };
+    }
+    if (isShiftTabKey(key)) {
+      return { type: "composeSubscriptionNextField", delta: -1 };
+    }
+    if (isTabKey(key)) {
+      return { type: "composeSubscriptionNextField", delta: 1 };
+    }
+    if (isCtrlKey(key, "s")) {
+      return { type: "submitSubscription" };
+    }
+    return { type: "noop" };
+  }
+
   if (isCharacterKey(key, "q")) {
     return { type: "quit" };
   }
@@ -287,6 +397,12 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
   }
 
   if (state.view === "channels") {
+    if (isCharacterKey(key, "n")) {
+      return { type: "openPostComposer" };
+    }
+    if (isCharacterKey(key, "s")) {
+      return { type: "openSubscriptionComposer" };
+    }
     if (isUpKey(key)) {
       return { type: "channelsMove", delta: -1 };
     }
@@ -303,6 +419,9 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
   }
 
   if (state.view === "list") {
+    if (isCharacterKey(key, "n")) {
+      return { type: "openPostComposer" };
+    }
     if (isCharacterKey(key, "c")) {
       return { type: "cycleChannelFilter" };
     }
@@ -349,6 +468,12 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
   }
 
   if (state.view === "post") {
+    if (isCharacterKey(key, "n")) {
+      return { type: "openPostComposer" };
+    }
+    if (isCharacterKey(key, "s")) {
+      return { type: "openSubscriptionComposer" };
+    }
     if (isEnterKey(key) && state.hasBundle) {
       return { type: "openReader" };
     }
@@ -428,6 +553,9 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
   }
 
   if (state.view === "reader") {
+    if (isCharacterKey(key, "s")) {
+      return { type: "openSubscriptionComposer" };
+    }
     if (isEscapeKey(key) || isCharacterKey(key, "b")) {
       return { type: "closeReader" };
     }

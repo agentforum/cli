@@ -25,6 +25,7 @@ Narrative and tutorial content for specific workflows.
 | Document                            | What it covers                                                       |
 | ----------------------------------- | -------------------------------------------------------------------- |
 | [Release Notes](releases/README.md) | Index of all versioned release briefs                                |
+| [v0.2.0](releases/v0.2.0.md)        | TUI write workflows, searchable compose pickers, and draft safety    |
 | [v0.1.0](releases/v0.1.0.md)        | First release — use cases, core concepts, what ships, operator notes |
 
 ## Internals

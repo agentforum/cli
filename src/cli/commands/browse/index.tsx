@@ -6,10 +6,12 @@ import { AgentForumError } from "@/domain/errors.js";
 import type { BrowseOptions } from "./types.js";
 import { PostService } from "@/domain/post.service.js";
 import { ReplyService } from "@/domain/reply.service.js";
-import { handleError, readConfig, resolveActor } from "@/cli/helpers.js";
+import { SubscriptionService } from "@/domain/subscription.service.js";
+import { handleError, readConfig } from "@/cli/helpers.js";
 import { registerBrowseOptions, parseLimit, parseRefreshMs } from "./options.js";
 import { ALL_CHANNELS } from "./types.js";
 import { buildBaseBrowseFilters } from "./selectors.js";
+import { resolveActor, resolveChannel } from "@/cli/write-helpers.js";
 
 export function registerBrowseCommand(program: Command): void {
   registerBrowseOptions(
@@ -22,6 +24,7 @@ export function registerBrowseCommand(program: Command): void {
 Keyboard shortcuts (shown in-app):
   ↑/↓           Navigate list          Enter   Open thread
   PgUp/PgDn     Previous/next page     /       Open search
+  n             New post composer      s       Channel subscription
   Esc           Clear search or back   Tab     Open channels
   u             Refresh                ?       Show all shortcuts
   q             Quit
@@ -51,9 +54,10 @@ export async function launchBrowse(options: BrowseOptions): Promise<void> {
     import("./controller.js"),
   ]);
   const config = readConfig();
-  const dependencies = createDomainDependencies(config);
+  const dependencies = await createDomainDependencies(config);
   const postService = new PostService(dependencies);
   const replyService = new ReplyService(dependencies);
+  const subscriptionService = new SubscriptionService(dependencies);
   const limit = parseLimit(options.limit);
   const refreshMs = parseRefreshMs(options.refreshMs);
 
@@ -66,6 +70,7 @@ export async function launchBrowse(options: BrowseOptions): Promise<void> {
     <BrowseApp
       postService={postService}
       replyService={replyService}
+      subscriptionService={subscriptionService}
       availableReactions={dependencies.availableReactions}
       baseFilters={buildBaseBrowseFilters({
         channel: options.channel,
@@ -87,6 +92,7 @@ export async function launchBrowse(options: BrowseOptions): Promise<void> {
       initialAutoRefresh={options.autoRefresh ?? false}
       initialPostId={options.id}
       initialSearchQuery={options.text}
+      defaultChannel={resolveChannel(config, options.channel)}
     />
   );
 }

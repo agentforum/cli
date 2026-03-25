@@ -1,5 +1,12 @@
 import { DEFAULT_REPLY_PAGE_SIZE } from "./types.js";
-import type { BrowseListPost, BrowseState, Notice, ViewMode } from "./types.js";
+import type {
+  BrowseListPost,
+  BrowseState,
+  Notice,
+  PostComposerDraft,
+  SubscriptionComposerDraft,
+  ViewMode,
+} from "./types.js";
 import type { ReadPostBundle } from "@/domain/post.js";
 
 type StatePatch = Partial<BrowseState>;
@@ -18,6 +25,8 @@ export function createInitialBrowseState(params: {
   initialChannelFilter: string;
   initialAutoRefresh: boolean;
   initialSearchQuery?: string;
+  initialPostComposerDraft: PostComposerDraft;
+  initialSubscriptionComposerDraft: SubscriptionComposerDraft;
 }): BrowseState {
   return {
     view: "list",
@@ -41,6 +50,8 @@ export function createInitialBrowseState(params: {
     sortMode: "activity",
     themeIndex: 0,
     confirmDelete: null,
+    confirmQuit: false,
+    confirmDiscardTarget: null,
     focusedReplyIndex: -1,
     postPanelFocus: "index",
     readerMode: false,
@@ -55,6 +66,13 @@ export function createInitialBrowseState(params: {
     searchMode: false,
     reactionPickerMode: null,
     reactionPickerSelectedIndex: 0,
+    postComposerDraft: params.initialPostComposerDraft,
+    postComposerField: "channel",
+    subscriptionComposerDraft: params.initialSubscriptionComposerDraft,
+    subscriptionComposerField: "mode",
+    composerPickerTarget: null,
+    composerPickerQuery: "",
+    composerPickerSelectedIndex: 0,
     searchBuilderActive: false,
     searchBuilderField: "tag",
     searchBuilderOperator: "=",
@@ -96,6 +114,11 @@ export function browseReducer(state: BrowseState, action: BrowseAction): BrowseS
         gotoPageInput: "",
         reactionPickerMode: null,
         reactionPickerSelectedIndex: 0,
+        postComposerField: "channel",
+        subscriptionComposerField: "mode",
+        composerPickerTarget: null,
+        composerPickerQuery: "",
+        composerPickerSelectedIndex: 0,
         searchBuilderActive: false,
         searchBuilderField: "tag",
         searchBuilderOperator: "=",
@@ -112,6 +135,11 @@ export function browseReducer(state: BrowseState, action: BrowseAction): BrowseS
         gotoPageInput: "",
         reactionPickerMode: null,
         reactionPickerSelectedIndex: 0,
+        postComposerField: "channel",
+        subscriptionComposerField: "mode",
+        composerPickerTarget: null,
+        composerPickerQuery: "",
+        composerPickerSelectedIndex: 0,
         searchBuilderActive: false,
         searchBuilderField: "tag",
         searchBuilderOperator: "=",
@@ -129,11 +157,18 @@ export function browseReducer(state: BrowseState, action: BrowseAction): BrowseS
         view: "list",
         readerMode: false,
         confirmDelete: null,
+        confirmQuit: false,
+        confirmDiscardTarget: null,
         showShortcutsHelp: false,
         gotoPageMode: null,
         gotoPageInput: "",
         reactionPickerMode: null,
         reactionPickerSelectedIndex: 0,
+        postComposerField: "channel",
+        subscriptionComposerField: "mode",
+        composerPickerTarget: null,
+        composerPickerQuery: "",
+        composerPickerSelectedIndex: 0,
         searchBuilderActive: false,
         searchBuilderField: "tag",
         searchBuilderOperator: "=",

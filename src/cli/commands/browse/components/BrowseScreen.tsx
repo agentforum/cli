@@ -4,6 +4,8 @@ import type { TermElement, TermInput } from "terminosaurus";
 import type { ReadPostBundle } from "@/domain/post.js";
 import type {
   BrowseListPost,
+  PostComposerDraft,
+  PostComposerField,
   BrowseTheme,
   ChannelStats,
   ConversationFilterMode,
@@ -14,6 +16,9 @@ import type {
   PaginatedItems,
   ReplyQuote,
   ReplySectionFocus,
+  SelectionModalItem,
+  SubscriptionComposerDraft,
+  SubscriptionComposerField,
   ViewMode,
 } from "@/cli/commands/browse/types.js";
 import { MAX_SEARCH_QUERY_LENGTH } from "@/cli/commands/browse/search-input.js";
@@ -32,7 +37,10 @@ import { ReactionPickerModal } from "./ReactionPickerModal.js";
 import { ReaderView } from "./ReaderView.js";
 import { ReplyComposer } from "./ReplyComposer.js";
 import { SearchBar } from "./SearchBar.js";
+import { SelectionModal } from "./SelectionModal.js";
 import { ShortcutsModal } from "./ShortcutsModal.js";
+import { PostComposer } from "./PostComposer.js";
+import { SubscriptionComposer } from "./SubscriptionComposer.js";
 
 const ROOT_VERTICAL_PADDING = 2;
 const HEADER_BLOCK_HEIGHT = 6;
@@ -87,6 +95,29 @@ export function BrowseScreen({
   replyQuotePreviewRef,
   replyQuoteItemRefs,
   onReplyBodyChange,
+  postComposerDraft,
+  postComposerField,
+  postComposerProgress,
+  postComposerTextCursorIndex,
+  postComposerInputRef,
+  postComposerFieldItemRefs,
+  onPostComposerFieldChange,
+  postComposerRefSuggestionDetails,
+  subscriptionComposerDraft,
+  subscriptionComposerField,
+  subscriptionComposerProgress,
+  subscriptionComposerTextCursorIndex,
+  subscriptionComposerInputRef,
+  subscriptionComposerFieldItemRefs,
+  onSubscriptionComposerFieldChange,
+  composerPickerTitle,
+  composerPickerSubtitle,
+  composerPickerItems,
+  composerPickerOpen,
+  composerPickerQuery,
+  composerPickerSelectedIndex,
+  composerPickerInputRef,
+  onComposerPickerQueryChange,
   searchMode,
   reactionPickerMode,
   reactionPickerSelectedIndex,
@@ -117,6 +148,7 @@ export function BrowseScreen({
   showMoreAbove,
   showMoreBelow,
   busyOperationKind,
+  channelSuggestions,
 }: {
   rootRef: React.MutableRefObject<TermElement | null>;
   onKeyPress: (event: {
@@ -182,6 +214,29 @@ export function BrowseScreen({
   replyQuotePreviewRef: React.MutableRefObject<TermElement | null>;
   replyQuoteItemRefs: React.MutableRefObject<Array<TermElement | null>>;
   onReplyBodyChange: (value: string) => void;
+  postComposerDraft: PostComposerDraft;
+  postComposerField: PostComposerField;
+  postComposerProgress: string;
+  postComposerTextCursorIndex: number;
+  postComposerInputRef: React.MutableRefObject<TermInput | null>;
+  postComposerFieldItemRefs: React.MutableRefObject<Array<TermElement | null>>;
+  onPostComposerFieldChange: (field: PostComposerField, value: string) => void;
+  postComposerRefSuggestionDetails: Record<string, string>;
+  subscriptionComposerDraft: SubscriptionComposerDraft;
+  subscriptionComposerField: SubscriptionComposerField;
+  subscriptionComposerProgress: string;
+  subscriptionComposerTextCursorIndex: number;
+  subscriptionComposerInputRef: React.MutableRefObject<TermInput | null>;
+  subscriptionComposerFieldItemRefs: React.MutableRefObject<Array<TermElement | null>>;
+  onSubscriptionComposerFieldChange: (field: SubscriptionComposerField, value: string) => void;
+  composerPickerTitle: string;
+  composerPickerSubtitle: string;
+  composerPickerItems: SelectionModalItem[];
+  composerPickerOpen: boolean;
+  composerPickerQuery: string;
+  composerPickerSelectedIndex: number;
+  composerPickerInputRef: React.MutableRefObject<TermInput | null>;
+  onComposerPickerQueryChange: (value: string) => void;
   searchMode: boolean;
   reactionPickerMode: "post" | "reply" | null;
   reactionPickerSelectedIndex: number;
@@ -211,14 +266,18 @@ export function BrowseScreen({
   terminalHeight: number;
   showMoreAbove: boolean;
   showMoreBelow: boolean;
-  busyOperationKind: "search" | "refresh" | null;
+  busyOperationKind: "search" | "refresh" | "submit-post" | "submit-subscription" | null;
+  channelSuggestions: string[];
 }) {
   const compactFooter = terminalWidth < 120;
   const footerBlockHeight = compactFooter
     ? COMPACT_FOOTER_BLOCK_HEIGHT
     : RELAXED_FOOTER_BLOCK_HEIGHT;
   const mainBodyHeight =
-    view === "post" || view === "reply"
+    view === "post" ||
+    view === "reply" ||
+    view === "compose-post" ||
+    view === "compose-subscription"
       ? undefined
       : Math.max(
           3,
@@ -261,7 +320,7 @@ export function BrowseScreen({
         flexShrink={1}
         height={mainBodyHeight}
         minHeight={0}
-        overflow={view === "post" ? undefined : "scroll"}
+        overflow={view === "list" || view === "channels" ? "scroll" : undefined}
         padding={[0, 0]}
       >
         {loading ? (
@@ -338,7 +397,7 @@ export function BrowseScreen({
             quotedItemIds={new Set(replyQuotes.map((quote) => quote.id))}
             quotedCount={replyQuotes.length}
           />
-        ) : (
+        ) : view === "reply" ? (
           <ReplyComposer
             bundle={bundle}
             replyBody={replyBody}
@@ -355,6 +414,27 @@ export function BrowseScreen({
             theme={theme}
             terminalWidth={terminalWidth}
             terminalHeight={terminalHeight}
+          />
+        ) : view === "compose-post" ? (
+          <PostComposer
+            draft={postComposerDraft}
+            focusedField={postComposerField}
+            theme={theme}
+            refSuggestionDetails={postComposerRefSuggestionDetails}
+            textCursorIndex={postComposerTextCursorIndex}
+            inputRef={postComposerInputRef}
+            fieldItemRefs={postComposerFieldItemRefs}
+            onFieldChange={onPostComposerFieldChange}
+          />
+        ) : (
+          <SubscriptionComposer
+            draft={subscriptionComposerDraft}
+            focusedField={subscriptionComposerField}
+            theme={theme}
+            textCursorIndex={subscriptionComposerTextCursorIndex}
+            inputRef={subscriptionComposerInputRef}
+            fieldItemRefs={subscriptionComposerFieldItemRefs}
+            onFieldChange={onSubscriptionComposerFieldChange}
           />
         )}
       </term:div>
@@ -377,6 +457,13 @@ export function BrowseScreen({
         showMoreBelow={showMoreBelow}
         activeSearchQuery={activeSearchQuery}
         busyOperationKind={busyOperationKind}
+        composerProgress={
+          view === "compose-post"
+            ? postComposerProgress
+            : view === "compose-subscription"
+              ? subscriptionComposerProgress
+              : null
+        }
       />
 
       {searchMode ? (
@@ -411,6 +498,17 @@ export function BrowseScreen({
           inputRef={gotoPageInputRef}
           value={gotoPageInput}
           onChange={onGotoPageInputChange}
+        />
+      ) : null}
+      {composerPickerOpen ? (
+        <SelectionModal
+          theme={theme}
+          title={composerPickerTitle}
+          subtitle={composerPickerSubtitle}
+          query={composerPickerQuery}
+          onQueryChange={onComposerPickerQueryChange}
+          items={composerPickerItems}
+          selectedIndex={composerPickerSelectedIndex}
         />
       ) : null}
       {showShortcutsHelp ? (

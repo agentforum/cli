@@ -26,6 +26,8 @@ describe("browse command", () => {
     expect(result.stdout).toContain("Interactive terminal browser for humans");
     expect(result.stdout).toContain("Esc           Clear search or back");
     expect(result.stdout).toContain("Tab     Open channels");
+    expect(result.stdout).toContain("New post composer");
+    expect(result.stdout).toContain("Channel subscription");
     expect(result.stdout).toContain("/tag~=front");
   });
 

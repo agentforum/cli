@@ -7,7 +7,7 @@ import {
   type SearchValueSuggestion,
 } from "@/cli/search-query.js";
 import type { BrowseTheme } from "@/cli/commands/browse/types.js";
-import { buildInputViewport } from "@/cli/commands/browse/search-input.js";
+import { ViewportInput } from "./ViewportInput.js";
 
 export function SearchBar({
   theme,
@@ -39,11 +39,6 @@ export function SearchBar({
   const inset = terminalWidth >= 120 ? 10 : terminalWidth >= 90 ? 8 : 4;
   const counter = `${Array.from(value).length}/${maxLength}`;
   const contentWidth = Math.max(12, terminalWidth - inset * 2 - counter.length - 11);
-  const { text, isPlaceholder } = buildInputViewport({
-    value,
-    placeholder: "search title, tags, body, actor, session, replies",
-    visibleWidth: Math.max(1, contentWidth - 1),
-  });
   const suggestions = getSearchQualifierSuggestions(value, terminalWidth >= 120 ? 4 : 3);
   const suggestionLine = suggestions
     .map((entry) => `${entry.token}${entry.description ? ` ${entry.description}` : ""}`)
@@ -74,42 +69,15 @@ export function SearchBar({
       <term:text color={theme.accent} fontWeight="bold" marginBottom={1}>
         {"Search threads"}
       </term:text>
-      <term:div
-        border="rounded"
+      <ViewportInput
+        theme={theme}
+        value={value}
+        placeholder="search title, tags, body, actor, session, replies"
+        visibleWidth={Math.max(1, contentWidth - 1)}
         borderColor={Array.from(value).length >= maxLength ? theme.warning : theme.muted}
-        backgroundColor={theme.surface}
-        padding={[0, 1]}
-        flexDirection="row"
-      >
-        <term:div flexGrow={1} flexDirection="row" backgroundColor={theme.surface}>
-          {isPlaceholder ? (
-            <>
-              <term:text backgroundColor={theme.accent} color={theme.bg} whiteSpace="pre">
-                {" "}
-              </term:text>
-              <term:text color={theme.muted} whiteSpace="pre" backgroundColor={theme.surface}>
-                {text}
-              </term:text>
-            </>
-          ) : (
-            <>
-              <term:text color={theme.fg} whiteSpace="pre" backgroundColor={theme.surface}>
-                {text}
-              </term:text>
-              <term:text backgroundColor={theme.accent} color={theme.bg} whiteSpace="pre">
-                {" "}
-              </term:text>
-            </>
-          )}
-        </term:div>
-        <term:text
-          color={Array.from(value).length >= maxLength ? theme.warning : theme.muted}
-          whiteSpace="pre"
-          backgroundColor={theme.surface}
-        >
-          {` ${counter}`}
-        </term:text>
-      </term:div>
+        trailingText={counter}
+        trailingColor={Array.from(value).length >= maxLength ? theme.warning : theme.muted}
+      />
       {builderActive ? (
         <term:div
           border="rounded"

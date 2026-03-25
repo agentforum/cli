@@ -35,6 +35,7 @@ export function ShortcutsModal({
         "o cycle thread sort",
         "v cycle list view",
         "u refresh",
+        "n open new post composer",
         "d delete selected thread",
         "Tab open channels",
       ],
@@ -55,6 +56,8 @@ export function ShortcutsModal({
         "w or Shift+Q toggle quote on original post or focused reply",
         "X copy context pack",
         "g open selected quoted ref or thread reference",
+        "n create related post",
+        "s open channel subscription composer",
         "r write reply",
         "b or Esc go back",
       ],
@@ -82,6 +85,7 @@ export function ShortcutsModal({
         "\u2191 / \u2193 scroll current content",
         "w or Shift+Q toggle quote on current item",
         "r open reply composer with selected quotes",
+        "s open channel subscription composer",
         "y copy selected body",
         "X copy thread context pack",
         "b or Esc back to split view",
@@ -111,7 +115,25 @@ export function ShortcutsModal({
     },
     {
       title: "Channels",
-      entries: ["\u2191/\u2193 move selection", "Enter apply channel", "Tab back to threads"],
+      entries: [
+        "\u2191/\u2193 move selection",
+        "Enter apply channel",
+        "n open new post in selected channel",
+        "s subscribe or unsubscribe for selected channel",
+        "Tab back to threads",
+      ],
+    },
+    {
+      title: "Composers",
+      entries: [
+        "Tab / Shift+Tab move between fields in the left list",
+        "The right pane edits the selected field directly",
+        "← / → cycle known values like type, severity, booleans, or mode",
+        "Ctrl+S submit current composer",
+        "Esc cancel current composer",
+        "Post composer keeps the full field list visible and hides severity unless type=finding and blocking unless type=question",
+        "post flags map to CLI: type, severity, data, tags, actor, session, ref, blocking, pin, assign, idempotency",
+      ],
     },
   ];
 

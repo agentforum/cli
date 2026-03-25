@@ -21,24 +21,52 @@ import type {
   BrowseListPost,
   BrowseSortMode,
   KeyLike,
+  PostComposerField,
   ReplyQuote,
+  SubscriptionComposerField,
 } from "./types.js";
 import {
+  ALL_CHANNELS,
   CONVERSATION_FILTER_MODES,
   CONVERSATION_SORT_MODES,
+  getPostComposerFieldKind,
+  getSubscriptionComposerFieldKind,
+  getVisiblePostComposerFields,
   LIST_DISPLAY_MODES,
   SORT_MODES,
+  SUBSCRIPTION_COMPOSER_FIELDS,
 } from "./types.js";
 import { BrowseScreen } from "./components/BrowseScreen.js";
 import { copyContextPack, copyToClipboard } from "./clipboard.js";
-import { submitBrowseReply, refreshBrowseData } from "./data.js";
+import {
+  buildInitialPostComposerDraft,
+  buildInitialSubscriptionComposerDraft,
+  refreshBrowseData,
+  submitBrowsePost,
+  submitBrowseReply,
+  submitBrowseSubscription,
+} from "./data.js";
 import { buildReadProgressLabel, formatRefreshClock, toMessage } from "./formatters.js";
 import { resolveBrowseKeyCommand } from "./keybindings.js";
 import {
+  applyPostComposerSuggestion,
+  applySubscriptionComposerSuggestion,
+  buildPostComposerPickerItems,
+  buildPostComposerSuggestionLookup,
+  buildSubscriptionComposerPickerItems,
+  buildSubscriptionComposerSuggestionLookup,
+  isPostComposerPickerField,
+  isSubscriptionComposerPickerField,
+} from "./composer-suggestions.js";
+import {
   MAX_SEARCH_QUERY_LENGTH,
   appendSearchQuery,
+  clampCursorIndex,
   consumeOpenSearchShortcut,
+  deleteInputTextBackward,
   deleteSearchQueryBackward,
+  insertInputTextAtCursor,
+  moveInputCursor,
 } from "./search-input.js";
 import { scrollListItemWithMargin } from "./scroll.js";
 import {
@@ -63,6 +91,7 @@ import {
 import { THEMES } from "./theme.js";
 
 const INFO_NOTICE_TTL_MS = 2500;
+const ERROR_NOTICE_TTL_MS = 4000;
 const MIN_REFRESH_VISIBLE_MS = 600;
 
 export function BrowseApp(props: BrowseAppProps) {
@@ -75,6 +104,7 @@ function useBrowseController(
   {
     postService,
     replyService,
+    subscriptionService,
     availableReactions,
     baseFilters,
     initialChannelFilter,
@@ -85,9 +115,25 @@ function useBrowseController(
     initialAutoRefresh,
     initialPostId,
     initialSearchQuery,
+    defaultChannel,
   }: BrowseAppProps,
   screen: ReturnType<typeof useScreen>
 ) {
+  const initialPostDraftRef = useRef(
+    buildInitialPostComposerDraft({
+      actor,
+      session,
+      defaultChannel,
+      channel: initialChannelFilter === ALL_CHANNELS ? "" : initialChannelFilter,
+    })
+  );
+  const initialSubscriptionDraftRef = useRef(
+    buildInitialSubscriptionComposerDraft({
+      actor,
+      defaultChannel,
+      channel: initialChannelFilter === ALL_CHANNELS ? "" : initialChannelFilter,
+    })
+  );
   const decoderRef = useRef(new TextDecoder());
   const rootRef = useRef<TermElement | null>(null);
   const listItemRefs = useRef<Array<TermElement | null>>([]);
@@ -96,6 +142,11 @@ function useBrowseController(
   const postContentRef = useRef<TermElement | null>(null);
   const shortcutsScrollRef = useRef<TermElement | null>(null);
   const replyInputRef = useRef<TermInput | null>(null);
+  const postComposerInputRef = useRef<TermInput | null>(null);
+  const subscriptionComposerInputRef = useRef<TermInput | null>(null);
+  const composerPickerInputRef = useRef<TermInput | null>(null);
+  const postComposerFieldItemRefs = useRef<Array<TermElement | null>>([]);
+  const subscriptionComposerFieldItemRefs = useRef<Array<TermElement | null>>([]);
   const replyQuotesListRef = useRef<TermElement | null>(null);
   const replyQuotePreviewRef = useRef<TermElement | null>(null);
   const replyQuoteItemRefs = useRef<Array<TermElement | null>>([]);
@@ -113,12 +164,18 @@ function useBrowseController(
   const searchQueryRef = useRef(initialSearchQuery ?? "");
   const rawPostsRef = useRef<BrowseListPost[]>([]);
   const pendingSearchShortcutRef = useRef<string | null>(null);
+  const pendingComposeShortcutRef = useRef<string | null>(null);
   const initialOpenAttemptedRef = useRef(false);
   const nextAutoRefreshAtRef = useRef<number | null>(null);
   const noticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshRequestIdRef = useRef(0);
   const [autoRefreshNowMs, setAutoRefreshNowMs] = useState(() => Date.now());
+  const [postComposerTextCursorIndices, setPostComposerTextCursorIndices] = useState<
+    Partial<Record<PostComposerField, number>>
+  >({});
+  const [subscriptionComposerTextCursorIndices, setSubscriptionComposerTextCursorIndices] =
+    useState<Partial<Record<SubscriptionComposerField, number>>>({});
   const [terminalSize, setTerminalSize] = useState(() => ({
     width: process.stdout.columns ?? 120,
     height: process.stdout.rows ?? 40,
@@ -126,7 +183,22 @@ function useBrowseController(
 
   const [state, dispatch] = useReducer(
     browseReducer,
-    createInitialBrowseState({ initialChannelFilter, initialAutoRefresh, initialSearchQuery })
+    createInitialBrowseState({
+      initialChannelFilter,
+      initialAutoRefresh,
+      initialSearchQuery,
+      initialPostComposerDraft: buildInitialPostComposerDraft({
+        actor,
+        session,
+        defaultChannel,
+        channel: initialChannelFilter === ALL_CHANNELS ? "" : initialChannelFilter,
+      }),
+      initialSubscriptionComposerDraft: buildInitialSubscriptionComposerDraft({
+        actor,
+        defaultChannel,
+        channel: initialChannelFilter === ALL_CHANNELS ? "" : initialChannelFilter,
+      }),
+    })
   );
 
   const theme = THEMES[state.themeIndex];
@@ -231,7 +303,115 @@ function useBrowseController(
     () => parseStructuredSearchQuery(state.searchDraftQuery).text,
     [state.searchDraftQuery]
   );
+  const visiblePostComposerFields = useMemo(
+    () => getVisiblePostComposerFields(state.postComposerDraft),
+    [state.postComposerDraft]
+  );
+  const activeComposeFieldKind = useMemo(() => {
+    if (state.view === "compose-post") {
+      return getPostComposerFieldKind(state.postComposerField);
+    }
+    if (state.view === "compose-subscription") {
+      return getSubscriptionComposerFieldKind(state.subscriptionComposerField);
+    }
+    return null;
+  }, [state.postComposerField, state.subscriptionComposerField, state.view]);
+  const activeComposeFieldSupportsPicker = useMemo(() => {
+    if (state.view === "compose-post") {
+      return isPostComposerPickerField(state.postComposerField);
+    }
+    if (state.view === "compose-subscription") {
+      return isSubscriptionComposerPickerField(state.subscriptionComposerField);
+    }
+    return false;
+  }, [state.postComposerField, state.subscriptionComposerField, state.view]);
+  const activePostComposerTextCursorIndex = useMemo(
+    () =>
+      clampCursorIndex(
+        state.postComposerDraft[state.postComposerField] ?? "",
+        postComposerTextCursorIndices[state.postComposerField] ??
+          Array.from(state.postComposerDraft[state.postComposerField] ?? "").length
+      ),
+    [postComposerTextCursorIndices, state.postComposerDraft, state.postComposerField]
+  );
+  const activeSubscriptionComposerTextCursorIndex = useMemo(
+    () =>
+      clampCursorIndex(
+        state.subscriptionComposerDraft[state.subscriptionComposerField] ?? "",
+        subscriptionComposerTextCursorIndices[state.subscriptionComposerField] ??
+          Array.from(state.subscriptionComposerDraft[state.subscriptionComposerField] ?? "").length
+      ),
+    [
+      state.subscriptionComposerDraft,
+      state.subscriptionComposerField,
+      subscriptionComposerTextCursorIndices,
+    ]
+  );
   const activeSearchQuery = useMemo(() => state.searchQuery.trim(), [state.searchQuery]);
+  const hasPendingWork = useMemo(() => {
+    if (state.replyBody.trim() || state.replyQuotes.length > 0) {
+      return true;
+    }
+
+    if (JSON.stringify(state.postComposerDraft) !== JSON.stringify(initialPostDraftRef.current)) {
+      return true;
+    }
+
+    if (
+      JSON.stringify(state.subscriptionComposerDraft) !==
+      JSON.stringify(initialSubscriptionDraftRef.current)
+    ) {
+      return true;
+    }
+
+    return (
+      Boolean(state.composerPickerTarget) ||
+      state.searchMode ||
+      Boolean(state.gotoPageMode) ||
+      Boolean(state.reactionPickerMode)
+    );
+  }, [
+    state.composerPickerTarget,
+    state.gotoPageMode,
+    state.postComposerDraft,
+    state.reactionPickerMode,
+    state.replyBody,
+    state.replyQuotes.length,
+    state.searchMode,
+    state.subscriptionComposerDraft,
+  ]);
+  const hasDirtyReplyDraft = useMemo(
+    () => state.replyBody.trim().length > 0 || state.replyQuotes.length > 0,
+    [state.replyBody, state.replyQuotes.length]
+  );
+  const hasDirtyPostComposerDraft = useMemo(() => {
+    const draft = state.postComposerDraft;
+    return (
+      draft.channel.trim().length > 0 ||
+      draft.type.trim() !== POST_TYPES[0] ||
+      draft.title.trim().length > 0 ||
+      draft.body.trim().length > 0 ||
+      draft.severity.trim().length > 0 ||
+      draft.data.trim().length > 0 ||
+      draft.tags.trim().length > 0 ||
+      draft.actor.trim().length > 0 ||
+      draft.session.trim().length > 0 ||
+      draft.refId.trim().length > 0 ||
+      draft.blocking.trim().length > 0 ||
+      draft.pinned.trim().length > 0 ||
+      draft.assignedTo.trim().length > 0 ||
+      draft.idempotencyKey.trim().length > 0
+    );
+  }, [state.postComposerDraft]);
+  const hasDirtySubscriptionComposerDraft = useMemo(() => {
+    const draft = state.subscriptionComposerDraft;
+    return (
+      draft.mode.trim() !== "subscribe" ||
+      draft.actor.trim().length > 0 ||
+      draft.channel.trim().length > 0 ||
+      draft.tags.trim().length > 0
+    );
+  }, [state.subscriptionComposerDraft]);
   const availableSearchValues = useMemo(
     () => ({
       tag: [...new Set(state.rawPosts.flatMap((post) => post.tags))]
@@ -255,6 +435,76 @@ function useBrowseController(
     }),
     [state.rawPosts]
   );
+  const channelSuggestions = useMemo(
+    () => [...new Set(state.rawPosts.map((post) => post.channel).filter(Boolean))].sort(),
+    [state.rawPosts]
+  );
+  const postComposerSuggestions = useMemo(
+    () =>
+      buildPostComposerSuggestionLookup({
+        channels: channelSuggestions,
+        actors: availableSearchValues.actor,
+        sessions: availableSearchValues.session,
+        assignedTo: availableSearchValues.assigned,
+        refIds: state.rawPosts.map((post) => post.id),
+        tags: availableSearchValues.tag,
+      }),
+    [
+      availableSearchValues.actor,
+      availableSearchValues.assigned,
+      availableSearchValues.session,
+      availableSearchValues.tag,
+      channelSuggestions,
+      state.rawPosts,
+    ]
+  );
+  const postComposerRefSuggestionDetails = useMemo(
+    () =>
+      Object.fromEntries(
+        state.rawPosts.map((post) => [
+          post.id,
+          [post.title?.trim(), post.actor ? `@${post.actor}` : null].filter(Boolean).join(" · "),
+        ])
+      ),
+    [state.rawPosts]
+  );
+  const subscriptionComposerSuggestions = useMemo(
+    () =>
+      buildSubscriptionComposerSuggestionLookup({
+        channels: channelSuggestions,
+        actors: availableSearchValues.actor,
+        tags: availableSearchValues.tag,
+      }),
+    [availableSearchValues.actor, availableSearchValues.tag, channelSuggestions]
+  );
+  const composerPickerItems = useMemo(() => {
+    if (!state.composerPickerTarget) {
+      return [];
+    }
+
+    if (state.composerPickerTarget.composer === "post") {
+      return buildPostComposerPickerItems({
+        field: state.composerPickerTarget.field,
+        value: state.composerPickerQuery,
+        lookup: postComposerSuggestions,
+        refDetails: postComposerRefSuggestionDetails,
+        limit: 50,
+      });
+    }
+
+    return buildSubscriptionComposerPickerItems({
+      field: state.composerPickerTarget.field,
+      value: state.composerPickerQuery,
+      lookup: subscriptionComposerSuggestions,
+      limit: 50,
+    });
+  }, [
+    postComposerRefSuggestionDetails,
+    postComposerSuggestions,
+    state.composerPickerQuery,
+    state.composerPickerTarget,
+    subscriptionComposerSuggestions,
+  ]);
   const searchValueSuggestions = useMemo(
     () => getSearchValueSuggestions(state.searchDraftQuery, availableSearchValues, 8),
     [availableSearchValues, state.searchDraftQuery]
@@ -431,6 +681,13 @@ function useBrowseController(
     []
   );
 
+  const showTransientError = useCallback(
+    (text: string, ttlMs = ERROR_NOTICE_TTL_MS) => {
+      showTransientNotice({ kind: "error", text }, ttlMs);
+    },
+    [showTransientNotice]
+  );
+
   const finishRefresh = useCallback(
     (
       requestId: number,
@@ -473,77 +730,85 @@ function useBrowseController(
         patch: reason === "initial" ? { loading: true } : { refreshing: true },
       });
 
-      try {
-        // Use refs for the currently open bundle/filter/sort so refresh and
-        // auto-refresh callbacks can preserve UI context without stale closures.
-        const result = refreshBrowseData({
-          postService,
-          baseFilters,
-          channelFilter: channelFilterRef.current,
-          sortMode: sortModeRef.current,
-          limit,
-          currentOffset: overrides?.currentOffset ?? listOffsetRef.current,
-          currentIndex: selectedIndexRef.current,
-          currentRawPosts: rawPostsRef.current,
-          currentBundle: bundleRef.current,
-          searchQuery: overrides?.searchQuery ?? searchQueryRef.current,
-          focusedId: focusedId ?? selectedPostIdRef.current ?? undefined,
-        });
+      void (async () => {
+        try {
+          // Use refs for the currently open bundle/filter/sort so refresh and
+          // auto-refresh callbacks can preserve UI context without stale closures.
+          const result = await refreshBrowseData({
+            postService,
+            baseFilters,
+            channelFilter: channelFilterRef.current,
+            sortMode: sortModeRef.current,
+            limit,
+            currentOffset: overrides?.currentOffset ?? listOffsetRef.current,
+            currentIndex: selectedIndexRef.current,
+            currentRawPosts: rawPostsRef.current,
+            currentBundle: bundleRef.current,
+            searchQuery: overrides?.searchQuery ?? searchQueryRef.current,
+            focusedId: focusedId ?? selectedPostIdRef.current ?? undefined,
+          });
 
-        const patch = {
-          rawPosts: result.rawPosts,
-          selectedIndex: result.selectedIndex,
-          listOffset: result.listOffset,
-          bundle: result.bundle,
-          changedPostIds: result.changedPostIds,
-          lastRefreshAt: formatRefreshClock(),
-          loading: false,
-          refreshing: false,
-          notice: noticeRef.current,
-        };
-        const delayMs =
-          reason === "initial" ? 0 : Math.max(0, MIN_REFRESH_VISIBLE_MS - (Date.now() - startedAt));
-        finishRefresh(requestId, patch, delayMs);
+          const patch = {
+            rawPosts: result.rawPosts,
+            selectedIndex: result.selectedIndex,
+            listOffset: result.listOffset,
+            bundle: result.bundle,
+            changedPostIds: result.changedPostIds,
+            lastRefreshAt: formatRefreshClock(),
+            loading: false,
+            refreshing: false,
+            notice: noticeRef.current,
+          };
+          const delayMs =
+            reason === "initial"
+              ? 0
+              : Math.max(0, MIN_REFRESH_VISIBLE_MS - (Date.now() - startedAt));
+          finishRefresh(requestId, patch, delayMs);
 
-        if (reason === "manual") {
-          showTransientNotice({ kind: "info", text: "Feed refreshed." });
-        } else if (reason === "reply" && focusedId) {
-          showTransientNotice({ kind: "info", text: `Reply posted to ${focusedId}.` });
+          if (reason === "manual") {
+            showTransientNotice({ kind: "info", text: "Feed refreshed." });
+          } else if (reason === "reply" && focusedId) {
+            showTransientNotice({ kind: "info", text: `Reply posted to ${focusedId}.` });
+          }
+        } catch (error) {
+          const patch = {
+            bundle: bundleRef.current ? null : null,
+            view: bundleRef.current ? "list" : viewRef.current,
+            replyBody: bundleRef.current ? "" : replyBodyRef.current,
+            notice: {
+              kind: "error" as const,
+              text: bundleRef.current
+                ? `Open post is no longer available. ${toMessage(error)}`
+                : toMessage(error),
+            },
+            changedPostIds: [],
+            loading: false,
+            refreshing: false,
+          };
+          const delayMs =
+            reason === "initial"
+              ? 0
+              : Math.max(0, MIN_REFRESH_VISIBLE_MS - (Date.now() - startedAt));
+          finishRefresh(requestId, patch, delayMs);
         }
-      } catch (error) {
-        const patch = {
-          bundle: bundleRef.current ? null : null,
-          view: bundleRef.current ? "list" : viewRef.current,
-          replyBody: bundleRef.current ? "" : replyBodyRef.current,
-          notice: {
-            kind: "error" as const,
-            text: bundleRef.current
-              ? `Open post is no longer available. ${toMessage(error)}`
-              : toMessage(error),
-          },
-          changedPostIds: [],
-          loading: false,
-          refreshing: false,
-        };
-        const delayMs =
-          reason === "initial" ? 0 : Math.max(0, MIN_REFRESH_VISIBLE_MS - (Date.now() - startedAt));
-        finishRefresh(requestId, patch, delayMs);
-      }
+      })();
     },
     [baseFilters, finishRefresh, limit, postService, showTransientNotice]
   );
 
   const openPost = useCallback(
     (postId: string) => {
-      try {
-        if (session) {
-          postService.markRead(session, [postId]);
+      void (async () => {
+        try {
+          if (session) {
+            await postService.markRead(session, [postId]);
+          }
+          const nextBundle = await postService.getPost(postId);
+          dispatch({ type: "openBundle", bundle: nextBundle });
+        } catch (error) {
+          dispatch({ type: "setNotice", notice: { kind: "error", text: toMessage(error) } });
         }
-        const nextBundle = postService.getPost(postId);
-        dispatch({ type: "openBundle", bundle: nextBundle });
-      } catch (error) {
-        dispatch({ type: "setNotice", notice: { kind: "error", text: toMessage(error) } });
-      }
+      })();
     },
     [postService, session]
   );
@@ -575,71 +840,302 @@ function useBrowseController(
       return;
     }
 
-    try {
-      submitBrowseReply(replyService, {
-        postId: state.bundle.post.id,
-        body: state.replyBody,
-        actor,
-        quotes: state.replyQuotes,
-      });
+    void (async () => {
+      try {
+        await submitBrowseReply(replyService, {
+          postId: state.bundle.post.id,
+          body: state.replyBody,
+          actor,
+          quotes: state.replyQuotes,
+        });
+        dispatch({
+          type: "patch",
+          patch: {
+            replyBody: "",
+            replyQuotes: [],
+            replyFocusedQuoteId: null,
+            replySectionFocus: "editor",
+            view: "post",
+          },
+        });
+        refreshData("reply", state.bundle.post.id);
+      } catch (error) {
+        dispatch({ type: "setNotice", notice: { kind: "error", text: toMessage(error) } });
+      }
+    })();
+  }, [actor, refreshData, replyService, state.bundle, state.replyBody, state.replyQuotes]);
+
+  const updatePostComposerField = useCallback(
+    (
+      field: keyof typeof state.postComposerDraft,
+      value: string,
+      options?: { cursorIndex?: number }
+    ) => {
+      setPostComposerTextCursorIndices((current) => ({
+        ...current,
+        [field]: options?.cursorIndex ?? Array.from(value).length,
+      }));
       dispatch({
         type: "patch",
         patch: {
-          replyBody: "",
-          replyQuotes: [],
-          replyFocusedQuoteId: null,
-          replySectionFocus: "editor",
-          view: "post",
+          postComposerDraft: {
+            ...state.postComposerDraft,
+            [field]: value,
+          },
         },
       });
-      refreshData("reply", state.bundle.post.id);
-    } catch (error) {
-      dispatch({ type: "setNotice", notice: { kind: "error", text: toMessage(error) } });
+    },
+    [state.postComposerDraft]
+  );
+
+  const updateSubscriptionComposerField = useCallback(
+    (
+      field: keyof typeof state.subscriptionComposerDraft,
+      value: string,
+      options?: { cursorIndex?: number }
+    ) => {
+      setSubscriptionComposerTextCursorIndices((current) => ({
+        ...current,
+        [field]: options?.cursorIndex ?? Array.from(value).length,
+      }));
+      dispatch({
+        type: "patch",
+        patch: {
+          subscriptionComposerDraft: {
+            ...state.subscriptionComposerDraft,
+            [field]: value,
+          },
+        },
+      });
+    },
+    [state.subscriptionComposerDraft]
+  );
+
+  const openComposerPicker = useCallback(() => {
+    if (state.view === "compose-post") {
+      if (!isPostComposerPickerField(state.postComposerField)) {
+        return;
+      }
+      dispatch({
+        type: "patch",
+        patch: {
+          composerPickerTarget: { composer: "post", field: state.postComposerField },
+          composerPickerQuery: state.postComposerDraft[state.postComposerField] ?? "",
+          composerPickerSelectedIndex: 0,
+        },
+      });
+      return;
     }
-  }, [actor, refreshData, replyService, state.bundle, state.replyBody, state.replyQuotes]);
+
+    if (state.view === "compose-subscription") {
+      if (!isSubscriptionComposerPickerField(state.subscriptionComposerField)) {
+        return;
+      }
+      dispatch({
+        type: "patch",
+        patch: {
+          composerPickerTarget: {
+            composer: "subscription",
+            field: state.subscriptionComposerField,
+          },
+          composerPickerQuery:
+            state.subscriptionComposerDraft[state.subscriptionComposerField] ?? "",
+          composerPickerSelectedIndex: 0,
+        },
+      });
+    }
+  }, [
+    state.postComposerDraft,
+    state.postComposerField,
+    state.subscriptionComposerDraft,
+    state.subscriptionComposerField,
+    state.view,
+  ]);
+
+  const openPostComposer = useCallback(() => {
+    const contextualChannel =
+      state.view === "channels"
+        ? state.channelSelectedIndex === 0
+          ? defaultChannel
+          : (channelStats[state.channelSelectedIndex - 1]?.name ?? defaultChannel)
+        : state.bundle?.post.channel ||
+          (state.channelFilter !== ALL_CHANNELS ? state.channelFilter : "");
+
+    setPostComposerTextCursorIndices({});
+    dispatch({
+      type: "patch",
+      patch: {
+        view: "compose-post",
+        postComposerField: "channel",
+        composerPickerTarget: null,
+        composerPickerQuery: "",
+        composerPickerSelectedIndex: 0,
+        postComposerDraft: buildInitialPostComposerDraft({
+          actor,
+          session,
+          defaultChannel,
+          channel: contextualChannel || "",
+          refId: state.bundle?.post.id ?? null,
+        }),
+      },
+    });
+  }, [
+    actor,
+    channelStats,
+    defaultChannel,
+    session,
+    state.bundle?.post.id,
+    state.bundle?.post.channel,
+    state.channelFilter,
+    state.channelSelectedIndex,
+    state.view,
+  ]);
+
+  const openSubscriptionComposer = useCallback(() => {
+    const contextualChannel =
+      state.view === "channels"
+        ? state.channelSelectedIndex === 0
+          ? defaultChannel
+          : (channelStats[state.channelSelectedIndex - 1]?.name ?? defaultChannel)
+        : state.bundle?.post.channel ||
+          (state.channelFilter !== ALL_CHANNELS ? state.channelFilter : "");
+
+    setSubscriptionComposerTextCursorIndices({});
+    dispatch({
+      type: "patch",
+      patch: {
+        view: "compose-subscription",
+        subscriptionComposerField: "mode",
+        composerPickerTarget: null,
+        composerPickerQuery: "",
+        composerPickerSelectedIndex: 0,
+        subscriptionComposerDraft: buildInitialSubscriptionComposerDraft({
+          actor,
+          defaultChannel,
+          channel: contextualChannel || "",
+        }),
+      },
+    });
+  }, [
+    actor,
+    channelStats,
+    defaultChannel,
+    state.bundle?.post.channel,
+    state.channelFilter,
+    state.channelSelectedIndex,
+    state.view,
+  ]);
+
+  const submitPost = useCallback(() => {
+    dispatch({ type: "patch", patch: { busyOperationKind: "submit-post" } });
+    void (async () => {
+      try {
+        const result = await submitBrowsePost(postService, state.postComposerDraft);
+        dispatch({
+          type: "patch",
+          patch: {
+            busyOperationKind: null,
+            view: "list",
+            postComposerField: "channel",
+          },
+        });
+        refreshData("post", result.id);
+        showTransientNotice({ kind: "info", text: `Created post ${result.id}.` });
+      } catch (error) {
+        dispatch({
+          type: "patch",
+          patch: { busyOperationKind: null },
+        });
+        showTransientError(toMessage(error));
+      }
+    })();
+  }, [postService, refreshData, showTransientError, showTransientNotice, state.postComposerDraft]);
+
+  const submitSubscription = useCallback(() => {
+    dispatch({ type: "patch", patch: { busyOperationKind: "submit-subscription" } });
+    void (async () => {
+      try {
+        const result = await submitBrowseSubscription(
+          subscriptionService,
+          state.subscriptionComposerDraft
+        );
+        const mode = state.subscriptionComposerDraft.mode.trim() || "subscribe";
+        dispatch({
+          type: "patch",
+          patch: {
+            busyOperationKind: null,
+            view: "channels",
+            subscriptionComposerField: "mode",
+          },
+        });
+        refreshData("manual");
+        showTransientNotice({
+          kind: "info",
+          text:
+            mode === "unsubscribe"
+              ? `Removed ${result.removed ?? 0} subscription(s).`
+              : `Subscription updated for #${state.subscriptionComposerDraft.channel.trim()}.`,
+        });
+      } catch (error) {
+        dispatch({
+          type: "patch",
+          patch: { busyOperationKind: null },
+        });
+        showTransientError(toMessage(error));
+      }
+    })();
+  }, [
+    refreshData,
+    showTransientError,
+    showTransientNotice,
+    state.subscriptionComposerDraft,
+    subscriptionService,
+  ]);
 
   const executeDelete = useCallback(() => {
     if (!state.confirmDelete) {
       return;
     }
 
-    try {
-      const deletedPostId = state.confirmDelete.id;
-      postService.deletePost(deletedPostId);
-      const nextState = resolveDeleteTransition({
-        currentBundle: state.bundle,
-        currentView: state.view,
-        currentFocusedId: selectedPostIdRef.current,
-        deletedPostId,
-      });
+    void (async () => {
+      try {
+        const deletedPostId = state.confirmDelete.id;
+        await postService.deletePost(deletedPostId);
+        const nextState = resolveDeleteTransition({
+          currentBundle: state.bundle,
+          currentView: state.view,
+          currentFocusedId: selectedPostIdRef.current,
+          deletedPostId,
+        });
 
-      // Keep refresh in sync with the delete action before React flushes state.
-      bundleRef.current = nextState.bundle;
-      viewRef.current = nextState.view;
-      selectedPostIdRef.current = nextState.focusedId;
+        // Keep refresh in sync with the delete action before React flushes state.
+        bundleRef.current = nextState.bundle;
+        viewRef.current = nextState.view;
+        selectedPostIdRef.current = nextState.focusedId;
 
-      dispatch({
-        type: "patch",
-        patch: {
-          confirmDelete: null,
-          bundle: nextState.bundle,
-          view: nextState.view,
-          notice: {
-            kind: "info",
-            text: `Deleted: ${state.confirmDelete.title} (${deletedPostId})`,
+        dispatch({
+          type: "patch",
+          patch: {
+            confirmDelete: null,
+            bundle: nextState.bundle,
+            view: nextState.view,
+            notice: {
+              kind: "info",
+              text: `Deleted: ${state.confirmDelete.title} (${deletedPostId})`,
+            },
           },
-        },
-      });
-      refreshData("manual");
-    } catch (error) {
-      dispatch({
-        type: "patch",
-        patch: {
-          confirmDelete: null,
-          notice: { kind: "error", text: toMessage(error) },
-        },
-      });
-    }
+        });
+        refreshData("manual");
+      } catch (error) {
+        dispatch({
+          type: "patch",
+          patch: {
+            confirmDelete: null,
+            notice: { kind: "error", text: toMessage(error) },
+          },
+        });
+      }
+    })();
   }, [postService, refreshData, state.bundle, state.confirmDelete, state.view]);
 
   useEffect(() => {
@@ -663,6 +1159,11 @@ function useBrowseController(
 
   useEffect(() => {
     if (state.searchMode) {
+      rootRef.current?.focus();
+      return;
+    }
+
+    if (state.composerPickerTarget) {
       rootRef.current?.focus();
       return;
     }
@@ -698,14 +1199,90 @@ function useBrowseController(
       };
     }
 
+    if (state.view === "compose-post") {
+      const inputRef = postComposerInputRef.current as (TermInput & { blur?: () => void }) | null;
+      if (activeComposeFieldKind === "multiline") {
+        inputRef?.focus();
+        const timeout = setTimeout(() => {
+          inputRef?.focus();
+        }, 0);
+        return () => {
+          clearTimeout(timeout);
+        };
+      }
+      inputRef?.blur?.();
+      rootRef.current?.focus();
+      return;
+    }
+
+    if (state.view === "compose-subscription") {
+      const inputRef = subscriptionComposerInputRef.current as
+        | (TermInput & { blur?: () => void })
+        | null;
+      if (activeComposeFieldKind === "multiline") {
+        inputRef?.focus();
+        const timeout = setTimeout(() => {
+          inputRef?.focus();
+        }, 0);
+        return () => {
+          clearTimeout(timeout);
+        };
+      }
+      inputRef?.blur?.();
+      rootRef.current?.focus();
+      return;
+    }
+
     rootRef.current?.focus();
   }, [
+    activeComposeFieldKind,
+    state.composerPickerTarget,
     state.gotoPageMode,
+    state.postComposerField,
     state.reactionPickerMode,
     state.replySectionFocus,
     state.searchMode,
+    state.subscriptionComposerField,
     state.view,
   ]);
+
+  useEffect(() => {
+    if (state.view !== "compose-post") {
+      return;
+    }
+
+    if (visiblePostComposerFields.includes(state.postComposerField)) {
+      return;
+    }
+
+    dispatch({
+      type: "patch",
+      patch: { postComposerField: visiblePostComposerFields[0] ?? "channel" },
+    });
+  }, [state.postComposerField, state.view, visiblePostComposerFields]);
+
+  useEffect(() => {
+    if (state.view === "compose-post") {
+      const index = Math.max(0, visiblePostComposerFields.indexOf(state.postComposerField));
+      scrollListItemWithMargin({
+        item: postComposerFieldItemRefs.current[index] ?? null,
+        marginRows: 1,
+      });
+    }
+  }, [state.postComposerField, state.view, visiblePostComposerFields]);
+
+  useEffect(() => {
+    if (state.view === "compose-subscription") {
+      const index = Math.max(
+        0,
+        SUBSCRIPTION_COMPOSER_FIELDS.indexOf(state.subscriptionComposerField)
+      );
+      scrollListItemWithMargin({
+        item: subscriptionComposerFieldItemRefs.current[index] ?? null,
+        marginRows: 1,
+      });
+    }
+  }, [state.subscriptionComposerField, state.view]);
 
   useEffect(() => {
     if (state.view === "list") {
@@ -872,7 +1449,12 @@ function useBrowseController(
   }, [postPage.offset, posts.length, state.listOffset, state.selectedIndex]);
 
   useEffect(() => {
-    if (!state.autoRefreshEnabled || state.view === "reply") {
+    if (
+      !state.autoRefreshEnabled ||
+      state.view === "reply" ||
+      state.view === "compose-post" ||
+      state.view === "compose-subscription"
+    ) {
       nextAutoRefreshAtRef.current = null;
       return;
     }
@@ -888,7 +1470,12 @@ function useBrowseController(
   }, [refreshData, refreshMs, state.autoRefreshEnabled, state.view]);
 
   useEffect(() => {
-    if (!state.autoRefreshEnabled || state.view === "reply") {
+    if (
+      !state.autoRefreshEnabled ||
+      state.view === "reply" ||
+      state.view === "compose-post" ||
+      state.view === "compose-subscription"
+    ) {
       return;
     }
 
@@ -943,11 +1530,129 @@ function useBrowseController(
 
   const handleKeyPress = useCallback(
     (event: { attributes: { key: KeyLike } }) => {
+      const rawKey = event.attributes.key;
+      if (
+        state.composerPickerTarget &&
+        rawKey.name === "backspace" &&
+        !rawKey.ctrl &&
+        !rawKey.alt &&
+        !rawKey.meta &&
+        !rawKey.shift
+      ) {
+        dispatch({
+          type: "patch",
+          patch: {
+            composerPickerQuery: deleteSearchQueryBackward(state.composerPickerQuery),
+            composerPickerSelectedIndex: 0,
+          },
+        });
+        return;
+      }
+
+      const composeTextEditingActive =
+        !state.composerPickerTarget &&
+        ((state.view === "compose-post" && activeComposeFieldKind === "text") ||
+          (state.view === "compose-subscription" && activeComposeFieldKind === "text"));
+
+      if (composeTextEditingActive) {
+        if (
+          rawKey.name === "backspace" &&
+          !rawKey.ctrl &&
+          !rawKey.alt &&
+          !rawKey.meta &&
+          !rawKey.shift
+        ) {
+          if (state.view === "compose-post") {
+            const field = state.postComposerField;
+            const currentValue = state.postComposerDraft[field] ?? "";
+            const next = deleteInputTextBackward({
+              value: currentValue,
+              cursorIndex: activePostComposerTextCursorIndex,
+            });
+            if (next.value !== currentValue) {
+              updatePostComposerField(field, next.value, { cursorIndex: next.cursorIndex });
+            } else {
+              setPostComposerTextCursorIndices((current) => ({
+                ...current,
+                [field]: next.cursorIndex,
+              }));
+            }
+          } else {
+            const field = state.subscriptionComposerField;
+            const currentValue = state.subscriptionComposerDraft[field] ?? "";
+            const next = deleteInputTextBackward({
+              value: currentValue,
+              cursorIndex: activeSubscriptionComposerTextCursorIndex,
+            });
+            if (next.value !== currentValue) {
+              updateSubscriptionComposerField(field, next.value, {
+                cursorIndex: next.cursorIndex,
+              });
+            } else {
+              setSubscriptionComposerTextCursorIndices((current) => ({
+                ...current,
+                [field]: next.cursorIndex,
+              }));
+            }
+          }
+          return;
+        }
+
+        if (rawKey.name === "left" && !rawKey.ctrl && !rawKey.alt && !rawKey.meta) {
+          if (state.view === "compose-post") {
+            setPostComposerTextCursorIndices((current) => ({
+              ...current,
+              [state.postComposerField]: moveInputCursor(
+                state.postComposerDraft[state.postComposerField] ?? "",
+                activePostComposerTextCursorIndex,
+                -1
+              ),
+            }));
+          } else {
+            setSubscriptionComposerTextCursorIndices((current) => ({
+              ...current,
+              [state.subscriptionComposerField]: moveInputCursor(
+                state.subscriptionComposerDraft[state.subscriptionComposerField] ?? "",
+                activeSubscriptionComposerTextCursorIndex,
+                -1
+              ),
+            }));
+          }
+          return;
+        }
+
+        if (rawKey.name === "right" && !rawKey.ctrl && !rawKey.alt && !rawKey.meta) {
+          if (state.view === "compose-post") {
+            setPostComposerTextCursorIndices((current) => ({
+              ...current,
+              [state.postComposerField]: moveInputCursor(
+                state.postComposerDraft[state.postComposerField] ?? "",
+                activePostComposerTextCursorIndex,
+                1
+              ),
+            }));
+          } else {
+            setSubscriptionComposerTextCursorIndices((current) => ({
+              ...current,
+              [state.subscriptionComposerField]: moveInputCursor(
+                state.subscriptionComposerDraft[state.subscriptionComposerField] ?? "",
+                activeSubscriptionComposerTextCursorIndex,
+                1
+              ),
+            }));
+          }
+          return;
+        }
+      }
+
       const command = resolveBrowseKeyCommand(
         {
           view: state.view,
+          readerMode: state.readerMode,
           showShortcutsHelp: state.showShortcutsHelp,
           confirmDelete: Boolean(state.confirmDelete),
+          confirmQuit: state.confirmQuit,
+          confirmDiscard: Boolean(state.confirmDiscardTarget),
           gotoPageMode: state.gotoPageMode,
           searchMode: state.searchMode,
           reactionPickerMode: state.reactionPickerMode,
@@ -969,16 +1674,86 @@ function useBrowseController(
           postsLength: posts.length,
           selectedConversationIndex,
           conversationItemsLength: conversationItems.length,
+          composeFieldKind: activeComposeFieldKind,
+          composeFieldSupportsPicker: activeComposeFieldSupportsPicker,
+          composePickerOpen: Boolean(state.composerPickerTarget),
+          composeSuggestionCount: Math.min(9, composerPickerItems.length),
         },
-        event.attributes.key
+        rawKey
       );
 
       switch (command.type) {
         case "terminate":
         case "quit":
+          if (hasPendingWork && !state.confirmQuit) {
+            dispatch({ type: "patch", patch: { confirmQuit: true } });
+            dispatch({
+              type: "setNotice",
+              notice: {
+                kind: "error",
+                text: "Unsaved work will be lost. Press q or Ctrl+C again to exit, or Esc to stay.",
+              },
+            });
+            return;
+          }
           screen.terminate(0);
           return;
+        case "cancelQuit":
+          dispatch({ type: "patch", patch: { confirmQuit: false } });
+          clearNotice();
+          return;
+        case "confirmDiscard":
+          if (state.confirmDiscardTarget === "reply") {
+            dispatch({
+              type: "patch",
+              patch: {
+                view: "post",
+                confirmDiscardTarget: null,
+                replyBody: "",
+                replyQuotes: [],
+                replyFocusedQuoteId: null,
+              },
+            });
+            clearNotice();
+            return;
+          }
+          if (state.confirmDiscardTarget === "compose-post") {
+            dispatch({
+              type: "patch",
+              patch: {
+                view: "list",
+                busyOperationKind: null,
+                composerPickerTarget: null,
+                composerPickerQuery: "",
+                composerPickerSelectedIndex: 0,
+                confirmDiscardTarget: null,
+              },
+            });
+            clearNotice();
+            return;
+          }
+          if (state.confirmDiscardTarget === "compose-subscription") {
+            dispatch({
+              type: "patch",
+              patch: {
+                view: "channels",
+                busyOperationKind: null,
+                composerPickerTarget: null,
+                composerPickerQuery: "",
+                composerPickerSelectedIndex: 0,
+                confirmDiscardTarget: null,
+              },
+            });
+            clearNotice();
+            return;
+          }
+          return;
+        case "cancelDiscard":
+          dispatch({ type: "patch", patch: { confirmDiscardTarget: null } });
+          clearNotice();
+          return;
         case "closeShortcuts":
+          dispatch({ type: "patch", patch: { confirmQuit: false } });
           dispatch({ type: "patch", patch: { showShortcutsHelp: false } });
           return;
         case "scrollShortcuts":
@@ -1023,29 +1798,31 @@ function useBrowseController(
             return;
           }
 
-          try {
-            postService.createReaction({
-              targetId: reactionPickerTarget.id,
-              reaction,
-              actor,
-              session,
-            });
-            dispatch({
-              type: "patch",
-              patch: { reactionPickerMode: null, reactionPickerSelectedIndex: 0 },
-            });
-            refreshData("auto", state.bundle.post.id);
-            showTransientNotice({
-              kind: "info",
-              text: `Added ${reaction} to ${reactionPickerTarget.label}.`,
-            });
-          } catch (error) {
-            dispatch({
-              type: "patch",
-              patch: { reactionPickerMode: null, reactionPickerSelectedIndex: 0 },
-            });
-            dispatch({ type: "setNotice", notice: { kind: "error", text: toMessage(error) } });
-          }
+          void (async () => {
+            try {
+              await postService.createReaction({
+                targetId: reactionPickerTarget.id,
+                reaction,
+                actor,
+                session,
+              });
+              dispatch({
+                type: "patch",
+                patch: { reactionPickerMode: null, reactionPickerSelectedIndex: 0 },
+              });
+              refreshData("auto", state.bundle.post.id);
+              showTransientNotice({
+                kind: "info",
+                text: `Added ${reaction} to ${reactionPickerTarget.label}.`,
+              });
+            } catch (error) {
+              dispatch({
+                type: "patch",
+                patch: { reactionPickerMode: null, reactionPickerSelectedIndex: 0 },
+              });
+              dispatch({ type: "setNotice", notice: { kind: "error", text: toMessage(error) } });
+            }
+          })();
           return;
         }
         case "closeGotoPage":
@@ -1281,6 +2058,17 @@ function useBrowseController(
           });
           return;
         case "replyCancel":
+          if (hasDirtyReplyDraft) {
+            dispatch({ type: "patch", patch: { confirmDiscardTarget: "reply" } });
+            dispatch({
+              type: "setNotice",
+              notice: {
+                kind: "error",
+                text: "Discard the current reply draft? Press Esc again to leave, or any other key to stay.",
+              },
+            });
+            return;
+          }
           dispatch({ type: "patch", patch: { view: "post" } });
           clearNotice();
           return;
@@ -1337,6 +2125,209 @@ function useBrowseController(
             submitReply();
           }
           return;
+        case "composeOpenPicker":
+          openComposerPicker();
+          return;
+        case "composeClosePicker":
+          dispatch({
+            type: "patch",
+            patch: {
+              composerPickerTarget: null,
+              composerPickerQuery: "",
+              composerPickerSelectedIndex: 0,
+            },
+          });
+          return;
+        case "composeMovePicker":
+          dispatch({
+            type: "patch",
+            patch: {
+              composerPickerSelectedIndex: clampIndex(
+                state.composerPickerSelectedIndex + command.delta,
+                Math.max(1, composerPickerItems.length)
+              ),
+            },
+          });
+          return;
+        case "composeApplyPicker": {
+          const pickerIndex =
+            command.index != null ? command.index : state.composerPickerSelectedIndex;
+          const item = composerPickerItems[pickerIndex];
+          if (!item || !state.composerPickerTarget) {
+            return;
+          }
+
+          if (state.composerPickerTarget.composer === "post") {
+            const field = state.composerPickerTarget.field;
+            const nextValue = applyPostComposerSuggestion(
+              field,
+              state.postComposerDraft[field] ?? "",
+              item.value
+            );
+            setPostComposerTextCursorIndices((current) => ({
+              ...current,
+              [field]: Array.from(nextValue).length,
+            }));
+            dispatch({
+              type: "patch",
+              patch: {
+                composerPickerTarget: null,
+                composerPickerQuery: "",
+                composerPickerSelectedIndex: 0,
+                postComposerDraft: {
+                  ...state.postComposerDraft,
+                  [field]: nextValue,
+                },
+              },
+            });
+            return;
+          }
+
+          const field = state.composerPickerTarget.field;
+          const nextValue = applySubscriptionComposerSuggestion(
+            field,
+            state.subscriptionComposerDraft[field] ?? "",
+            item.value
+          );
+          setSubscriptionComposerTextCursorIndices((current) => ({
+            ...current,
+            [field]: Array.from(nextValue).length,
+          }));
+          dispatch({
+            type: "patch",
+            patch: {
+              composerPickerTarget: null,
+              composerPickerQuery: "",
+              composerPickerSelectedIndex: 0,
+              subscriptionComposerDraft: {
+                ...state.subscriptionComposerDraft,
+                [field]: nextValue,
+              },
+            },
+          });
+          return;
+        }
+        case "composePostCancel":
+          if (hasDirtyPostComposerDraft) {
+            dispatch({ type: "patch", patch: { confirmDiscardTarget: "compose-post" } });
+            dispatch({
+              type: "setNotice",
+              notice: {
+                kind: "error",
+                text: "Discard the current post draft? Press Esc again to leave, or any other key to stay.",
+              },
+            });
+            return;
+          }
+          dispatch({
+            type: "patch",
+            patch: {
+              view: "list",
+              busyOperationKind: null,
+              composerPickerTarget: null,
+              composerPickerQuery: "",
+              composerPickerSelectedIndex: 0,
+            },
+          });
+          clearNotice();
+          return;
+        case "composePostNextField": {
+          const currentIndex = visiblePostComposerFields.indexOf(state.postComposerField);
+          const nextIndex =
+            (currentIndex + command.delta + visiblePostComposerFields.length) %
+            visiblePostComposerFields.length;
+          dispatch({
+            type: "patch",
+            patch: { postComposerField: visiblePostComposerFields[nextIndex] },
+          });
+          return;
+        }
+        case "composePostCycleOption": {
+          const nextValue = cycleComposerOption(
+            state.postComposerField,
+            state.postComposerDraft,
+            command.delta
+          );
+          if (nextValue == null) {
+            return;
+          }
+          dispatch({
+            type: "patch",
+            patch: {
+              postComposerDraft: {
+                ...state.postComposerDraft,
+                [state.postComposerField]: nextValue,
+              },
+            },
+          });
+          return;
+        }
+        case "submitPost":
+          submitPost();
+          return;
+        case "composeSubscriptionCancel":
+          if (hasDirtySubscriptionComposerDraft) {
+            dispatch({
+              type: "patch",
+              patch: { confirmDiscardTarget: "compose-subscription" },
+            });
+            dispatch({
+              type: "setNotice",
+              notice: {
+                kind: "error",
+                text: "Discard the current subscription draft? Press Esc again to leave, or any other key to stay.",
+              },
+            });
+            return;
+          }
+          dispatch({
+            type: "patch",
+            patch: {
+              view: "channels",
+              busyOperationKind: null,
+              composerPickerTarget: null,
+              composerPickerQuery: "",
+              composerPickerSelectedIndex: 0,
+            },
+          });
+          clearNotice();
+          return;
+        case "composeSubscriptionNextField": {
+          const currentIndex = SUBSCRIPTION_COMPOSER_FIELDS.indexOf(
+            state.subscriptionComposerField
+          );
+          const nextIndex =
+            (currentIndex + command.delta + SUBSCRIPTION_COMPOSER_FIELDS.length) %
+            SUBSCRIPTION_COMPOSER_FIELDS.length;
+          dispatch({
+            type: "patch",
+            patch: { subscriptionComposerField: SUBSCRIPTION_COMPOSER_FIELDS[nextIndex] },
+          });
+          return;
+        }
+        case "composeSubscriptionCycleOption": {
+          const nextValue = cycleSubscriptionComposerOption(
+            state.subscriptionComposerField,
+            state.subscriptionComposerDraft,
+            command.delta
+          );
+          if (nextValue == null) {
+            return;
+          }
+          dispatch({
+            type: "patch",
+            patch: {
+              subscriptionComposerDraft: {
+                ...state.subscriptionComposerDraft,
+                [state.subscriptionComposerField]: nextValue,
+              },
+            },
+          });
+          return;
+        }
+        case "submitSubscription":
+          submitSubscription();
+          return;
         case "toggleShortcuts":
           dispatch({ type: "patch", patch: { showShortcutsHelp: true } });
           return;
@@ -1375,7 +2366,7 @@ function useBrowseController(
             patch: {
               channelFilter:
                 state.channelSelectedIndex === 0
-                  ? "__all__"
+                  ? ALL_CHANNELS
                   : channelStats[state.channelSelectedIndex - 1].name,
               listOffset: 0,
               selectedIndex: 0,
@@ -1386,6 +2377,16 @@ function useBrowseController(
           return;
         case "channelsBack":
           dispatch({ type: "patch", patch: { view: "list" } });
+          clearNotice();
+          return;
+        case "openPostComposer":
+          pendingComposeShortcutRef.current = event.attributes.key.sequence || null;
+          openPostComposer();
+          clearNotice();
+          return;
+        case "openSubscriptionComposer":
+          pendingComposeShortcutRef.current = event.attributes.key.sequence || null;
+          openSubscriptionComposer();
           clearNotice();
           return;
         case "cycleChannelFilter": {
@@ -1400,7 +2401,7 @@ function useBrowseController(
           });
           showTransientNotice({
             kind: "info",
-            text: next === "__all__" ? "Showing all channels." : `Channel filter: #${next}.`,
+            text: next === ALL_CHANNELS ? "Showing all channels." : `Channel filter: #${next}.`,
           });
           return;
         }
@@ -1712,6 +2713,10 @@ function useBrowseController(
     },
     [
       absoluteConversationIndex,
+      activeComposeFieldKind,
+      activeComposeFieldSupportsPicker,
+      activePostComposerTextCursorIndex,
+      activeSubscriptionComposerTextCursorIndex,
       actor,
       channelStats,
       channels,
@@ -1720,6 +2725,7 @@ function useBrowseController(
       conversationPage.page,
       conversationPage.totalPages,
       executeDelete,
+      hasPendingWork,
       postPage.page,
       postPage.totalPages,
       openPost,
@@ -1738,21 +2744,89 @@ function useBrowseController(
       setListPage,
       setReplyPage,
       state,
+      updatePostComposerField,
+      updateSubscriptionComposerField,
+      composerPickerItems.length,
+      submitPost,
+      submitSubscription,
+      openComposerPicker,
+      openPostComposer,
+      openSubscriptionComposer,
+      channelSuggestions,
     ]
   );
 
   const handleData = useCallback(
     (event: { attributes: { data: Uint8Array } }) => {
-      if (!state.searchMode) {
-        return;
-      }
-
       const text = decoderRef.current.decode(event.attributes.data);
       if (!text) {
         return;
       }
 
-      const chunk = consumeOpenSearchShortcut(text, pendingSearchShortcutRef.current);
+      const composeChunk = consumeOpenSearchShortcut(text, pendingComposeShortcutRef.current);
+      pendingComposeShortcutRef.current = null;
+      if (!composeChunk) {
+        return;
+      }
+
+      if (state.composerPickerTarget && !state.searchMode) {
+        dispatch({
+          type: "patch",
+          patch: {
+            composerPickerQuery: appendSearchQuery(
+              state.composerPickerQuery,
+              composeChunk,
+              MAX_SEARCH_QUERY_LENGTH
+            ),
+            composerPickerSelectedIndex: 0,
+          },
+        });
+        return;
+      }
+
+      if (
+        !state.composerPickerTarget &&
+        state.view === "compose-post" &&
+        activeComposeFieldKind === "text"
+      ) {
+        const field = state.postComposerField;
+        const currentValue = state.postComposerDraft[field] ?? "";
+        const next = insertInputTextAtCursor({
+          value: currentValue,
+          incoming: composeChunk,
+          cursorIndex: activePostComposerTextCursorIndex,
+        });
+        if (next.value !== currentValue) {
+          updatePostComposerField(field, next.value, { cursorIndex: next.cursorIndex });
+        }
+        return;
+      }
+
+      if (
+        !state.composerPickerTarget &&
+        state.view === "compose-subscription" &&
+        activeComposeFieldKind === "text"
+      ) {
+        const field = state.subscriptionComposerField;
+        const currentValue = state.subscriptionComposerDraft[field] ?? "";
+        const next = insertInputTextAtCursor({
+          value: currentValue,
+          incoming: composeChunk,
+          cursorIndex: activeSubscriptionComposerTextCursorIndex,
+        });
+        if (next.value !== currentValue) {
+          updateSubscriptionComposerField(field, next.value, {
+            cursorIndex: next.cursorIndex,
+          });
+        }
+        return;
+      }
+
+      if (!state.searchMode) {
+        return;
+      }
+
+      const chunk = consumeOpenSearchShortcut(composeChunk, pendingSearchShortcutRef.current);
       pendingSearchShortcutRef.current = null;
       if (!chunk) {
         return;
@@ -1789,12 +2863,24 @@ function useBrowseController(
       });
     },
     [
+      activeComposeFieldKind,
+      activePostComposerTextCursorIndex,
+      activeSubscriptionComposerTextCursorIndex,
       state.searchBuilderActive,
       state.searchBuilderSegment,
       state.searchBuilderSelectedValueIndex,
       state.searchBuilderValue,
+      state.composerPickerQuery,
       state.searchDraftQuery,
+      state.composerPickerTarget,
+      state.postComposerDraft,
+      state.postComposerField,
       state.searchMode,
+      state.subscriptionComposerDraft,
+      state.subscriptionComposerField,
+      state.view,
+      updatePostComposerField,
+      updateSubscriptionComposerField,
     ]
   );
 
@@ -1846,6 +2932,41 @@ function useBrowseController(
     replyQuoteItemRefs,
     onReplyBodyChange: (value: string) => dispatch({ type: "setReplyBody", value }),
     replySectionFocus: state.replySectionFocus,
+    postComposerDraft: state.postComposerDraft,
+    postComposerField: state.postComposerField,
+    postComposerProgress: `${Math.max(1, visiblePostComposerFields.indexOf(state.postComposerField) + 1)}/${visiblePostComposerFields.length}`,
+    postComposerTextCursorIndex: activePostComposerTextCursorIndex,
+    postComposerInputRef,
+    postComposerFieldItemRefs,
+    onPostComposerFieldChange: updatePostComposerField,
+    postComposerRefSuggestionDetails,
+    subscriptionComposerDraft: state.subscriptionComposerDraft,
+    subscriptionComposerField: state.subscriptionComposerField,
+    subscriptionComposerProgress: `${Math.max(1, SUBSCRIPTION_COMPOSER_FIELDS.indexOf(state.subscriptionComposerField) + 1)}/${SUBSCRIPTION_COMPOSER_FIELDS.length}`,
+    subscriptionComposerTextCursorIndex: activeSubscriptionComposerTextCursorIndex,
+    subscriptionComposerInputRef,
+    subscriptionComposerFieldItemRefs,
+    onSubscriptionComposerFieldChange: updateSubscriptionComposerField,
+    composerPickerTitle: state.composerPickerTarget
+      ? state.composerPickerTarget.composer === "post"
+        ? `Choose ${state.composerPickerTarget.field}`
+        : `Choose ${state.composerPickerTarget.field}`
+      : "",
+    composerPickerSubtitle: state.composerPickerTarget
+      ? state.composerPickerTarget.composer === "post"
+        ? "Search known values and press Enter to apply."
+        : "Search known values and press Enter to apply."
+      : "",
+    composerPickerItems,
+    composerPickerOpen: Boolean(state.composerPickerTarget),
+    composerPickerQuery: state.composerPickerQuery,
+    composerPickerSelectedIndex: state.composerPickerSelectedIndex,
+    composerPickerInputRef,
+    onComposerPickerQueryChange: (value: string) =>
+      dispatch({
+        type: "patch",
+        patch: { composerPickerQuery: value, composerPickerSelectedIndex: 0 },
+      }),
     searchMode: state.searchMode,
     reactionPickerMode: state.reactionPickerMode,
     reactionPickerSelectedIndex: state.reactionPickerSelectedIndex,
@@ -1877,6 +2998,7 @@ function useBrowseController(
     busyOperationKind: state.busyOperationKind,
     showMoreAbove: state.view === "list" && state.selectedIndex > 0,
     showMoreBelow: state.view === "list" && state.selectedIndex < Math.max(0, posts.length - 1),
+    channelSuggestions,
   };
 }
 
@@ -1885,5 +3007,43 @@ function scrollBy(element: TermElement | null, delta: number): void {
     return;
   }
 
+  element.triggerUpdates();
   element.scrollTop = Math.max(0, element.scrollTop + delta);
+}
+
+function cycleComposerOption(
+  field: ReturnType<typeof createInitialBrowseState>["postComposerField"],
+  draft: ReturnType<typeof createInitialBrowseState>["postComposerDraft"],
+  delta: 1 | -1
+): string | null {
+  const options =
+    field === "type"
+      ? [...POST_TYPES]
+      : field === "severity"
+        ? ["", ...SEVERITIES]
+        : field === "blocking" || field === "pinned"
+          ? ["", "true", "false"]
+          : null;
+
+  if (!options) {
+    return null;
+  }
+
+  const currentValue = draft[field].trim();
+  const currentIndex = Math.max(0, options.indexOf(currentValue));
+  return options[(currentIndex + delta + options.length) % options.length] ?? options[0];
+}
+
+function cycleSubscriptionComposerOption(
+  field: ReturnType<typeof createInitialBrowseState>["subscriptionComposerField"],
+  draft: ReturnType<typeof createInitialBrowseState>["subscriptionComposerDraft"],
+  delta: 1 | -1
+): string | null {
+  if (field !== "mode") {
+    return null;
+  }
+
+  const options = ["subscribe", "unsubscribe"];
+  const currentIndex = Math.max(0, options.indexOf(draft.mode.trim()));
+  return options[(currentIndex + delta + options.length) % options.length] ?? options[0];
 }

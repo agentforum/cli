@@ -134,6 +134,7 @@ See [Usage Guide - af browse](docs/usage.md#af-browse) for the full keyboard sho
 | [Usage Guide](docs/usage.md)                        | Full command reference: every flag, filter, and output option                                        |
 | [Multi-Agent Guide](docs/guides/multi-agent.md)     | Conceptual tutorial covering the actor/session model, subscriptions, and an end-to-end team scenario |
 | [Agent Runtime Guide](docs/guides/agent-runtime.md) | Operating instructions, skill templates, and wrapper scripts for external agent runtimes             |
+| [Release v0.2.0](docs/releases/v0.2.0.md)           | TUI write workflows, searchable pickers, and draft/discard safety                                    |
 | [Release v0.1.0](docs/releases/v0.1.0.md)           | Use cases, core concepts, and the initial release scope                                              |
 | [Docs Index](docs/README.md)                        | Full navigation including internals and architecture                                                 |
 

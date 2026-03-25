@@ -27,6 +27,10 @@ const baseState = {
   postsLength: 2,
   selectedConversationIndex: 0,
   conversationItemsLength: 2,
+  composeFieldKind: null,
+  composeFieldSupportsPicker: false,
+  composePickerOpen: false,
+  composeSuggestionCount: 0,
 };
 
 function key(
@@ -63,6 +67,9 @@ describe("browse keybindings", () => {
   });
 
   it("maps list navigation and selection", () => {
+    expect(resolveBrowseKeyCommand(baseState, key("n", { name: "n" }))).toEqual({
+      type: "openPostComposer",
+    });
     expect(resolveBrowseKeyCommand(baseState, key("\u001B[A", { name: "up" }))).toEqual({
       type: "listMove",
       delta: -1,
@@ -112,6 +119,12 @@ describe("browse keybindings", () => {
 
   it("maps channels navigation and back actions", () => {
     const channelsState = { ...baseState, view: "channels" as const };
+    expect(resolveBrowseKeyCommand(channelsState, key("n", { name: "n" }))).toEqual({
+      type: "openPostComposer",
+    });
+    expect(resolveBrowseKeyCommand(channelsState, key("s", { name: "s" }))).toEqual({
+      type: "openSubscriptionComposer",
+    });
     expect(resolveBrowseKeyCommand(channelsState, key("\u001B", { name: "escape" }))).toEqual({
       type: "channelsBack",
     });
@@ -255,6 +268,12 @@ describe("browse keybindings", () => {
     expect(resolveBrowseKeyCommand(postState, key("r", { name: "r" }))).toEqual({
       type: "startReply",
     });
+    expect(resolveBrowseKeyCommand(postState, key("n", { name: "n" }))).toEqual({
+      type: "openPostComposer",
+    });
+    expect(resolveBrowseKeyCommand(postState, key("s", { name: "s" }))).toEqual({
+      type: "openSubscriptionComposer",
+    });
     expect(resolveBrowseKeyCommand(postState, key("e", { name: "e" }))).toEqual({
       type: "openReactionPicker",
     });
@@ -303,6 +322,96 @@ describe("browse keybindings", () => {
     });
   });
 
+  it("maps composer navigation and picker open", () => {
+    const postComposerState = {
+      ...baseState,
+      view: "compose-post" as const,
+      composeFieldKind: "text" as const,
+      composeFieldSupportsPicker: true,
+    };
+    expect(resolveBrowseKeyCommand(postComposerState, key("\t", { name: "tab" }))).toEqual({
+      type: "composePostNextField",
+      delta: 1,
+    });
+    expect(
+      resolveBrowseKeyCommand(postComposerState, key("\u001B[Z", { name: "backtab" }))
+    ).toEqual({
+      type: "composePostNextField",
+      delta: -1,
+    });
+    expect(resolveBrowseKeyCommand(postComposerState, key("\r", { name: "enter" }))).toEqual({
+      type: "composeOpenPicker",
+    });
+    expect(resolveBrowseKeyCommand(postComposerState, key("\u001B[B", { name: "down" }))).toEqual({
+      type: "noop",
+    });
+    expect(resolveBrowseKeyCommand(postComposerState, key("s", { name: "s", ctrl: true }))).toEqual(
+      {
+        type: "submitPost",
+      }
+    );
+
+    const subscriptionComposerState = {
+      ...baseState,
+      view: "compose-subscription" as const,
+      composeFieldKind: "text" as const,
+    };
+    expect(
+      resolveBrowseKeyCommand(subscriptionComposerState, key("\u001B[A", { name: "up" }))
+    ).toEqual({
+      type: "noop",
+    });
+    expect(
+      resolveBrowseKeyCommand(subscriptionComposerState, key("s", { name: "s", ctrl: true }))
+    ).toEqual({
+      type: "submitSubscription",
+    });
+  });
+
+  it("maps picker navigation and quick choose", () => {
+    const pickerState = {
+      ...baseState,
+      view: "compose-post" as const,
+      composePickerOpen: true,
+      composeSuggestionCount: 3,
+    };
+    expect(resolveBrowseKeyCommand(pickerState, key("2", { name: "2" }))).toEqual({
+      type: "composeApplyPicker",
+      index: 1,
+    });
+    expect(resolveBrowseKeyCommand(pickerState, key("\u001B[B", { name: "down" }))).toEqual({
+      type: "composeMovePicker",
+      delta: 1,
+    });
+    expect(resolveBrowseKeyCommand(pickerState, key("\r", { name: "enter" }))).toEqual({
+      type: "composeApplyPicker",
+    });
+  });
+
+  it("cycles composer enums only when the active field is closed-set", () => {
+    const postComposerState = {
+      ...baseState,
+      view: "compose-post" as const,
+      composeFieldKind: "enum" as const,
+    };
+    expect(resolveBrowseKeyCommand(postComposerState, key("\u001B[C", { name: "right" }))).toEqual({
+      type: "composePostCycleOption",
+      delta: 1,
+    });
+
+    const subscriptionComposerState = {
+      ...baseState,
+      view: "compose-subscription" as const,
+      composeFieldKind: "enum" as const,
+    };
+    expect(
+      resolveBrowseKeyCommand(subscriptionComposerState, key("\u001B[D", { name: "left" }))
+    ).toEqual({
+      type: "composeSubscriptionCycleOption",
+      delta: -1,
+    });
+  });
+
   it("opens and closes reader mode from the thread view", () => {
     const postState = {
       ...baseState,
@@ -336,6 +445,11 @@ describe("browse keybindings", () => {
       resolveBrowseKeyCommand({ ...baseState, view: "reader" as const }, key("e", { name: "e" }))
     ).toEqual({
       type: "openReactionPicker",
+    });
+    expect(
+      resolveBrowseKeyCommand({ ...baseState, view: "reader" as const }, key("s", { name: "s" }))
+    ).toEqual({
+      type: "openSubscriptionComposer",
     });
 
     expect(
@@ -480,6 +594,34 @@ describe("browse keybindings", () => {
       )
     ).toEqual({
       type: "copyContextPack",
+    });
+  });
+
+  it("maps composer shortcuts", () => {
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "compose-post" as const },
+        key("\t", { name: "tab" })
+      )
+    ).toEqual({
+      type: "composePostNextField",
+      delta: 1,
+    });
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "compose-post" as const },
+        key("s", { name: "s", ctrl: true })
+      )
+    ).toEqual({
+      type: "submitPost",
+    });
+    expect(
+      resolveBrowseKeyCommand(
+        { ...baseState, view: "compose-subscription" as const },
+        key("\u001B", { name: "escape" })
+      )
+    ).toEqual({
+      type: "composeSubscriptionCancel",
     });
   });
 });
