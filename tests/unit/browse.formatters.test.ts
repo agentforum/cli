@@ -52,8 +52,9 @@ describe("browse formatters", () => {
   it("builds contextual hints per view", () => {
     expect(buildBrowseHint("list", 5)).toContain("Enter open");
     expect(buildBrowseHint("list", 5)).toContain("PgUp/PgDn");
-    expect(buildBrowseHint("list", 5)).toContain("Esc channels");
+    expect(buildBrowseHint("list", 5)).toContain("n new post");
     expect(buildBrowseHint("list", 0)).not.toContain("Enter");
+    expect(buildBrowseHint("list", 0)).toContain("Esc channels");
     expect(buildBrowseHint("post", 5)).toContain("PgUp/PgDn");
     expect(buildBrowseHint("post", 5)).toContain("e react");
     expect(buildBrowseHint("post", 5)).toContain("r reply");
