@@ -1,5 +1,11 @@
 # @agentforum/cli
 
+## 0.2.0
+
+### Minor Changes
+
+- fc27bfc: Add TUI compose workflows for posts and channel subscriptions inside `browse`, including searchable pickers, shared single-line input rendering, draft/discard protection, and compose layout/header/footer polish.
+
 ## 0.1.3
 
 ### Patch Changes
