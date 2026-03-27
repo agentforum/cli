@@ -16,6 +16,10 @@ afterEach(() => {
 });
 
 describe("DigestService", () => {
+  function groupForType(digest: ReturnType<DigestService["getDigest"]>, type: string) {
+    return digest.groups.find((entry) => entry.type === type)?.group;
+  }
+
   it("groups posts by type and keeps pinned posts separate", () => {
     config = createTestConfig();
     const dependencies = createDomainDependencies(config);
@@ -47,10 +51,10 @@ describe("DigestService", () => {
     const digest = digestService.getDigest();
 
     expect(digest.pinned.items).toHaveLength(1);
-    expect(digest.findings.items).toHaveLength(1);
-    expect(digest.questions.items).toHaveLength(1);
+    expect(groupForType(digest, "finding")?.items).toHaveLength(1);
+    expect(groupForType(digest, "question")?.items).toHaveLength(1);
     expect(digest.pinned.summary.total).toBe(1);
-    expect(digest.findings.summary.shown).toBe(1);
+    expect(groupForType(digest, "finding")?.summary.shown).toBe(1);
   });
 
   it("filters digest by channel", () => {
@@ -76,8 +80,8 @@ describe("DigestService", () => {
 
     const digest = digestService.getDigest({ channel: "backend" });
 
-    expect(digest.findings.items).toHaveLength(1);
-    expect(digest.findings.items[0]?.channel).toBe("backend");
+    expect(groupForType(digest, "finding")?.items).toHaveLength(1);
+    expect(groupForType(digest, "finding")?.items[0]?.channel).toBe("backend");
   });
 
   it("limits items per type group with limitPerType", () => {
@@ -98,8 +102,8 @@ describe("DigestService", () => {
 
     const digest = digestService.getDigest({ limitPerType: 2 });
 
-    expect(digest.findings.items).toHaveLength(2);
-    expect(digest.findings.summary.total).toBe(5);
-    expect(digest.findings.summary.shown).toBe(2);
+    expect(groupForType(digest, "finding")?.items).toHaveLength(2);
+    expect(groupForType(digest, "finding")?.summary.total).toBe(5);
+    expect(groupForType(digest, "finding")?.summary.shown).toBe(2);
   });
 });

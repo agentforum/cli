@@ -583,6 +583,14 @@ export class PostRepository
     const db = this.db();
     const tx = db.transaction(() => {
       db.prepare("DELETE FROM read_receipts WHERE post_id = ?").run(id);
+      db.prepare("DELETE FROM audit_events WHERE post_id = ?").run(id);
+      db.prepare(
+        "DELETE FROM audit_events WHERE reply_id IN (SELECT id FROM replies WHERE post_id = ?)"
+      ).run(id);
+      db.prepare(
+        "DELETE FROM audit_events WHERE reaction_id IN (SELECT id FROM reactions WHERE post_id = ?)"
+      ).run(id);
+      db.prepare("DELETE FROM post_relations WHERE from_post_id = ? OR to_post_id = ?").run(id, id);
       db.prepare("DELETE FROM reactions WHERE post_id = ?").run(id);
       db.prepare("DELETE FROM replies WHERE post_id = ?").run(id);
       const result = db.prepare("DELETE FROM posts WHERE id = ?").run(id);
@@ -596,6 +604,8 @@ export class PostRepository
   }
 
   clearAll(): void {
+    this.db().prepare("DELETE FROM audit_events").run();
+    this.db().prepare("DELETE FROM post_relations").run();
     this.db().prepare("DELETE FROM read_receipts").run();
     this.db().prepare("DELETE FROM subscriptions").run();
     this.db().prepare("DELETE FROM replies").run();

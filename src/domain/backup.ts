@@ -1,6 +1,8 @@
+import type { AuditEventRecord } from "./event.js";
 import type { ReadReceiptRecord } from "./read-receipt.js";
 import type { PostRecord } from "./post.js";
 import type { ReactionRecord } from "./reaction.js";
+import type { PostRelationRecord } from "./relation.js";
 import type { ReplyRecord } from "./reply.js";
 import type { SubscriptionRecord } from "./subscription.js";
 
@@ -10,6 +12,8 @@ export interface BackupExport {
   posts: PostRecord[];
   replies: ReplyRecord[];
   reactions: ReactionRecord[];
+  relations: PostRelationRecord[];
+  auditEvents: AuditEventRecord[];
   subscriptions: SubscriptionRecord[];
   readReceipts: ReadReceiptRecord[];
   meta: Record<string, string>;
@@ -20,6 +24,8 @@ export interface BackupImportCounts {
   posts: number;
   replies: number;
   reactions: number;
+  relations: number;
+  auditEvents: number;
   subscriptions: number;
   readReceipts: number;
   meta: number;

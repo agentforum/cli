@@ -192,87 +192,128 @@ describe("browse data adapter", () => {
         session: "run-042",
         defaultChannel: "backend",
         channel: "frontend",
-        refId: "P123",
+        relatedPostId: "P123",
+        relationType: "blocks",
       })
     ).toMatchObject({
       channel: "frontend",
       actor: "claude:backend",
       session: "run-042",
-      refId: "P123",
+      relatedPostId: "P123",
+      relationType: "blocks",
       type: "finding",
     });
   });
 
-  it("shows only type-relevant composer fields", () => {
-    expect(
-      getVisiblePostComposerFields({
-        ...buildInitialPostComposerDraft({
-          actor: "claude:backend",
-          defaultChannel: "backend",
-        }),
-        type: "finding",
-      })
-    ).toContain("severity");
+  it("keeps workflow fields visible regardless of post type", () => {
+    const fields = getVisiblePostComposerFields({
+      ...buildInitialPostComposerDraft({
+        actor: "claude:backend",
+        defaultChannel: "backend",
+      }),
+      type: "initiative",
+    });
 
-    expect(
-      getVisiblePostComposerFields({
-        ...buildInitialPostComposerDraft({
-          actor: "claude:backend",
-          defaultChannel: "backend",
-        }),
-        type: "decision",
-      })
-    ).not.toContain("severity");
+    expect(fields).toContain("severity");
+    expect(fields).toContain("blocking");
+    expect(fields).toContain("relationType");
+    expect(fields).toContain("relatedPostId");
+  });
 
-    expect(
-      getVisiblePostComposerFields({
+  it("creates non-legacy typed relations after creating a post", async () => {
+    const createPost = vi.fn().mockResolvedValue({ post: { id: "P123" } });
+    const createRelation = vi.fn();
+
+    await submitBrowsePost(
+      {
+        createPost,
+        createRelation,
+      } as never,
+      {
         ...buildInitialPostComposerDraft({
           actor: "claude:backend",
+          session: "run-042",
           defaultChannel: "backend",
         }),
-        type: "question",
-      })
-    ).toContain("blocking");
+        channel: "backend",
+        type: "initiative",
+        title: "Investigate drift",
+        body: "body",
+        relationType: "blocks",
+        relatedPostId: "P999",
+      }
+    );
+
+    expect(createPost).toHaveBeenCalledWith(expect.objectContaining({ refId: null }));
+    expect(createRelation).toHaveBeenCalledWith({
+      fromPostId: "P123",
+      toPostId: "P999",
+      relationType: "blocks",
+      actor: "claude:backend",
+      session: "run-042",
+    });
+  });
+
+  it("uses legacy ref linkage only for relates-to", async () => {
+    const createPost = vi.fn().mockResolvedValue({ post: { id: "P123" } });
+    const createRelation = vi.fn();
+
+    await submitBrowsePost(
+      {
+        createPost,
+        createRelation,
+      } as never,
+      {
+        ...buildInitialPostComposerDraft({
+          actor: "claude:backend",
+          session: "run-042",
+          defaultChannel: "backend",
+        }),
+        channel: "backend",
+        type: "note",
+        title: "Linked note",
+        body: "body",
+        relationType: "relates-to",
+        relatedPostId: "P999",
+      }
+    );
+
+    expect(createPost).toHaveBeenCalledWith(expect.objectContaining({ refId: "P999" }));
+    expect(createRelation).not.toHaveBeenCalled();
   });
 
   it("normalizes post draft values before submit", async () => {
     const createPost = vi.fn().mockResolvedValue({ post: { id: "P123" } });
 
-    await expect(
-      submitBrowsePost({ createPost } as never, {
+    await submitBrowsePost(
+      {
+        createPost,
+        createRelation: vi.fn(),
+      } as never,
+      {
+        ...buildInitialPostComposerDraft({
+          actor: "claude:backend",
+          session: " run-001 ",
+          defaultChannel: "backend",
+        }),
         channel: " backend ",
-        type: "question",
-        title: "  Need review ",
-        body: "body",
-        severity: "",
-        data: '{"foo":"bar"}',
-        tags: " api, ui ",
-        actor: " claude:backend ",
-        session: " run-042 ",
-        refId: " P111 ",
-        blocking: "yes",
-        pinned: "true",
-        assignedTo: " claude:frontend ",
-        idempotencyKey: " retry-1 ",
-      })
-    ).resolves.toEqual({ id: "P123" });
+        type: " note ",
+        title: " Title ",
+        body: "Body",
+        tags: " one, two ",
+        relatedPostId: "  ",
+      }
+    );
 
-    expect(createPost).toHaveBeenCalledWith({
-      channel: "backend",
-      type: "question",
-      title: "Need review",
-      body: "body",
-      severity: null,
-      data: { foo: "bar" },
-      tags: ["api", "ui"],
-      actor: "claude:backend",
-      session: "run-042",
-      refId: "P111",
-      blocking: true,
-      pinned: true,
-      assignedTo: "claude:frontend",
-      idempotencyKey: "retry-1",
-    });
+    expect(createPost).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "backend",
+        type: "note",
+        title: "Title",
+        session: "run-001",
+        refId: null,
+      })
+    );
   });
 
   it("rejects invalid post draft values", async () => {
@@ -289,13 +330,14 @@ describe("browse data adapter", () => {
         tags: "",
         actor: "",
         session: "",
-        refId: "",
+        relationType: "relates-to",
+        relatedPostId: "",
         blocking: "maybe",
         pinned: "",
         assignedTo: "",
         idempotencyKey: "",
       })
-    ).rejects.toThrow("Invalid type");
+    ).rejects.toThrow("Invalid boolean value: maybe");
   });
 
   it("submits subscribe and unsubscribe drafts", async () => {

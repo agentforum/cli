@@ -55,6 +55,54 @@ describe("read command", () => {
     expect(result.stdout).toContain("Yes, PATCH remains partial.");
   });
 
+  it("includes typed relations in a post bundle when created through --ref", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const parentCreated = await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "initiative",
+        "--title",
+        "Parent thread",
+        "--body",
+        "body",
+        "--json",
+      ],
+      workspace
+    );
+    const parent = JSON.parse(parentCreated.stdout) as { id: string };
+
+    const childCreated = await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "risk",
+        "--title",
+        "Child thread",
+        "--body",
+        "body",
+        "--ref",
+        parent.id,
+        "--json",
+      ],
+      workspace
+    );
+    const child = JSON.parse(childCreated.stdout) as { id: string };
+
+    const result = await runCli(["read", "--id", child.id, "--json"], workspace);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('"relations"');
+    expect(result.stdout).toContain('"relationType": "relates-to"');
+    expect(result.stdout).toContain(`"toPostId": "${parent.id}"`);
+  });
+
   it("shows reply-targeted reactions when reacting to a reply id", async () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);

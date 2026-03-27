@@ -15,8 +15,8 @@ export interface DigestResult {
   channel?: string;
   limitPerType?: number;
   pinned: DigestGroup;
-  findings: DigestGroup;
-  questions: DigestGroup;
-  decisions: DigestGroup;
-  notes: DigestGroup;
+  groups: Array<{
+    type: string;
+    group: DigestGroup;
+  }>;
 }

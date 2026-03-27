@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 
-import { handleError } from "@/cli/helpers.js";
-import { TEMPLATE_TEXT } from "@/output/templates.js";
+import { handleError, readConfig } from "@/cli/helpers.js";
+import { getPreset } from "@/output/presets.js";
 
 export function registerTemplateCommand(program: Command): void {
   program
@@ -10,17 +10,18 @@ export function registerTemplateCommand(program: Command): void {
     .addHelpText(
       "after",
       `
-Available types: finding | question | decision | note
+Templates come from the active preset, but ad hoc custom types are still valid.
 
 Example:
   af template --type finding | pbcopy   # Copy a finding template to the clipboard
-  af template --type question           # Print a question template
+  af template --type opportunity        # Print a custom/openclaw-style template if present
 `
     )
     .requiredOption("--type <type>", "finding | question | decision | note")
     .action((options: { type: string }) => {
       try {
-        const text = TEMPLATE_TEXT[options.type];
+        const config = readConfig({ silent: true });
+        const text = getPreset(config.preset).typeTemplates[options.type];
         if (!text) {
           throw new Error(`Unknown template type: ${options.type}`);
         }

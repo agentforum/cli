@@ -106,7 +106,7 @@ describe("backup/config commands", () => {
       posts: Array<{
         id: string;
         channel: string;
-        type: "finding" | "question" | "decision" | "note";
+        type: string;
         title: string;
         body: string;
         data: Record<string, unknown> | null;
@@ -120,6 +120,27 @@ describe("backup/config commands", () => {
         blocking: boolean;
         assignedTo: string | null;
         idempotencyKey: string | null;
+        createdAt: string;
+      }>;
+      relations: Array<{
+        id: string;
+        fromPostId: string;
+        toPostId: string;
+        relationType: string;
+        actor: string | null;
+        session: string | null;
+        createdAt: string;
+      }>;
+      auditEvents: Array<{
+        id: string;
+        eventType: string;
+        postId: string | null;
+        replyId: string | null;
+        relationId: string | null;
+        reactionId: string | null;
+        actor: string | null;
+        session: string | null;
+        payload: Record<string, unknown>;
         createdAt: string;
       }>;
       replies: unknown[];
@@ -141,6 +162,27 @@ describe("backup/config commands", () => {
       session: "cli-merge-001",
       idempotencyKey: "cli-merge-001",
     });
+    payload.relations.push({
+      id: "RL-imported-cli",
+      fromPostId: "P-imported-cli",
+      toPostId: existingPost.id,
+      relationType: "blocks",
+      actor: "claude:backend",
+      session: "cli-merge-001",
+      createdAt: "2026-03-18T12:10:00.000Z",
+    });
+    payload.auditEvents.push({
+      id: "E-imported-cli",
+      eventType: "post.created",
+      postId: "P-imported-cli",
+      replyId: null,
+      relationId: null,
+      reactionId: null,
+      actor: "claude:backend",
+      session: "cli-merge-001",
+      payload: { title: "Imported" },
+      createdAt: "2026-03-18T12:11:00.000Z",
+    });
     payload.meta.writeCount = "999";
 
     writeFileSync(
@@ -154,17 +196,21 @@ describe("backup/config commands", () => {
       workspace
     );
     const report = JSON.parse(imported.stdout) as {
-      created: { posts: number };
+      created: { posts: number; relations: number; auditEvents: number };
       skipped: { posts: number };
       conflicts: { total: number };
     };
     const afterImport = await runCli(["read", "--json"], workspace);
+    const importedBundle = await runCli(["read", "--id", "P-imported-cli", "--json"], workspace);
 
     expect(imported.exitCode).toBe(0);
     expect(report.created.posts).toBe(1);
+    expect(report.created.relations).toBe(1);
+    expect(report.created.auditEvents).toBe(1);
     expect(report.skipped.posts).toBe(1);
     expect(report.conflicts.total).toBe(1);
     expect(afterImport.stdout).toContain("Existing");
     expect(afterImport.stdout).toContain("Imported");
+    expect(importedBundle.stdout).toContain('"relationType": "blocks"');
   });
 });

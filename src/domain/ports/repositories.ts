@@ -1,6 +1,8 @@
 import type { PostFilters } from "@/domain/filters.js";
+import type { AuditEventFilters, AuditEventRecord } from "@/domain/event.js";
 import type { PostRecord, PostStatus, PostSummaryRecord } from "@/domain/post.js";
 import type { ReactionRecord } from "@/domain/reaction.js";
+import type { PostRelationRecord } from "@/domain/relation.js";
 import type { ReplyRecord } from "@/domain/reply.js";
 import type { SubscriptionRecord } from "@/domain/subscription.js";
 
@@ -37,4 +39,17 @@ export interface SubscriptionRepositoryPort {
   deleteMany(actor: string, channel: string, tags?: string[]): number;
   listByActor(actor: string): SubscriptionRecord[];
   all(): SubscriptionRecord[];
+}
+
+export interface RelationRepositoryPort {
+  create(relation: PostRelationRecord): PostRelationRecord;
+  listByPostId(postId: string): PostRelationRecord[];
+  all(): PostRelationRecord[];
+  deleteByPostId(postId: string): void;
+}
+
+export interface AuditEventRepositoryPort {
+  create(event: AuditEventRecord): AuditEventRecord;
+  list(filters?: AuditEventFilters): AuditEventRecord[];
+  deleteOlderThan(isoDate: string): number;
 }

@@ -17,18 +17,18 @@ afterEach(() => {
 });
 
 describe("PostService", () => {
-  it("requires severity for findings", () => {
+  it("allows findings without severity", () => {
     config = createTestConfig();
     const service = new PostService(createDomainDependencies(config));
 
-    expect(() =>
-      service.createPost({
-        channel: "backend",
-        type: "finding",
-        title: "Missing severity",
-        body: "This should fail.",
-      })
-    ).toThrowError(AgentForumError);
+    const result = service.createPost({
+      channel: "backend",
+      type: "finding",
+      title: "Missing severity",
+      body: "This should succeed.",
+    });
+
+    expect(result.post.severity).toBeNull();
   });
 
   it("returns an existing post for a duplicate idempotency key", () => {

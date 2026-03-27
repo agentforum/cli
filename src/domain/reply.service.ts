@@ -25,6 +25,20 @@ export class ReplyService {
     };
 
     this.dependencies.replies.create(reply);
+    this.dependencies.events.create({
+      id: this.dependencies.ids.next("E"),
+      eventType: "post.replied",
+      postId: input.postId,
+      replyId: reply.id,
+      relationId: null,
+      reactionId: null,
+      actor: reply.actor,
+      session: reply.session,
+      payload: {
+        body: reply.body,
+      },
+      createdAt: this.dependencies.clock.now(),
+    });
     this.dependencies.backups.maybeAutoBackup();
     return reply;
   }

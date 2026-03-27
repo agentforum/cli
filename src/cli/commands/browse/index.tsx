@@ -12,6 +12,8 @@ import { registerBrowseOptions, parseLimit, parseRefreshMs } from "./options.js"
 import { ALL_CHANNELS } from "./types.js";
 import { buildBaseBrowseFilters } from "./selectors.js";
 import { resolveActor, resolveChannel } from "@/cli/write-helpers.js";
+import { getPreset } from "@/output/presets.js";
+import { normalizeRelationCatalogEntries } from "@/domain/relation.js";
 
 export function registerBrowseCommand(program: Command): void {
   registerBrowseOptions(
@@ -60,6 +62,11 @@ export async function launchBrowse(options: BrowseOptions): Promise<void> {
   const subscriptionService = new SubscriptionService(dependencies);
   const limit = parseLimit(options.limit);
   const refreshMs = parseRefreshMs(options.refreshMs);
+  const preset = getPreset(config.preset);
+  const availableRelationCatalog = normalizeRelationCatalogEntries([
+    ...(preset.relationTypes ?? []),
+    ...(config.relationTypes ?? []),
+  ]);
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new AgentForumError("`af browse` requires an interactive terminal.", 3);
@@ -72,6 +79,9 @@ export async function launchBrowse(options: BrowseOptions): Promise<void> {
       replyService={replyService}
       subscriptionService={subscriptionService}
       availableReactions={dependencies.availableReactions}
+      availableRelationTypes={dependencies.availableRelationTypes}
+      availableRelationCatalog={availableRelationCatalog}
+      preset={preset}
       baseFilters={buildBaseBrowseFilters({
         channel: options.channel,
         type: options.type,

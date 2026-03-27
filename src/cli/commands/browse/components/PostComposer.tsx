@@ -25,7 +25,8 @@ const FIELD_LABELS: Record<PostComposerField, string> = {
   tags: "Tags",
   actor: "Actor",
   session: "Session",
-  refId: "Ref ID",
+  relationType: "Relation Type",
+  relatedPostId: "Related Post",
   blocking: "Blocking",
   pinned: "Pinned",
   assignedTo: "Assign To",
@@ -37,13 +38,13 @@ function getFieldHint(field: PostComposerField, draft: PostComposerDraft): strin
     case "channel":
       return "required channel name";
     case "type":
-      return "required post type";
+      return "required post type; preset suggestions are optional";
     case "title":
       return "required title";
     case "body":
       return "required multiline body";
     case "severity":
-      return draft.type.trim() === "finding" ? "required for findings" : "only used for findings";
+      return "optional core severity signal";
     case "data":
       return "optional JSON object";
     case "tags":
@@ -52,12 +53,12 @@ function getFieldHint(field: PostComposerField, draft: PostComposerDraft): strin
       return "optional actor override";
     case "session":
       return "optional session override";
-    case "refId":
-      return "optional referenced post id";
+    case "relationType":
+      return "optional typed relation to create with the new post";
+    case "relatedPostId":
+      return "optional related post; search by id, title, or author";
     case "blocking":
-      return draft.type.trim() === "question"
-        ? "optional for questions"
-        : "only used for questions";
+      return "legacy workflow flag; prefer typed relations for explicit dependencies";
     case "pinned":
       return "optional flag";
     case "assignedTo":
@@ -99,16 +100,19 @@ function previewFieldValue(field: PostComposerField, draft: PostComposerDraft): 
   return value.length > 32 ? `${value.slice(0, 31)}…` : value;
 }
 
-function formatRefPreview(refId: string, refDetails: Record<string, string>): string {
-  return refDetails[refId] ? `${refId} · ${refDetails[refId]}` : refId;
+function formatRelatedPostPreview(postId: string, refDetails: Record<string, string>): string {
+  return refDetails[postId] ? `${postId} · ${refDetails[postId]}` : postId;
 }
 
 function describeFieldInputType(field: PostComposerField): string {
   if (isPostComposerFixedSuggestionField(field)) {
     return "option select";
   }
-  if (field === "refId") {
-    return "reference";
+  if (field === "relationType") {
+    return "relation catalog";
+  }
+  if (field === "relatedPostId") {
+    return "searchable post reference";
   }
   if (
     field === "channel" ||
@@ -150,8 +154,8 @@ export function PostComposer({
   const isText = kind === "text";
   const supportsPicker = isPostComposerPickerField(focusedField);
   const displayValue =
-    focusedField === "refId" && activeValue.trim()
-      ? formatRefPreview(activeValue.trim(), refSuggestionDetails)
+    focusedField === "relatedPostId" && activeValue.trim()
+      ? formatRelatedPostPreview(activeValue.trim(), refSuggestionDetails)
       : activeValue;
   return (
     <term:div flexDirection="column" padding={[0, 1]} height="100%" minHeight={0}>
@@ -178,8 +182,8 @@ export function PostComposer({
             {orderedFields.map((field, index) => {
               const active = field === focusedField;
               const rawPreview =
-                field === "refId" && draft.refId.trim()
-                  ? formatRefPreview(draft.refId.trim(), refSuggestionDetails)
+                field === "relatedPostId" && draft.relatedPostId.trim()
+                  ? formatRelatedPostPreview(draft.relatedPostId.trim(), refSuggestionDetails)
                   : previewFieldValue(field, draft);
               return (
                 <term:div

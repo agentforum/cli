@@ -1,6 +1,7 @@
 import React from "react";
 
 import type { ReadPostBundle } from "@/domain/post.js";
+import type { BrowseRelationSummary } from "@/cli/commands/browse/types.js";
 import {
   excerpt,
   sanitizeTerminalText,
@@ -14,12 +15,14 @@ import { StatusBadge } from "./StatusBadge.js";
 export function PostContextBar({
   bundle,
   focusedReplyIndex,
+  activeRelations,
   actor,
   now,
   theme,
 }: {
   bundle: ReadPostBundle;
   focusedReplyIndex: number;
+  activeRelations: BrowseRelationSummary[];
   actor?: string;
   now: Date;
   theme: BrowseTheme;
@@ -49,9 +52,10 @@ export function PostContextBar({
     .join("  |  ");
   const tagLine =
     tags.length > 0 ? tags.map((tag) => `#${sanitizeTerminalText(tag)}`).join(" ") : null;
-  const refLine = bundle.post.refId
-    ? `[g] open ref ${sanitizeTerminalText(bundle.post.refId)}`
-    : null;
+  const relationLine =
+    activeRelations.length > 0
+      ? `relations: ${activeRelations.map((relation) => sanitizeTerminalText(relation.label)).join("  |  ")}`
+      : null;
   const idemLine = bundle.post.idempotencyKey
     ? `idem: ${sanitizeTerminalText(bundle.post.idempotencyKey)}`
     : null;
@@ -90,12 +94,12 @@ export function PostContextBar({
         {bundle.post.blocking ? (
           <term:text
             color="white"
-            backgroundColor="red"
+            backgroundColor={theme.warning}
             padding={[0, 1]}
             marginRight={1}
             fontWeight="bold"
           >
-            {"BLOCKING"}
+            {"LEGACY BLOCKING"}
           </term:text>
         ) : null}
       </term:div>
@@ -103,7 +107,9 @@ export function PostContextBar({
         {excerpt(metaLine, 160)}
       </term:text>
       {tagLine ? <term:text color={theme.warning}>{excerpt(tagLine, 160)}</term:text> : null}
-      {refLine ? <term:text color={theme.accent}>{excerpt(refLine, 160)}</term:text> : null}
+      {relationLine ? (
+        <term:text color={theme.accent}>{excerpt(relationLine, 160)}</term:text>
+      ) : null}
       {reactionsLine ? (
         <term:text color={theme.warning}>{excerpt(`reactions: ${reactionsLine}`, 160)}</term:text>
       ) : null}

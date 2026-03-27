@@ -73,7 +73,7 @@ describe("digest command", () => {
     expect(question.exitCode).toBe(0);
 
     const digest = await runCli(["digest", "--channel", "backend", "--compact"], workspace);
-    expect(digest.stdout).toContain("FINDINGS");
+    expect(digest.stdout).toContain("FINDING");
     expect(digest.stdout).toContain("BLOCKING");
     expect(digest.stdout).toContain("koywe-web");
   });

@@ -269,11 +269,11 @@ export function buildBrowseHint(view: ViewMode, postCount: number): string {
   }
 
   if (view === "reader") {
-    return "\u2191\u2193 scroll  |  PgUp/PgDn fast scroll  |  j/k or n/p prev/next item  |  e react  |  [ ] refs  |  g open ref  |  w toggle quote";
+    return "\u2191\u2193 scroll  |  PgUp/PgDn fast scroll  |  j/k or n/p prev/next item  |  e react  |  [ ] refs/relations  |  g open selected  |  w toggle quote";
   }
 
   if (view === "post") {
-    return "\u2190\u2192 panel  |  \u2191\u2193 navigate/scroll  |  Enter reader  |  PgUp/PgDn fast scroll  |  e react  |  [ ] refs  |  g open ref  |  w toggle quote  |  r reply";
+    return "\u2190\u2192 panel  |  \u2191\u2193 navigate/scroll  |  Enter reader  |  PgUp/PgDn fast scroll  |  e react  |  [ ] refs/relations  |  g open selected  |  w toggle quote  |  r reply";
   }
 
   if (view === "channels") {

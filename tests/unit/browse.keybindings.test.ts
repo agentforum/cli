@@ -383,6 +383,14 @@ describe("browse keybindings", () => {
       type: "composeMovePicker",
       delta: 1,
     });
+    expect(resolveBrowseKeyCommand(pickerState, key("\u001B[5~", { name: "pageup" }))).toEqual({
+      type: "composeMovePicker",
+      delta: -3,
+    });
+    expect(resolveBrowseKeyCommand(pickerState, key("\u001B[6~", { name: "pagedown" }))).toEqual({
+      type: "composeMovePicker",
+      delta: 3,
+    });
     expect(resolveBrowseKeyCommand(pickerState, key("\r", { name: "enter" }))).toEqual({
       type: "composeApplyPicker",
     });

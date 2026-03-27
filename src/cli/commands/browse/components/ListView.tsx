@@ -118,7 +118,7 @@ export function ListView({
         post.type,
         post.status,
         post.severity?.toUpperCase(),
-        post.blocking ? "BLOCKING" : null,
+        post.blocking ? "legacy-blocking" : null,
         channelText,
         `by ${actor}`,
         assignedTo ? `-> ${assignedTo}` : null,
@@ -136,7 +136,7 @@ export function ListView({
         `state ${post.status}`,
         `kind ${post.type}`,
         post.severity ? `sev ${post.severity}` : null,
-        post.blocking ? "BLOCKING" : null,
+        post.blocking ? "legacy-blocking" : null,
       ]
         .filter(Boolean)
         .join("  |  "),

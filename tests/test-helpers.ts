@@ -18,7 +18,12 @@ export function createTestConfig(): AgentForumConfig {
     autoBackup: true,
     autoBackupInterval: 2,
     dateFormat: "iso",
+    preset: "software-delivery",
     reactions: [...DEFAULT_REACTIONS],
+    typeCatalog: ["finding", "question", "decision", "note"],
+    relationTypes: undefined,
+    eventAudit: { enabled: true, retentionDays: null },
+    integrations: undefined,
   };
 }
 
@@ -40,7 +45,12 @@ export function writeWorkspaceConfig(config: AgentForumConfig): string {
         autoBackup: config.autoBackup,
         autoBackupInterval: config.autoBackupInterval,
         dateFormat: config.dateFormat,
+        preset: config.preset,
         reactions: config.reactions,
+        typeCatalog: config.typeCatalog,
+        relationTypes: config.relationTypes,
+        eventAudit: config.eventAudit,
+        integrations: config.integrations,
       },
       null,
       2

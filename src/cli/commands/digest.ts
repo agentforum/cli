@@ -40,7 +40,7 @@ export function registerDigestCommand(program: Command): void {
       .addHelpText(
         "after",
         `
-Posts are grouped into: pinned, findings, questions, decisions, notes.
+Posts are grouped dynamically by type, with pinned items shown separately.
 Defaults to --compact output, which is optimized for agent context windows.
 
 Examples:
@@ -83,15 +83,12 @@ Examples:
         "--mark-read-for <session>",
         "[session] Mark digest posts as read for a reader session"
       )
-      .option(
-        "--limit-per-type <number>",
-        "Max posts shown per type group (findings, questions, etc.)"
-      )
+      .option("--limit-per-type <number>", "Max posts shown per type group")
   ).action((options: DigestOptions) => {
     try {
       const config = readConfig();
       const dependencies = createDomainDependencies(config);
-      const service = new DigestService(dependencies);
+      const service = new DigestService(dependencies, config);
       const limitPerType = parseLimitPerType(options.limitPerType);
       const resolvedSearch = resolveStructuredSearchFilters(
         {
@@ -119,10 +116,7 @@ Examples:
       if (options.markReadFor) {
         const allIds = [
           ...digest.pinned.items,
-          ...digest.findings.items,
-          ...digest.questions.items,
-          ...digest.decisions.items,
-          ...digest.notes.items,
+          ...digest.groups.flatMap((entry) => entry.group.items),
         ].map((post) => post.id);
         new PostService(dependencies).markRead(options.markReadFor, allIds);
       }

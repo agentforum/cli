@@ -9,6 +9,7 @@ import {
   timeAgo,
 } from "@/cli/commands/browse/formatters.js";
 import type {
+  BrowseRelationSummary,
   BrowseTheme,
   ConversationItem,
   PaginatedItems,
@@ -32,6 +33,7 @@ export function PostView({
   quotedItemIds,
   quotedCount,
   activeReplyRefs,
+  activeRelations,
   activeReplyRefIndex,
 }: {
   bundle: ReadPostBundle | null;
@@ -56,6 +58,7 @@ export function PostView({
     author: string;
     replyIndex: number;
   }>;
+  activeRelations: BrowseRelationSummary[];
   activeReplyRefIndex: number;
 }) {
   if (!bundle) {
@@ -229,10 +232,30 @@ export function PostView({
               <term:text whiteSpace="preWrap" color={theme.fg}>
                 {sanitizeTerminalText(bundle.post.body)}
               </term:text>
-              {bundle.post.refId ? (
-                <term:text color={theme.accent} marginTop={1}>
-                  {`Referenced post: ${bundle.post.refId}`}
-                </term:text>
+              {activeRelations.length > 0 ? (
+                <term:div flexDirection="column" marginTop={1}>
+                  <term:text color={theme.accent} fontWeight="bold">
+                    {`Relations  ${activeReplyRefIndex + 1}/${activeRelations.length}`}
+                  </term:text>
+                  {activeRelations.map((relation, index) => (
+                    <term:div key={relation.relationId} flexDirection="column">
+                      <term:text
+                        color={index === activeReplyRefIndex ? theme.selectedFg : theme.muted}
+                        backgroundColor={index === activeReplyRefIndex ? theme.selected : undefined}
+                      >
+                        {`${index === activeReplyRefIndex ? "▸ " : "  "}${sanitizeTerminalText(relation.label)}`}
+                      </term:text>
+                      {relation.description ? (
+                        <term:text color={theme.muted}>
+                          {`    ${sanitizeTerminalText(relation.description)}`}
+                        </term:text>
+                      ) : null}
+                    </term:div>
+                  ))}
+                  <term:text color={theme.muted}>
+                    {"[ / ] select relation  ·  g open relation"}
+                  </term:text>
+                </term:div>
               ) : null}
             </term:div>
           ) : selectedReply ? (

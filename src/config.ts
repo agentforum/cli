@@ -6,6 +6,7 @@ import { cosmiconfigSync } from "cosmiconfig";
 
 import type { AgentForumConfig } from "./config/types.js";
 import { normalizeReactionCatalog } from "./domain/reaction.js";
+import { normalizeRelationCatalogEntries } from "./domain/relation.js";
 
 const SEARCH_PLACES = [".afrc", ".afrc.json", "af.config.json"];
 
@@ -17,7 +18,12 @@ const DEFAULT_CONFIG: AgentForumConfig = {
   autoBackup: true,
   autoBackupInterval: 50,
   dateFormat: "iso",
+  preset: "software-delivery",
   reactions: undefined,
+  typeCatalog: undefined,
+  relationTypes: undefined,
+  eventAudit: { enabled: true, retentionDays: null },
+  integrations: undefined,
 };
 
 export interface ConfigSource {
@@ -59,6 +65,14 @@ export function loadConfig(cwd = process.cwd()): AgentForumConfig {
   config.dbPath = resolve(configDir, config.dbPath);
   config.backupDir = resolve(configDir, config.backupDir);
   config.reactions = normalizeReactionCatalog(config.reactions);
+  config.typeCatalog = [
+    ...new Set((config.typeCatalog ?? []).map((value) => value.trim()).filter(Boolean)),
+  ];
+  config.relationTypes = normalizeRelationCatalogEntries(config.relationTypes);
+  config.eventAudit = {
+    enabled: config.eventAudit?.enabled ?? true,
+    retentionDays: config.eventAudit?.retentionDays ?? null,
+  };
 
   ensureDirectory(dirname(config.dbPath));
   ensureDirectory(config.backupDir);

@@ -20,7 +20,9 @@ import { AgentForumError } from "@/domain/errors.js";
 import type { BackupServicePort } from "@/domain/ports/backup.js";
 import type { MetadataRepositoryPort } from "@/domain/ports/metadata.js";
 import type {
+  AuditEventRepositoryPort,
   PostRepositoryPort,
+  RelationRepositoryPort,
   ReactionRepositoryPort,
   ReplyRepositoryPort,
   SubscriptionRepositoryPort,
@@ -32,6 +34,8 @@ interface BackupServiceDependencies {
   posts: PostRepositoryPort;
   replies: ReplyRepositoryPort;
   reactions: ReactionRepositoryPort;
+  relations: RelationRepositoryPort;
+  events: AuditEventRepositoryPort;
   subscriptions: SubscriptionRepositoryPort;
   readReceipts: ReadReceiptRepositoryPort;
   metadata: MetadataRepositoryPort;
@@ -88,6 +92,8 @@ export class BackupService implements BackupServicePort {
       posts: this.dependencies.posts.all(),
       replies: this.dependencies.replies.all(),
       reactions: this.dependencies.reactions.all(),
+      relations: this.dependencies.relations.all(),
+      auditEvents: this.dependencies.events.list(),
       subscriptions: this.dependencies.subscriptions.all(),
       readReceipts: this.dependencies.readReceipts.allReadReceipts(),
       meta: this.dependencies.metadata.allMeta(),
@@ -135,6 +141,13 @@ export class BackupService implements BackupServicePort {
       const reactionsById = new Map(
         this.dependencies.reactions.all().map((reaction) => [reaction.id, reaction])
       );
+      const relations = this.dependencies.relations.all();
+      const relationsById = new Map(relations.map((relation) => [relation.id, relation]));
+      const relationsByIdentity = new Map(
+        relations.map((relation) => [relationIdentity(relation), relation])
+      );
+      const auditEvents = this.dependencies.events.list();
+      const auditEventsById = new Map(auditEvents.map((event) => [event.id, event]));
       const subscriptions = this.dependencies.subscriptions.all();
       const subscriptionsById = new Map(
         subscriptions.map((subscription) => [subscription.id, subscription])
@@ -240,6 +253,66 @@ export class BackupService implements BackupServicePort {
         this.dependencies.reactions.create(normalizedReaction);
         reactionsById.set(reaction.id, normalizedReaction);
         incrementImportCount(report.created, "reactions");
+      }
+
+      for (const relation of payload.relations ?? []) {
+        const existingRelationById = relationsById.get(relation.id);
+        if (existingRelationById) {
+          classifyExistingRecord(
+            report,
+            "relations",
+            relation.id,
+            existingRelationById,
+            relation,
+            "different relation already exists"
+          );
+          continue;
+        }
+
+        if (!postsById.has(relation.fromPostId) || !postsById.has(relation.toPostId)) {
+          addConflict(
+            report,
+            "relations",
+            relation.id,
+            `related post is missing: ${relation.fromPostId} -> ${relation.toPostId}`
+          );
+          continue;
+        }
+
+        const existingRelationByIdentity = relationsByIdentity.get(relationIdentity(relation));
+        if (existingRelationByIdentity) {
+          incrementImportCount(report.skipped, "relations");
+          continue;
+        }
+
+        this.dependencies.relations.create(relation);
+        relationsById.set(relation.id, relation);
+        relationsByIdentity.set(relationIdentity(relation), relation);
+        incrementImportCount(report.created, "relations");
+      }
+
+      for (const event of payload.auditEvents ?? []) {
+        const existingEvent = auditEventsById.get(event.id);
+        if (existingEvent) {
+          classifyExistingRecord(
+            report,
+            "auditEvents",
+            event.id,
+            existingEvent,
+            event,
+            "different audit event already exists"
+          );
+          continue;
+        }
+
+        if (event.postId && !postsById.has(event.postId)) {
+          addConflict(report, "auditEvents", event.id, `parent post is missing: ${event.postId}`);
+          continue;
+        }
+
+        this.dependencies.events.create(event);
+        auditEventsById.set(event.id, event);
+        incrementImportCount(report.created, "auditEvents");
       }
 
       for (const subscription of payload.subscriptions ?? []) {
@@ -378,6 +451,8 @@ function createEmptyImportCounts(): BackupImportCounts {
     posts: 0,
     replies: 0,
     reactions: 0,
+    relations: 0,
+    auditEvents: 0,
     subscriptions: 0,
     readReceipts: 0,
     meta: 0,
@@ -426,6 +501,14 @@ function subscriptionIdentity(record: {
 
 function readReceiptIdentity(record: { session: string; postId: string }): string {
   return `${record.session}::${record.postId}`;
+}
+
+function relationIdentity(record: {
+  fromPostId: string;
+  toPostId: string;
+  relationType: string;
+}): string {
+  return `${record.fromPostId}::${record.relationType}::${record.toPostId}`;
 }
 
 function recordsEqual(left: unknown, right: unknown): boolean {

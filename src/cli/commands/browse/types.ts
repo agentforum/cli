@@ -6,6 +6,7 @@ import type {
   PostFilters,
   PostStatus,
   PostType,
+  PostRelationRecord,
   ReadPostBundle,
   Severity,
 } from "@/domain/types.js";
@@ -14,6 +15,8 @@ import type { PostRecord, SearchMatchRecord } from "@/domain/post.js";
 import type { PostService } from "@/domain/post.service.js";
 import type { ReplyService } from "@/domain/reply.service.js";
 import type { SubscriptionService } from "@/domain/subscription.service.js";
+import type { PresetRecord } from "@/domain/preset.js";
+import type { RelationCatalogEntry } from "@/domain/relation.js";
 
 export const DEFAULT_REFRESH_MS = 5000;
 export const DEFAULT_REPLY_PAGE_SIZE = 20;
@@ -36,7 +39,8 @@ export const POST_COMPOSER_FIELDS = [
   "tags",
   "actor",
   "session",
-  "refId",
+  "relationType",
+  "relatedPostId",
   "blocking",
   "pinned",
   "assignedTo",
@@ -90,6 +94,8 @@ export interface SelectionModalItem {
   value: string;
   label: string;
   description?: string;
+  searchText?: string;
+  synthetic?: boolean;
 }
 
 export interface PostComposerDraft {
@@ -102,7 +108,8 @@ export interface PostComposerDraft {
   tags: string;
   actor: string;
   session: string;
-  refId: string;
+  relationType: string;
+  relatedPostId: string;
   blocking: string;
   pinned: string;
   assignedTo: string;
@@ -119,20 +126,23 @@ export interface SubscriptionComposerDraft {
 export type ComposerFieldKind = "text" | "multiline" | "enum";
 
 export function getVisiblePostComposerFields(draft: PostComposerDraft): PostComposerField[] {
-  const fields: PostComposerField[] = ["channel", "type", "title", "body"];
-
-  if (draft.type.trim() === "finding") {
-    fields.push("severity");
-  }
-
-  fields.push("data", "tags", "actor", "session", "refId");
-
-  if (draft.type.trim() === "question") {
-    fields.push("blocking");
-  }
-
-  fields.push("pinned", "assignedTo", "idempotencyKey");
-  return fields;
+  return [
+    "channel",
+    "type",
+    "title",
+    "body",
+    "severity",
+    "data",
+    "tags",
+    "actor",
+    "session",
+    "relationType",
+    "relatedPostId",
+    "blocking",
+    "pinned",
+    "assignedTo",
+    "idempotencyKey",
+  ];
 }
 
 export function getPostComposerFieldKind(field: PostComposerField): ComposerFieldKind {
@@ -140,8 +150,8 @@ export function getPostComposerFieldKind(field: PostComposerField): ComposerFiel
     case "body":
     case "data":
       return "multiline";
-    case "type":
     case "severity":
+    case "relationType":
     case "blocking":
     case "pinned":
       return "enum";
@@ -197,6 +207,15 @@ export interface BrowseListPost extends PostRecord {
   lastReplyExcerpt: string | null;
   lastReplyActor: string | null;
   searchMatch: SearchMatchRecord | null;
+}
+
+export interface BrowseRelationSummary {
+  relationId: string;
+  relationType: string;
+  otherPostId: string;
+  direction: "incoming" | "outgoing";
+  label: string;
+  description?: string;
 }
 
 export interface ConversationItem {
@@ -255,6 +274,9 @@ export interface BrowseAppProps {
   replyService: ReplyService;
   subscriptionService: SubscriptionService;
   availableReactions: string[];
+  availableRelationTypes: string[];
+  availableRelationCatalog: RelationCatalogEntry[];
+  preset: PresetRecord;
   baseFilters: PostFilters;
   initialChannelFilter: string;
   limit: number;
@@ -312,6 +334,7 @@ export interface BrowseState {
   composerPickerTarget: ComposerPickerTarget | null;
   composerPickerQuery: string;
   composerPickerSelectedIndex: number;
+  composerPickerPristine: boolean;
   searchBuilderActive: boolean;
   searchBuilderField: SearchBuilderFieldKey;
   searchBuilderOperator: SearchBuilderOperator;

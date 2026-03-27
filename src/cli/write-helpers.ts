@@ -19,7 +19,21 @@ export function parseJsonData(data?: string): Record<string, unknown> | null {
 
 export function normalizeTags(value?: string[]): string[] {
   if (!value) return [];
-  return value.map((tag) => tag.trim()).filter(Boolean);
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const rawTag of value) {
+    const tag = rawTag.trim();
+    if (!tag) {
+      continue;
+    }
+    const normalized = tag.toLocaleLowerCase();
+    if (seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    result.push(tag);
+  }
+  return result;
 }
 
 export function parseTagInput(value?: string): string[] {

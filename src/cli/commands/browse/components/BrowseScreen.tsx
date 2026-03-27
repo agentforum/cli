@@ -4,6 +4,7 @@ import type { TermElement, TermInput } from "terminosaurus";
 import type { ReadPostBundle } from "@/domain/post.js";
 import type {
   BrowseListPost,
+  BrowseRelationSummary,
   PostComposerDraft,
   PostComposerField,
   BrowseTheme,
@@ -82,6 +83,7 @@ export function BrowseScreen({
   postContentRef,
   postPanelFocus,
   activeReplyRefs,
+  activeRelations,
   activeReplyRefIndex,
   listDisplayMode,
   readProgressLabel,
@@ -116,6 +118,10 @@ export function BrowseScreen({
   composerPickerOpen,
   composerPickerQuery,
   composerPickerSelectedIndex,
+  composerPickerVisibleLimit,
+  composerPickerHideDescriptions,
+  terminalWidth,
+  terminalHeight,
   composerPickerInputRef,
   onComposerPickerQueryChange,
   searchMode,
@@ -143,8 +149,6 @@ export function BrowseScreen({
   showShortcutsHelp,
   shortcutsScrollRef,
   appVersion,
-  terminalWidth,
-  terminalHeight,
   showMoreAbove,
   showMoreBelow,
   busyOperationKind,
@@ -201,6 +205,7 @@ export function BrowseScreen({
     author: string;
     replyIndex: number;
   }>;
+  activeRelations: BrowseRelationSummary[];
   activeReplyRefIndex: number;
   listDisplayMode: "compact" | "semantic";
   readProgressLabel: string;
@@ -235,6 +240,10 @@ export function BrowseScreen({
   composerPickerOpen: boolean;
   composerPickerQuery: string;
   composerPickerSelectedIndex: number;
+  composerPickerVisibleLimit: number;
+  composerPickerHideDescriptions: boolean;
+  terminalWidth: number;
+  terminalHeight: number;
   composerPickerInputRef: React.MutableRefObject<TermInput | null>;
   onComposerPickerQueryChange: (value: string) => void;
   searchMode: boolean;
@@ -377,6 +386,7 @@ export function BrowseScreen({
             contentScrollRef={postContentRef}
             panelFocus={postPanelFocus}
             activeReplyRefs={activeReplyRefs}
+            activeRelations={activeRelations}
             activeReplyRefIndex={activeReplyRefIndex}
             readProgressLabel={readProgressLabel}
             terminalWidth={terminalWidth}
@@ -393,6 +403,7 @@ export function BrowseScreen({
             scrollRef={postContentRef}
             readProgressLabel={readProgressLabel}
             activeReplyRefs={activeReplyRefs}
+            activeRelations={activeRelations}
             activeReplyRefIndex={activeReplyRefIndex}
             quotedItemIds={new Set(replyQuotes.map((quote) => quote.id))}
             quotedCount={replyQuotes.length}
@@ -509,6 +520,10 @@ export function BrowseScreen({
           onQueryChange={onComposerPickerQueryChange}
           items={composerPickerItems}
           selectedIndex={composerPickerSelectedIndex}
+          visibleLimit={composerPickerVisibleLimit}
+          hideDescriptions={composerPickerHideDescriptions}
+          terminalWidth={terminalWidth}
+          terminalHeight={terminalHeight}
         />
       ) : null}
       {showShortcutsHelp ? (

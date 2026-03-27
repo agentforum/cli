@@ -205,6 +205,18 @@ export function resolveBrowseKeyCommand(state: BrowseKeyState, key: KeyLike): Br
     if (isDownKey(key) || isCharacterKey(key, "j")) {
       return { type: "composeMovePicker", delta: 1 };
     }
+    if (isPgUpKey(key)) {
+      return {
+        type: "composeMovePicker",
+        delta: -Math.max(1, state.composeSuggestionCount),
+      };
+    }
+    if (isPgDownKey(key)) {
+      return {
+        type: "composeMovePicker",
+        delta: Math.max(1, state.composeSuggestionCount),
+      };
+    }
     const quickPickIndex = getDigitQuickPickIndex(key);
     if (quickPickIndex != null && quickPickIndex < state.composeSuggestionCount) {
       return { type: "composeApplyPicker", index: quickPickIndex };

@@ -4,7 +4,7 @@ import type { ReplyService } from "@/domain/reply.service.js";
 import type { SubscriptionService } from "@/domain/subscription.service.js";
 import { resolveStructuredSearchFilters } from "@/cli/search-query.js";
 import { parseJsonData, parseTagInput } from "@/cli/write-helpers.js";
-import { POST_TYPES, SEVERITIES } from "@/domain/post.js";
+import { SEVERITIES } from "@/domain/post.js";
 import { AgentForumError } from "@/domain/errors.js";
 import type {
   BrowseListPost,
@@ -40,11 +40,12 @@ export function buildInitialPostComposerDraft(params: {
   session?: string;
   defaultChannel: string;
   channel?: string;
-  refId?: string | null;
+  relatedPostId?: string | null;
+  relationType?: string | null;
 }): PostComposerDraft {
   return {
     channel: params.channel ?? "",
-    type: POST_TYPES[0],
+    type: "finding",
     title: "",
     body: "",
     severity: "",
@@ -52,7 +53,8 @@ export function buildInitialPostComposerDraft(params: {
     tags: "",
     actor: params.actor ?? "",
     session: params.session ?? "",
-    refId: params.refId ?? "",
+    relationType: params.relationType ?? "relates-to",
+    relatedPostId: params.relatedPostId ?? "",
     blocking: "",
     pinned: "",
     assignedTo: "",
@@ -156,7 +158,7 @@ export async function submitBrowsePost(
   draft: PostComposerDraft
 ): Promise<{ id: string }> {
   const type = draft.type.trim();
-  if (!POST_TYPES.includes(type as (typeof POST_TYPES)[number])) {
+  if (!type) {
     throw new AgentForumError(`Invalid type: ${draft.type || "(empty)"}`);
   }
 
@@ -165,9 +167,13 @@ export async function submitBrowsePost(
     throw new AgentForumError(`Invalid severity: ${draft.severity}`);
   }
 
+  const relationType = draft.relationType.trim() || "relates-to";
+  const relatedPostId = draft.relatedPostId.trim() || null;
+  const useLegacyRef = relatedPostId && relationType === "relates-to";
+
   const result = await postService.createPost({
     channel: draft.channel.trim(),
-    type: type as (typeof POST_TYPES)[number],
+    type,
     title: draft.title.trim(),
     body: draft.body,
     severity: severity ? (severity as (typeof SEVERITIES)[number]) : null,
@@ -175,12 +181,22 @@ export async function submitBrowsePost(
     tags: parseTagInput(draft.tags),
     actor: draft.actor.trim() || null,
     session: draft.session.trim() || null,
-    refId: draft.refId.trim() || null,
+    refId: useLegacyRef ? relatedPostId : null,
     blocking: parseBooleanInput(draft.blocking),
     pinned: parseBooleanInput(draft.pinned),
     assignedTo: draft.assignedTo.trim() || null,
     idempotencyKey: draft.idempotencyKey.trim() || null,
   });
+
+  if (relatedPostId && !useLegacyRef) {
+    await postService.createRelation({
+      fromPostId: result.post.id,
+      toPostId: relatedPostId,
+      relationType,
+      actor: draft.actor.trim() || null,
+      session: draft.session.trim() || null,
+    });
+  }
 
   return { id: result.post.id };
 }

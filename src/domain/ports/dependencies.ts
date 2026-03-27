@@ -1,7 +1,10 @@
 import type { BackupServicePort } from "./backup.js";
+import type { AuditEventPort } from "./events.js";
 import type { MetadataRepositoryPort } from "./metadata.js";
 import type {
+  AuditEventRepositoryPort,
   PostRepositoryPort,
+  RelationRepositoryPort,
   ReactionRepositoryPort,
   ReplyRepositoryPort,
   SubscriptionRepositoryPort,
@@ -14,10 +17,13 @@ export interface DomainDependencies {
   replies: ReplyRepositoryPort;
   reactions: ReactionRepositoryPort;
   subscriptions: SubscriptionRepositoryPort;
+  relations: RelationRepositoryPort;
   readReceipts: ReadReceiptRepositoryPort;
   metadata: MetadataRepositoryPort;
+  events: AuditEventPort;
   backups: BackupServicePort;
   clock: ClockPort;
   ids: IdGeneratorPort;
   availableReactions: string[];
+  availableRelationTypes: string[];
 }

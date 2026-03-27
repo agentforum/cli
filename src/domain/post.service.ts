@@ -1,8 +1,8 @@
 import { AgentForumError } from "./errors.js";
+import type { AuditEventType } from "./event.js";
 import type { PostFilters } from "./filters.js";
 import {
   POST_STATUSES,
-  POST_TYPES,
   type CreatePostInput,
   type PostRecord,
   type PostStatus,
@@ -14,6 +14,7 @@ import {
   type CreateReactionInput,
   type ReactionTargetType,
 } from "./reaction.js";
+import type { CreateRelationInput, PostRelationRecord } from "./relation.js";
 import type { DomainDependencies } from "./ports/dependencies.js";
 
 interface CreatePostResult {
@@ -68,6 +69,29 @@ export class PostService {
     };
 
     this.dependencies.posts.create(post);
+    if (input.refId) {
+      this.createRelation({
+        fromPostId: post.id,
+        toPostId: input.refId,
+        relationType: "relates-to",
+        actor: input.actor ?? null,
+        session: input.session ?? null,
+      });
+    }
+    this.recordEvent("post.created", {
+      postId: post.id,
+      actor: post.actor,
+      session: post.session,
+      payload: {
+        channel: post.channel,
+        type: post.type,
+        status: post.status,
+        severity: post.severity,
+        assignedTo: post.assignedTo,
+        title: post.title,
+        refId: post.refId,
+      },
+    });
     this.dependencies.backups.maybeAutoBackup();
     return { post, duplicated: false };
   }
@@ -94,6 +118,7 @@ export class PostService {
       totalReplies: this.dependencies.replies.countByPostId(id),
       reactions: reactions.filter((reaction) => reaction.targetType === "post"),
       replyReactions: reactions.filter((reaction) => reaction.targetType === "reply"),
+      relations: this.dependencies.relations.listByPostId(id),
     };
   }
 
@@ -131,7 +156,7 @@ export class PostService {
     }
 
     if (reason || actor) {
-      this.dependencies.replies.create({
+      const reply = this.dependencies.replies.create({
         id: this.dependencies.ids.next("R"),
         postId: id,
         body: reason ?? `Status changed to ${status}.`,
@@ -140,7 +165,27 @@ export class PostService {
         session: null,
         createdAt: this.dependencies.clock.now(),
       });
+      this.recordEvent("post.replied", {
+        postId: id,
+        replyId: reply.id,
+        actor: reply.actor,
+        session: reply.session,
+        payload: {
+          status,
+          body: reply.body,
+        },
+      });
     }
+
+    this.recordEvent("post.resolved", {
+      postId: id,
+      actor: actor ?? null,
+      session: null,
+      payload: {
+        status,
+        reason: reason ?? null,
+      },
+    });
 
     return updated;
   }
@@ -157,6 +202,15 @@ export class PostService {
       throw new AgentForumError(`Unable to assign post: ${id}`, 1);
     }
 
+    this.recordEvent("post.assigned", {
+      postId: id,
+      actor: post.actor,
+      session: post.session,
+      payload: {
+        assignedTo: normalizedAssignee,
+        previousAssignedTo: post.assignedTo,
+      },
+    });
     this.dependencies.backups.maybeAutoBackup();
     return updated;
   }
@@ -225,8 +279,57 @@ export class PostService {
       createdAt: this.dependencies.clock.now(),
     });
 
+    this.recordEvent("reaction.created", {
+      postId,
+      reactionId: reaction.id,
+      actor: reaction.actor,
+      session: reaction.session,
+      payload: {
+        targetType,
+        targetId,
+        reaction: reaction.reaction,
+      },
+    });
     this.dependencies.backups.maybeAutoBackup();
     return { reaction };
+  }
+
+  createRelation(input: CreateRelationInput): PostRelationRecord {
+    if (!this.dependencies.posts.findById(input.fromPostId)) {
+      throw new AgentForumError(`Post not found: ${input.fromPostId}`, 2);
+    }
+    if (!this.dependencies.posts.findById(input.toPostId)) {
+      throw new AgentForumError(`Post not found: ${input.toPostId}`, 2);
+    }
+    const relationType = input.relationType.trim();
+    if (!relationType) {
+      throw new AgentForumError("Relation type is required.");
+    }
+    if (!this.dependencies.availableRelationTypes.includes(relationType)) {
+      throw new AgentForumError(`Invalid relation type: ${relationType}`);
+    }
+
+    const relation = this.dependencies.relations.create({
+      id: this.dependencies.ids.next("L"),
+      fromPostId: input.fromPostId,
+      toPostId: input.toPostId,
+      relationType,
+      actor: input.actor ?? null,
+      session: input.session ?? null,
+      createdAt: this.dependencies.clock.now(),
+    });
+
+    this.recordEvent("relation.created", {
+      postId: input.fromPostId,
+      relationId: relation.id,
+      actor: relation.actor,
+      session: relation.session,
+      payload: {
+        toPostId: relation.toPostId,
+        relationType: relation.relationType,
+      },
+    });
+    return relation;
   }
 
   private canTransition(current: PostStatus, next: PostStatus): boolean {
@@ -271,17 +374,14 @@ export class PostService {
     if (!input.channel.trim()) {
       throw new AgentForumError("Channel is required.");
     }
-    if (!POST_TYPES.includes(input.type)) {
-      throw new AgentForumError(`Invalid post type: ${input.type}`);
+    if (!input.type.trim()) {
+      throw new AgentForumError("Type is required.");
     }
     if (!input.title.trim()) {
       throw new AgentForumError("Title is required.");
     }
     if (!input.body.trim()) {
       throw new AgentForumError("Body is required.");
-    }
-    if (input.type === "finding" && !input.severity) {
-      throw new AgentForumError("Severity is required for findings.");
     }
     if (input.severity && !SEVERITIES.includes(input.severity)) {
       throw new AgentForumError(`Invalid severity: ${input.severity}`);
@@ -292,5 +392,31 @@ export class PostService {
     if (input.assignedTo !== undefined && input.assignedTo !== null && !input.assignedTo.trim()) {
       throw new AgentForumError("Assigned actor cannot be empty.");
     }
+  }
+
+  private recordEvent(
+    eventType: AuditEventType,
+    input: {
+      postId: string | null;
+      replyId?: string | null;
+      relationId?: string | null;
+      reactionId?: string | null;
+      actor: string | null;
+      session: string | null;
+      payload: Record<string, unknown>;
+    }
+  ): void {
+    this.dependencies.events.create({
+      id: this.dependencies.ids.next("E"),
+      eventType,
+      postId: input.postId,
+      replyId: input.replyId ?? null,
+      relationId: input.relationId ?? null,
+      reactionId: input.reactionId ?? null,
+      actor: input.actor,
+      session: input.session,
+      payload: input.payload,
+      createdAt: this.dependencies.clock.now(),
+    });
   }
 }

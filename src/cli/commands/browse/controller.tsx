@@ -15,10 +15,11 @@ import {
   hasSearchValueToken,
   parseStructuredSearchQuery,
 } from "@/cli/search-query.js";
-import { POST_STATUSES, POST_TYPES, SEVERITIES, type ReadPostBundle } from "@/domain/post.js";
+import { POST_STATUSES, SEVERITIES, type ReadPostBundle } from "@/domain/post.js";
 import type {
   BrowseAppProps,
   BrowseListPost,
+  BrowseRelationSummary,
   BrowseSortMode,
   KeyLike,
   PostComposerField,
@@ -55,7 +56,9 @@ import {
   buildPostComposerSuggestionLookup,
   buildSubscriptionComposerPickerItems,
   buildSubscriptionComposerSuggestionLookup,
+  isPostComposerDynamicPickerField,
   isPostComposerPickerField,
+  isSubscriptionComposerDynamicPickerField,
   isSubscriptionComposerPickerField,
 } from "./composer-suggestions.js";
 import {
@@ -88,6 +91,7 @@ import {
   cycleThemeIndex,
   resolveDeleteTransition,
 } from "./state.js";
+import { computePickerLayout } from "./picker-layout.js";
 import { THEMES } from "./theme.js";
 
 const INFO_NOTICE_TTL_MS = 2500;
@@ -106,6 +110,8 @@ function useBrowseController(
     replyService,
     subscriptionService,
     availableReactions,
+    availableRelationTypes,
+    availableRelationCatalog,
     baseFilters,
     initialChannelFilter,
     limit,
@@ -116,6 +122,7 @@ function useBrowseController(
     initialPostId,
     initialSearchQuery,
     defaultChannel,
+    preset,
   }: BrowseAppProps,
   screen: ReturnType<typeof useScreen>
 ) {
@@ -388,7 +395,7 @@ function useBrowseController(
     const draft = state.postComposerDraft;
     return (
       draft.channel.trim().length > 0 ||
-      draft.type.trim() !== POST_TYPES[0] ||
+      draft.type.trim() !== "finding" ||
       draft.title.trim().length > 0 ||
       draft.body.trim().length > 0 ||
       draft.severity.trim().length > 0 ||
@@ -396,7 +403,8 @@ function useBrowseController(
       draft.tags.trim().length > 0 ||
       draft.actor.trim().length > 0 ||
       draft.session.trim().length > 0 ||
-      draft.refId.trim().length > 0 ||
+      draft.relationType.trim() !== "relates-to" ||
+      draft.relatedPostId.trim().length > 0 ||
       draft.blocking.trim().length > 0 ||
       draft.pinned.trim().length > 0 ||
       draft.assignedTo.trim().length > 0 ||
@@ -430,10 +438,15 @@ function useBrowseController(
         (left, right) => left.localeCompare(right)
       ),
       status: [...POST_STATUSES],
-      type: [...POST_TYPES],
+      type: orderedUniqueStrings([
+        ...preset.typeOrder,
+        ...[...new Set(state.rawPosts.map((post) => post.type).filter(Boolean))].sort(
+          (left, right) => left.localeCompare(right)
+        ),
+      ]),
       severity: [...SEVERITIES],
     }),
-    [state.rawPosts]
+    [preset.typeOrder, state.rawPosts]
   );
   const channelSuggestions = useMemo(
     () => [...new Set(state.rawPosts.map((post) => post.channel).filter(Boolean))].sort(),
@@ -442,18 +455,22 @@ function useBrowseController(
   const postComposerSuggestions = useMemo(
     () =>
       buildPostComposerSuggestionLookup({
+        types: availableSearchValues.type,
         channels: channelSuggestions,
         actors: availableSearchValues.actor,
         sessions: availableSearchValues.session,
         assignedTo: availableSearchValues.assigned,
-        refIds: state.rawPosts.map((post) => post.id),
+        relationTypes: availableRelationTypes,
+        relatedPostIds: state.rawPosts.map((post) => post.id),
         tags: availableSearchValues.tag,
       }),
     [
       availableSearchValues.actor,
       availableSearchValues.assigned,
       availableSearchValues.session,
+      availableSearchValues.type,
       availableSearchValues.tag,
+      availableRelationTypes,
       channelSuggestions,
       state.rawPosts,
     ]
@@ -468,6 +485,40 @@ function useBrowseController(
       ),
     [state.rawPosts]
   );
+  const relationCatalogByType = useMemo(
+    () =>
+      Object.fromEntries(
+        availableRelationCatalog.map((entry) => [entry.value, entry.description ?? ""])
+      ),
+    [availableRelationCatalog]
+  );
+  const activeRelations = useMemo<BrowseRelationSummary[]>(() => {
+    if (!state.bundle || state.focusedReplyIndex !== -1) {
+      return [];
+    }
+
+    return state.bundle.relations.map((relation) =>
+      summarizeRelation(
+        relation,
+        state.bundle!.post.id,
+        postComposerRefSuggestionDetails,
+        relationCatalogByType
+      )
+    );
+  }, [
+    postComposerRefSuggestionDetails,
+    relationCatalogByType,
+    state.bundle,
+    state.focusedReplyIndex,
+  ]);
+  const activeRelation = useMemo(() => {
+    if (activeRelations.length === 0) {
+      return null;
+    }
+
+    const index = Math.max(0, Math.min(activeRelations.length - 1, state.activeReplyRefIndex));
+    return activeRelations[index] ?? null;
+  }, [activeRelations, state.activeReplyRefIndex]);
   const subscriptionComposerSuggestions = useMemo(
     () =>
       buildSubscriptionComposerSuggestionLookup({
@@ -488,6 +539,13 @@ function useBrowseController(
         value: state.composerPickerQuery,
         lookup: postComposerSuggestions,
         refDetails: postComposerRefSuggestionDetails,
+        relationCatalog: availableRelationCatalog,
+        relatedPosts: state.rawPosts.map((post) => ({
+          id: post.id,
+          title: post.title,
+          actor: post.actor,
+        })),
+        exactMatchWindow: state.composerPickerPristine,
         limit: 50,
       });
     }
@@ -496,15 +554,47 @@ function useBrowseController(
       field: state.composerPickerTarget.field,
       value: state.composerPickerQuery,
       lookup: subscriptionComposerSuggestions,
+      exactMatchWindow: state.composerPickerPristine,
       limit: 50,
     });
   }, [
+    availableRelationCatalog,
     postComposerRefSuggestionDetails,
     postComposerSuggestions,
+    state.composerPickerPristine,
     state.composerPickerQuery,
     state.composerPickerTarget,
+    state.rawPosts,
     subscriptionComposerSuggestions,
   ]);
+  const composerPickerLayout = useMemo(() => {
+    if (!state.composerPickerTarget) {
+      return { visibleLimit: 5, hideDescriptions: false };
+    }
+
+    const preferredLimit =
+      state.composerPickerTarget.composer === "post"
+        ? isPostComposerDynamicPickerField(state.composerPickerTarget.field)
+          ? 5
+          : Math.min(9, Math.max(1, composerPickerItems.length))
+        : isSubscriptionComposerDynamicPickerField(state.composerPickerTarget.field)
+          ? 5
+          : Math.min(9, Math.max(1, composerPickerItems.length));
+
+    return computePickerLayout({
+      preferredLimit,
+      itemCount: composerPickerItems.length,
+      hasDescriptions: composerPickerItems.some((item) => Boolean(item.description?.trim())),
+      terminalHeight: terminalSize.height,
+    });
+  }, [composerPickerItems, state.composerPickerTarget, terminalSize.height]);
+  const composerPickerVisibleLimit = composerPickerLayout.visibleLimit;
+  const composerPickerHideDescriptions = composerPickerLayout.hideDescriptions;
+  const composerPickerPageStart = useMemo(() => {
+    const pageSize = Math.max(1, composerPickerVisibleLimit);
+    const pageIndex = Math.max(0, Math.floor(state.composerPickerSelectedIndex / pageSize));
+    return pageIndex * pageSize;
+  }, [composerPickerVisibleLimit, state.composerPickerSelectedIndex]);
   const searchValueSuggestions = useMemo(
     () => getSearchValueSuggestions(state.searchDraftQuery, availableSearchValues, 8),
     [availableSearchValues, state.searchDraftQuery]
@@ -922,6 +1012,7 @@ function useBrowseController(
           composerPickerTarget: { composer: "post", field: state.postComposerField },
           composerPickerQuery: state.postComposerDraft[state.postComposerField] ?? "",
           composerPickerSelectedIndex: 0,
+          composerPickerPristine: true,
         },
       });
       return;
@@ -941,6 +1032,7 @@ function useBrowseController(
           composerPickerQuery:
             state.subscriptionComposerDraft[state.subscriptionComposerField] ?? "",
           composerPickerSelectedIndex: 0,
+          composerPickerPristine: true,
         },
       });
     }
@@ -970,12 +1062,14 @@ function useBrowseController(
         composerPickerTarget: null,
         composerPickerQuery: "",
         composerPickerSelectedIndex: 0,
+        composerPickerPristine: false,
         postComposerDraft: buildInitialPostComposerDraft({
           actor,
           session,
           defaultChannel,
           channel: contextualChannel || "",
-          refId: state.bundle?.post.id ?? null,
+          relatedPostId: state.bundle?.post.id ?? null,
+          relationType: "relates-to",
         }),
       },
     });
@@ -1009,6 +1103,7 @@ function useBrowseController(
         composerPickerTarget: null,
         composerPickerQuery: "",
         composerPickerSelectedIndex: 0,
+        composerPickerPristine: false,
         subscriptionComposerDraft: buildInitialSubscriptionComposerDraft({
           actor,
           defaultChannel,
@@ -1384,18 +1479,27 @@ function useBrowseController(
       return;
     }
 
-    if (activeReplyRefs.length === 0) {
+    const referenceCount =
+      state.focusedReplyIndex === -1 ? activeRelations.length : activeReplyRefs.length;
+
+    if (referenceCount === 0) {
       if (state.activeReplyRefIndex !== 0) {
         dispatch({ type: "patch", patch: { activeReplyRefIndex: 0 } });
       }
       return;
     }
 
-    const clamped = Math.max(0, Math.min(activeReplyRefs.length - 1, state.activeReplyRefIndex));
+    const clamped = Math.max(0, Math.min(referenceCount - 1, state.activeReplyRefIndex));
     if (clamped !== state.activeReplyRefIndex) {
       dispatch({ type: "patch", patch: { activeReplyRefIndex: clamped } });
     }
-  }, [activeReplyRefs.length, state.activeReplyRefIndex, state.view]);
+  }, [
+    activeRelations.length,
+    activeReplyRefs.length,
+    state.activeReplyRefIndex,
+    state.focusedReplyIndex,
+    state.view,
+  ]);
 
   useEffect(() => {
     if (state.view !== "post") {
@@ -1544,6 +1648,7 @@ function useBrowseController(
           patch: {
             composerPickerQuery: deleteSearchQueryBackward(state.composerPickerQuery),
             composerPickerSelectedIndex: 0,
+            composerPickerPristine: false,
           },
         });
         return;
@@ -1667,8 +1772,8 @@ function useBrowseController(
           canQuoteReply: Boolean(state.bundle),
           hasSelectedPost: Boolean(selectedPost),
           hasBundle: Boolean(state.bundle),
-          hasRefPost: Boolean(state.bundle?.post.refId),
-          hasActiveReplyRefs: activeReplyRefs.length > 0,
+          hasRefPost: activeRelations.length > 0,
+          hasActiveReplyRefs: activeReplyRefs.length > 0 || activeRelations.length > 0,
           channelSelectedIndex: state.channelSelectedIndex,
           channelCount: channelStats.length + 1,
           postsLength: posts.length,
@@ -1677,7 +1782,11 @@ function useBrowseController(
           composeFieldKind: activeComposeFieldKind,
           composeFieldSupportsPicker: activeComposeFieldSupportsPicker,
           composePickerOpen: Boolean(state.composerPickerTarget),
-          composeSuggestionCount: Math.min(9, composerPickerItems.length),
+          composeSuggestionCount: Math.min(
+            9,
+            composerPickerVisibleLimit,
+            composerPickerItems.length
+          ),
         },
         rawKey
       );
@@ -1726,6 +1835,7 @@ function useBrowseController(
                 composerPickerTarget: null,
                 composerPickerQuery: "",
                 composerPickerSelectedIndex: 0,
+                composerPickerPristine: false,
                 confirmDiscardTarget: null,
               },
             });
@@ -1741,6 +1851,7 @@ function useBrowseController(
                 composerPickerTarget: null,
                 composerPickerQuery: "",
                 composerPickerSelectedIndex: 0,
+                composerPickerPristine: false,
                 confirmDiscardTarget: null,
               },
             });
@@ -2135,6 +2246,7 @@ function useBrowseController(
               composerPickerTarget: null,
               composerPickerQuery: "",
               composerPickerSelectedIndex: 0,
+              composerPickerPristine: false,
             },
           });
           return;
@@ -2151,7 +2263,9 @@ function useBrowseController(
           return;
         case "composeApplyPicker": {
           const pickerIndex =
-            command.index != null ? command.index : state.composerPickerSelectedIndex;
+            command.index != null
+              ? composerPickerPageStart + command.index
+              : state.composerPickerSelectedIndex;
           const item = composerPickerItems[pickerIndex];
           if (!item || !state.composerPickerTarget) {
             return;
@@ -2174,6 +2288,7 @@ function useBrowseController(
                 composerPickerTarget: null,
                 composerPickerQuery: "",
                 composerPickerSelectedIndex: 0,
+                composerPickerPristine: false,
                 postComposerDraft: {
                   ...state.postComposerDraft,
                   [field]: nextValue,
@@ -2199,6 +2314,7 @@ function useBrowseController(
               composerPickerTarget: null,
               composerPickerQuery: "",
               composerPickerSelectedIndex: 0,
+              composerPickerPristine: false,
               subscriptionComposerDraft: {
                 ...state.subscriptionComposerDraft,
                 [field]: nextValue,
@@ -2227,6 +2343,7 @@ function useBrowseController(
               composerPickerTarget: null,
               composerPickerQuery: "",
               composerPickerSelectedIndex: 0,
+              composerPickerPristine: false,
             },
           });
           clearNotice();
@@ -2288,6 +2405,7 @@ function useBrowseController(
               composerPickerTarget: null,
               composerPickerQuery: "",
               composerPickerSelectedIndex: 0,
+              composerPickerPristine: false,
             },
           });
           clearNotice();
@@ -2548,8 +2666,9 @@ function useBrowseController(
             showTransientNotice({ kind: "info", text: "Copied thread context pack to clipboard." });
           }
           return;
-        case "replyRefPrev":
-          if (activeReplyRefs.length > 0) {
+        case "replyRefPrev": {
+          const refs = state.focusedReplyIndex === -1 ? activeRelations : activeReplyRefs;
+          if (refs.length > 0) {
             dispatch({
               type: "patch",
               patch: {
@@ -2557,32 +2676,54 @@ function useBrowseController(
               },
             });
           } else {
-            showTransientNotice({ kind: "info", text: "No quote references on this reply." });
+            showTransientNotice({
+              kind: "info",
+              text: noReferencesMessage(state.focusedReplyIndex),
+            });
           }
           return;
-        case "replyRefNext":
-          if (activeReplyRefs.length > 0) {
+        }
+        case "replyRefNext": {
+          const refs = state.focusedReplyIndex === -1 ? activeRelations : activeReplyRefs;
+          if (refs.length > 0) {
             dispatch({
               type: "patch",
               patch: {
-                activeReplyRefIndex: Math.min(
-                  activeReplyRefs.length - 1,
-                  state.activeReplyRefIndex + 1
-                ),
+                activeReplyRefIndex: Math.min(refs.length - 1, state.activeReplyRefIndex + 1),
               },
             });
           } else {
-            showTransientNotice({ kind: "info", text: "No quote references on this reply." });
+            showTransientNotice({
+              kind: "info",
+              text: noReferencesMessage(state.focusedReplyIndex),
+            });
           }
           return;
+        }
         case "openReferencedPost":
-          if (state.bundle?.post.refId) {
-            openPost(state.bundle.post.refId);
+          if (activeRelation) {
+            openPost(activeRelation.otherPostId);
+            showTransientNotice({
+              kind: "info",
+              text: `Opened related post ${activeRelation.otherPostId}.`,
+            });
           }
           return;
         case "openSelectedReplyRef": {
+          if (state.focusedReplyIndex === -1 && activeRelation) {
+            openPost(activeRelation.otherPostId);
+            showTransientNotice({
+              kind: "info",
+              text: `Opened related post ${activeRelation.otherPostId}.`,
+            });
+            return;
+          }
+
           if (!activeReplyRef || !state.bundle) {
-            showTransientNotice({ kind: "info", text: "No quote references on this reply." });
+            showTransientNotice({
+              kind: "info",
+              text: noReferencesMessage(state.focusedReplyIndex),
+            });
             return;
           }
 
@@ -2746,6 +2887,9 @@ function useBrowseController(
       state,
       updatePostComposerField,
       updateSubscriptionComposerField,
+      composerPickerHideDescriptions,
+      composerPickerVisibleLimit,
+      composerPickerPageStart,
       composerPickerItems.length,
       submitPost,
       submitSubscription,
@@ -2779,6 +2923,7 @@ function useBrowseController(
               MAX_SEARCH_QUERY_LENGTH
             ),
             composerPickerSelectedIndex: 0,
+            composerPickerPristine: false,
           },
         });
         return;
@@ -2919,6 +3064,7 @@ function useBrowseController(
     postContentRef,
     postPanelFocus: state.postPanelFocus,
     activeReplyRefs,
+    activeRelations,
     activeReplyRefIndex: state.activeReplyRefIndex,
     listDisplayMode: state.listDisplayMode,
     readProgressLabel: state.readProgressLabel,
@@ -2961,11 +3107,17 @@ function useBrowseController(
     composerPickerOpen: Boolean(state.composerPickerTarget),
     composerPickerQuery: state.composerPickerQuery,
     composerPickerSelectedIndex: state.composerPickerSelectedIndex,
+    composerPickerVisibleLimit,
+    composerPickerHideDescriptions,
     composerPickerInputRef,
     onComposerPickerQueryChange: (value: string) =>
       dispatch({
         type: "patch",
-        patch: { composerPickerQuery: value, composerPickerSelectedIndex: 0 },
+        patch: {
+          composerPickerQuery: value,
+          composerPickerSelectedIndex: 0,
+          composerPickerPristine: false,
+        },
       }),
     searchMode: state.searchMode,
     reactionPickerMode: state.reactionPickerMode,
@@ -3011,19 +3163,63 @@ function scrollBy(element: TermElement | null, delta: number): void {
   element.scrollTop = Math.max(0, element.scrollTop + delta);
 }
 
+function orderedUniqueStrings(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+
+  for (const value of values) {
+    const normalized = value?.trim();
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    ordered.push(normalized);
+  }
+
+  return ordered;
+}
+
+function summarizeRelation(
+  relation: ReadPostBundle["relations"][number],
+  currentPostId: string,
+  postDetails: Record<string, string>,
+  relationDescriptions: Record<string, string>
+): BrowseRelationSummary {
+  const outgoing = relation.fromPostId === currentPostId;
+  const otherPostId = outgoing ? relation.toPostId : relation.fromPostId;
+  const detail = postDetails[otherPostId];
+  const direction = outgoing ? "outgoing" : "incoming";
+  const arrow = outgoing ? "->" : "<-";
+
+  return {
+    relationId: relation.id,
+    relationType: relation.relationType,
+    otherPostId,
+    direction,
+    description: relationDescriptions[relation.relationType] || undefined,
+    label: detail
+      ? `${relation.relationType} ${arrow} ${otherPostId} · ${detail}`
+      : `${relation.relationType} ${arrow} ${otherPostId}`,
+  };
+}
+
+function noReferencesMessage(focusedReplyIndex: number): string {
+  return focusedReplyIndex === -1
+    ? "No related posts on this thread."
+    : "No quote references on this reply.";
+}
+
 function cycleComposerOption(
   field: ReturnType<typeof createInitialBrowseState>["postComposerField"],
   draft: ReturnType<typeof createInitialBrowseState>["postComposerDraft"],
   delta: 1 | -1
 ): string | null {
   const options =
-    field === "type"
-      ? [...POST_TYPES]
-      : field === "severity"
-        ? ["", ...SEVERITIES]
-        : field === "blocking" || field === "pinned"
-          ? ["", "true", "false"]
-          : null;
+    field === "severity"
+      ? ["", ...SEVERITIES]
+      : field === "blocking" || field === "pinned"
+        ? ["", "true", "false"]
+        : null;
 
   if (!options) {
     return null;

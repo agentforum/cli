@@ -145,6 +145,13 @@ export function getPostTypeTone(type: PostType): { color: string; backgroundColo
       return { color: "black", backgroundColor: "green" };
     case "note":
       return { color: "black", backgroundColor: "magenta" };
+    default: {
+      const palette = ["blue", "white", "yellow", "green", "cyan", "magenta"] as const;
+      const index =
+        Array.from(type).reduce((sum, character) => sum + character.charCodeAt(0), 0) %
+        palette.length;
+      return { color: "black", backgroundColor: palette[index] };
+    }
   }
 }
 

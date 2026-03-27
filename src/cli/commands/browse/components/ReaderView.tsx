@@ -7,7 +7,7 @@ import {
   summarizeReactions,
   timeAgo,
 } from "@/cli/commands/browse/formatters.js";
-import type { BrowseTheme } from "@/cli/commands/browse/types.js";
+import type { BrowseRelationSummary, BrowseTheme } from "@/cli/commands/browse/types.js";
 
 export function ReaderView({
   bundle,
@@ -20,6 +20,7 @@ export function ReaderView({
   quotedItemIds,
   quotedCount,
   activeReplyRefs,
+  activeRelations,
   activeReplyRefIndex,
 }: {
   bundle: ReadPostBundle | null;
@@ -38,6 +39,7 @@ export function ReaderView({
     author: string;
     replyIndex: number;
   }>;
+  activeRelations: BrowseRelationSummary[];
   activeReplyRefIndex: number;
 }) {
   if (!bundle) {
@@ -153,18 +155,37 @@ export function ReaderView({
             </term:text>
           </>
         ) : null}
+        {bodyFocused && activeRelations.length > 0 ? (
+          <>
+            <term:text color={theme.accent} fontWeight="bold" marginBottom={0}>
+              {`Relations  ${activeReplyRefIndex + 1}/${activeRelations.length}`}
+            </term:text>
+            {activeRelations.map((relation, index) => (
+              <term:div key={relation.relationId} flexDirection="column">
+                <term:text
+                  color={index === activeReplyRefIndex ? theme.selectedFg : theme.muted}
+                  backgroundColor={index === activeReplyRefIndex ? theme.selected : undefined}
+                >
+                  {`${index === activeReplyRefIndex ? "▸ " : "  "}${sanitizeTerminalText(relation.label)}`}
+                </term:text>
+                {relation.description ? (
+                  <term:text color={theme.muted}>
+                    {`    ${sanitizeTerminalText(relation.description)}`}
+                  </term:text>
+                ) : null}
+              </term:div>
+            ))}
+            <term:text color={theme.muted} marginBottom={1}>
+              {"[ / ] select relation  ·  g open relation"}
+            </term:text>
+          </>
+        ) : null}
 
         <term:text whiteSpace="preWrap" color={theme.fg}>
           {sanitizeTerminalText(
             bodyFocused ? bundle.post.body : (selectedReply?.body ?? "Reply no longer available.")
           )}
         </term:text>
-
-        {bodyFocused && bundle.post.refId ? (
-          <term:text color={theme.accent} marginTop={1}>
-            {`Referenced post: ${bundle.post.refId}`}
-          </term:text>
-        ) : null}
 
         <term:text color={theme.muted} marginTop={1} textAlign="right">
           {readProgressLabel}

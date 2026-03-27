@@ -96,4 +96,33 @@ function ensureSchema(connection: Database.Database): void {
         target_id = COALESCE(target_id, post_id)
     WHERE target_type IS NULL OR target_id IS NULL
   `);
+
+  connection.exec(`
+    CREATE TABLE IF NOT EXISTS post_relations (
+      id TEXT PRIMARY KEY,
+      from_post_id TEXT NOT NULL,
+      to_post_id TEXT NOT NULL,
+      relation_type TEXT NOT NULL,
+      actor TEXT,
+      session TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (from_post_id) REFERENCES posts(id),
+      FOREIGN KEY (to_post_id) REFERENCES posts(id)
+    )
+  `);
+
+  connection.exec(`
+    CREATE TABLE IF NOT EXISTS audit_events (
+      id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      post_id TEXT,
+      reply_id TEXT,
+      relation_id TEXT,
+      reaction_id TEXT,
+      actor TEXT,
+      session TEXT,
+      payload TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `);
 }

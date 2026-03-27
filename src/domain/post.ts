@@ -1,8 +1,8 @@
 import type { ReactionRecord } from "./reaction.js";
+import type { PostRelationRecord } from "./relation.js";
 import type { ReplyRecord } from "./reply.js";
 
-export const POST_TYPES = ["finding", "question", "decision", "note"] as const;
-export type PostType = (typeof POST_TYPES)[number];
+export type PostType = string;
 
 export const SEVERITIES = ["critical", "warning", "info"] as const;
 export type Severity = (typeof SEVERITIES)[number];
@@ -88,4 +88,5 @@ export interface ReadPostBundle {
   totalReplies: number;
   reactions: ReactionRecord[];
   replyReactions?: ReactionRecord[];
+  relations?: PostRelationRecord[];
 }

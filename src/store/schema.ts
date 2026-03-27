@@ -45,6 +45,33 @@ export const reactions = sqliteTable("reactions", {
   createdAt: text("created_at").notNull(),
 });
 
+export const postRelations = sqliteTable("post_relations", {
+  id: text("id").primaryKey(),
+  fromPostId: text("from_post_id")
+    .notNull()
+    .references(() => posts.id),
+  toPostId: text("to_post_id")
+    .notNull()
+    .references(() => posts.id),
+  relationType: text("relation_type").notNull(),
+  actor: text("actor"),
+  session: text("session"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const auditEvents = sqliteTable("audit_events", {
+  id: text("id").primaryKey(),
+  eventType: text("event_type").notNull(),
+  postId: text("post_id"),
+  replyId: text("reply_id"),
+  relationId: text("relation_id"),
+  reactionId: text("reaction_id"),
+  actor: text("actor"),
+  session: text("session"),
+  payload: text("payload").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const meta = sqliteTable("meta", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
@@ -110,6 +137,31 @@ CREATE TABLE IF NOT EXISTS reactions (
   session TEXT,
   created_at TEXT NOT NULL,
   FOREIGN KEY (post_id) REFERENCES posts(id)
+);
+
+CREATE TABLE IF NOT EXISTS post_relations (
+  id TEXT PRIMARY KEY,
+  from_post_id TEXT NOT NULL,
+  to_post_id TEXT NOT NULL,
+  relation_type TEXT NOT NULL,
+  actor TEXT,
+  session TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (from_post_id) REFERENCES posts(id),
+  FOREIGN KEY (to_post_id) REFERENCES posts(id)
+);
+
+CREATE TABLE IF NOT EXISTS audit_events (
+  id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  post_id TEXT,
+  reply_id TEXT,
+  relation_id TEXT,
+  reaction_id TEXT,
+  actor TEXT,
+  session TEXT,
+  payload TEXT NOT NULL,
+  created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS meta (

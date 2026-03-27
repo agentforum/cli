@@ -25,26 +25,39 @@ describe("BackupService", () => {
     const postService = new PostService(dependencies);
     const backupService = new BackupService(config, dependencies);
 
-    postService.createPost({
+    const root = postService.createPost({
       channel: "backend",
       type: "finding",
       title: "Backup me",
       body: "Persistent body",
       severity: "critical",
+    }).post;
+    postService.createPost({
+      channel: "backend",
+      type: "risk",
+      title: "Linked child",
+      body: "Persistent relation",
+      refId: root.id,
     });
 
     const exportPath = `${config.backupDir}/forum-export.json`;
     const exported = backupService.exportToJson(exportPath);
 
-    expect(exported.posts).toHaveLength(1);
+    expect(exported.posts).toHaveLength(2);
+    expect(exported.relations).toHaveLength(1);
+    expect(exported.auditEvents.some((event) => event.eventType === "relation.created")).toBe(true);
 
     const report = backupService.importFromJson(exportPath);
     const roundTrip = backupService.exportToJson(`${config.backupDir}/forum-export-2.json`);
 
     expect(report.created.total).toBe(0);
-    expect(report.skipped.posts).toBe(1);
+    expect(report.skipped.posts).toBe(2);
+    expect(report.skipped.relations).toBe(1);
+    expect(report.skipped.auditEvents).toBe(exported.auditEvents.length);
     expect(report.conflicts.total).toBe(0);
-    expect(roundTrip.posts).toHaveLength(1);
+    expect(roundTrip.posts).toHaveLength(2);
+    expect(roundTrip.relations).toHaveLength(1);
+    expect(roundTrip.auditEvents).toHaveLength(exported.auditEvents.length);
   });
 
   it("merges backup JSON without deleting current data and reports created, skipped, and conflicts", () => {
@@ -102,6 +115,33 @@ describe("BackupService", () => {
               createdAt: "2026-03-18T12:02:00.000Z",
             },
           ],
+          relations: [
+            {
+              id: "RL-imported",
+              fromPostId: importedPost.id,
+              toPostId: existingPost.id,
+              relationType: "blocks",
+              actor: "claude:backend",
+              session: "merge-run-001",
+              createdAt: "2026-03-18T12:03:00.000Z",
+            },
+          ],
+          auditEvents: [
+            {
+              id: "E-imported",
+              eventType: "post.created",
+              postId: importedPost.id,
+              replyId: null,
+              relationId: null,
+              reactionId: null,
+              actor: "claude:backend",
+              session: "merge-run-001",
+              payload: {
+                title: "Imported post",
+              },
+              createdAt: "2026-03-18T12:04:00.000Z",
+            },
+          ],
           subscriptions: [],
           readReceipts: [],
           meta: {
@@ -119,9 +159,11 @@ describe("BackupService", () => {
 
     expect(report.mode).toBe("merge");
     expect(report.created).toMatchObject({
-      total: 2,
+      total: 4,
       posts: 1,
       replies: 1,
+      relations: 1,
+      auditEvents: 1,
     });
     expect(report.skipped).toMatchObject({
       total: 1,
@@ -147,6 +189,8 @@ describe("BackupService", () => {
     );
     expect(snapshot.replies).toHaveLength(1);
     expect(snapshot.reactions).toHaveLength(0);
+    expect(snapshot.relations).toHaveLength(1);
+    expect(snapshot.auditEvents).toHaveLength(2);
     expect(snapshot.meta.project).toBe("current");
   });
 

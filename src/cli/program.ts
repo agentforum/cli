@@ -6,6 +6,7 @@ import { registerBackupCommands } from "./commands/backup.js";
 import { registerBrowseCommand } from "./commands/browse.js";
 import { registerConfigCommands } from "./commands/config.js";
 import { registerDigestCommand } from "./commands/digest.js";
+import { registerEventsCommand } from "./commands/events.js";
 import { registerOpenCommand } from "./commands/open.js";
 import { registerPinCommands } from "./commands/pin.js";
 import { registerPipeCommands } from "./commands/pipe.js";
@@ -20,6 +21,7 @@ import { registerTemplateCommand } from "./commands/template.js";
 import { registerSubscriptionCommands } from "./commands/subscriptions.js";
 import { registerWorkflowCommands } from "./commands/workflow.js";
 import { registerCompletionCommand } from "./commands/completion.js";
+import { registerIntegrationCommands } from "./commands/integrations.js";
 import { registerInitCommand } from "./onboarding.js";
 
 const IDENTITY_MODEL_LEGEND = `
@@ -37,6 +39,7 @@ Session-scoped commands  (pass --session):
 General commands  (no identity required):
   read, digest, pin, unpin, assign, queue, waiting, ids, summary
   browse, search, open, template, rules, backup, config
+  events, integrations
 
 Quick start:
   af init                                     # Interactive first-run setup
@@ -65,6 +68,7 @@ export function buildProgram(): Command {
   registerReactCommand(program);
   registerPinCommands(program);
   registerDigestCommand(program);
+  registerEventsCommand(program);
   registerWorkflowCommands(program);
   registerPipeCommands(program);
   registerTemplateCommand(program);
@@ -72,6 +76,7 @@ export function buildProgram(): Command {
   registerSubscriptionCommands(program);
   registerBackupCommands(program);
   registerConfigCommands(program);
+  registerIntegrationCommands(program);
   registerBrowseCommand(program);
   registerOpenCommand(program);
   registerCompletionCommand(program);

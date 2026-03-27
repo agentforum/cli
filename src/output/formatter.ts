@@ -167,6 +167,18 @@ function formatBundlePretty(bundle: ReadPostBundle, options: OutputOptions): str
     output.push(...replyReactions.map(formatReaction));
   }
 
+  const relations = bundle.relations ?? [];
+  if (relations.length > 0) {
+    output.push("");
+    output.push(c.bold("Relations"));
+    output.push(
+      ...relations.map(
+        (relation) =>
+          `- ${relation.id} ${relation.relationType} ${relation.fromPostId} -> ${relation.toPostId}`
+      )
+    );
+  }
+
   return maybePrefixBanner(`${output.join("\n")}\n`, options);
 }
 
@@ -177,10 +189,9 @@ function formatDigestPretty(digest: DigestResult, options: OutputOptions): strin
   ];
 
   appendSection(lines, c.bold("Pinned"), digest.pinned);
-  appendSection(lines, c.bold("Findings"), digest.findings);
-  appendSection(lines, c.bold("Questions"), digest.questions);
-  appendSection(lines, c.bold("Decisions"), digest.decisions);
-  appendSection(lines, c.bold("Notes"), digest.notes);
+  for (const entry of digest.groups) {
+    appendSection(lines, c.bold(entry.type), entry.group);
+  }
 
   return maybePrefixBanner(`${lines.join("\n")}\n`, options);
 }
@@ -194,28 +205,12 @@ function formatDigestCompact(digest: DigestResult): string {
     lines.push(...digest.pinned.items.map(formatCompactLine));
   }
 
-  if (digest.findings.summary.total > 0) {
-    lines.push("");
-    lines.push(`FINDINGS (${groupLabel(digest.findings)}):`);
-    lines.push(...digest.findings.items.map(formatCompactLine));
-  }
-
-  if (digest.questions.summary.total > 0) {
-    lines.push("");
-    lines.push(`QUESTIONS (${groupLabel(digest.questions)}):`);
-    lines.push(...digest.questions.items.map(formatCompactLine));
-  }
-
-  if (digest.decisions.summary.total > 0) {
-    lines.push("");
-    lines.push(`DECISIONS (${groupLabel(digest.decisions)}):`);
-    lines.push(...digest.decisions.items.map(formatCompactLine));
-  }
-
-  if (digest.notes.summary.total > 0) {
-    lines.push("");
-    lines.push(`NOTES (${groupLabel(digest.notes)}):`);
-    lines.push(...digest.notes.items.map(formatCompactLine));
+  for (const entry of digest.groups) {
+    if (entry.group.summary.total > 0) {
+      lines.push("");
+      lines.push(`${entry.type.toUpperCase()} (${groupLabel(entry.group)}):`);
+      lines.push(...entry.group.items.map(formatCompactLine));
+    }
   }
 
   return `${lines.join("\n")}\n`;
@@ -340,6 +335,8 @@ function formatCountParts(counts: BackupImportReport["created"]): string[] {
     ["posts", "posts"],
     ["replies", "replies"],
     ["reactions", "reactions"],
+    ["relations", "relations"],
+    ["auditEvents", "auditEvents"],
     ["subscriptions", "subscriptions"],
     ["readReceipts", "readReceipts"],
     ["meta", "meta"],
@@ -381,7 +378,6 @@ function isDigest(value: unknown): value is DigestResult {
     typeof value === "object" &&
     "generatedAt" in value &&
     "pinned" in value &&
-    "findings" in value &&
-    "questions" in value
+    "groups" in value
   );
 }
