@@ -1,5 +1,5 @@
 import { AgentForumError } from "./errors.js";
-import type { AuditEventType } from "./event.js";
+import type { AuditEventPayloadMap, AuditEventType } from "./event.js";
 import type { PostFilters } from "./filters.js";
 import {
   POST_STATUSES,
@@ -394,8 +394,8 @@ export class PostService {
     }
   }
 
-  private recordEvent(
-    eventType: AuditEventType,
+  private recordEvent<T extends AuditEventType>(
+    eventType: T,
     input: {
       postId: string | null;
       replyId?: string | null;
@@ -403,7 +403,7 @@ export class PostService {
       reactionId?: string | null;
       actor: string | null;
       session: string | null;
-      payload: Record<string, unknown>;
+      payload: AuditEventPayloadMap[T];
     }
   ): void {
     this.dependencies.events.create({

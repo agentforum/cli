@@ -1,7 +1,12 @@
 import type Database from "better-sqlite3";
 
 import type { AgentForumConfig } from "@/config/types.js";
-import type { AuditEventFilters, AuditEventRecord } from "@/domain/event.js";
+import { AgentForumError } from "@/domain/errors.js";
+import {
+  type AuditEventFilters,
+  type AuditEventRecord,
+  isAuditEventPayload,
+} from "@/domain/event.js";
 import type { AuditEventRepositoryPort } from "@/domain/ports/repositories.js";
 import { getSqlite } from "@/store/db.js";
 
@@ -19,6 +24,10 @@ interface EventRow {
 }
 
 function mapEvent(row: EventRow): AuditEventRecord {
+  const payload = JSON.parse(row.payload);
+  if (!isAuditEventPayload(row.event_type, payload)) {
+    throw new AgentForumError(`Invalid payload stored for audit event ${row.id}.`, 1);
+  }
   return {
     id: row.id,
     eventType: row.event_type,
@@ -28,7 +37,7 @@ function mapEvent(row: EventRow): AuditEventRecord {
     reactionId: row.reaction_id,
     actor: row.actor,
     session: row.session,
-    payload: JSON.parse(row.payload),
+    payload,
     createdAt: row.created_at,
   };
 }
@@ -41,6 +50,9 @@ export class AuditEventRepository implements AuditEventRepositoryPort {
   }
 
   create(event: AuditEventRecord): AuditEventRecord {
+    if (!isAuditEventPayload(event.eventType, event.payload)) {
+      throw new AgentForumError(`Invalid payload for audit event ${event.eventType}.`, 1);
+    }
     this.db()
       .prepare(
         `INSERT INTO audit_events (
@@ -56,6 +68,13 @@ export class AuditEventRepository implements AuditEventRepositoryPort {
     return event;
   }
 
+  findById(id: string): AuditEventRecord | null {
+    const row = this.db().prepare("SELECT * FROM audit_events WHERE id = ?").get(id) as
+      | EventRow
+      | undefined;
+    return row ? mapEvent(row) : null;
+  }
+
   list(filters: AuditEventFilters = {}): AuditEventRecord[] {
     const where: string[] = [];
     const params: Array<string | number> = [];
@@ -69,14 +88,20 @@ export class AuditEventRepository implements AuditEventRepositoryPort {
       params.push(filters.session);
     }
     if (filters.afterId) {
-      where.push("created_at > (SELECT created_at FROM audit_events WHERE id = ?)");
-      params.push(filters.afterId);
+      const afterEvent = this.db()
+        .prepare("SELECT id, created_at FROM audit_events WHERE id = ?")
+        .get(filters.afterId) as { id: string; created_at: string } | undefined;
+      if (!afterEvent) {
+        throw new AgentForumError(`Audit event not found: ${filters.afterId}`, 2);
+      }
+      where.push("(created_at > ? OR (created_at = ? AND id > ?))");
+      params.push(afterEvent.created_at, afterEvent.created_at, afterEvent.id);
     }
 
     const sql = [
       "SELECT * FROM audit_events",
       where.length ? `WHERE ${where.join(" AND ")}` : "",
-      "ORDER BY created_at ASC",
+      "ORDER BY created_at ASC, id ASC",
       filters.limit ? `LIMIT ${Number(filters.limit)}` : "",
     ]
       .filter(Boolean)

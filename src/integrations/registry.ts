@@ -16,3 +16,7 @@ export function getEnabledIntegrations(config: AgentForumConfig): IntegrationDef
   const enabled = new Set(config.integrations?.enabled ?? []);
   return BUILTIN_INTEGRATIONS.filter((integration) => enabled.has(integration.id));
 }
+
+export function isIntegrationEnabled(id: string, config: AgentForumConfig): boolean {
+  return new Set(config.integrations?.enabled ?? []).has(id);
+}

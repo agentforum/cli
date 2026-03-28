@@ -77,6 +77,24 @@ export const meta = sqliteTable("meta", {
   value: text("value").notNull(),
 });
 
+export const integrationOperations = sqliteTable("integration_operations", {
+  integrationId: text("integration_id").notNull(),
+  operationKey: text("operation_key").notNull(),
+  action: text("action").notNull(),
+  requestJson: text("request_json").notNull(),
+  resultJson: text("result_json").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const integrationCursors = sqliteTable("integration_cursors", {
+  integrationId: text("integration_id").notNull(),
+  consumerKey: text("consumer_key").notNull(),
+  lastEventId: text("last_event_id").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const subscriptions = sqliteTable("subscriptions", {
   id: text("id").primaryKey(),
   actor: text("actor").notNull(),
@@ -167,6 +185,26 @@ CREATE TABLE IF NOT EXISTS audit_events (
 CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS integration_operations (
+  integration_id TEXT NOT NULL,
+  operation_key TEXT NOT NULL,
+  action TEXT NOT NULL,
+  request_json TEXT NOT NULL DEFAULT '{}',
+  result_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (integration_id, operation_key)
+);
+
+CREATE TABLE IF NOT EXISTS integration_cursors (
+  integration_id TEXT NOT NULL,
+  consumer_key TEXT NOT NULL,
+  last_event_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (integration_id, consumer_key)
 );
 
 CREATE TABLE IF NOT EXISTS subscriptions (

@@ -89,6 +89,136 @@ describe("backup/config commands", () => {
     expect(afterRestore.stdout).not.toContain("After backup");
   });
 
+  it("restores integration cursors and operation log from a sqlite backup", async () => {
+    config = {
+      ...createTestConfig(),
+      integrations: {
+        enabled: ["openclaw"],
+        plugins: {
+          openclaw: {
+            actorMappings: {
+              backend: "claude:backend",
+            },
+          },
+        },
+      },
+    };
+    const workspace = writeWorkspaceConfig(config);
+
+    const ingestInput = JSON.stringify({
+      action: "create-post",
+      operationKey: "restore-op-001",
+      identity: { agentId: "backend", sessionKey: "restore-run" },
+      payload: {
+        channel: "backend",
+        type: "finding",
+        title: "Restored op log",
+        body: "body",
+      },
+    });
+    await runCli(["integrations", "ingest", "openclaw", "--input", ingestInput], workspace);
+
+    const created = await runCli(
+      [
+        "post",
+        "--channel",
+        "backend",
+        "--type",
+        "question",
+        "--title",
+        "Restore cursor",
+        "--body",
+        "body",
+        "--actor",
+        "claude:triage",
+        "--session",
+        "restore-seed",
+        "--json",
+      ],
+      workspace
+    );
+    const post = JSON.parse(created.stdout) as { id: string };
+    await runCli(["assign", "--id", post.id, "--actor", "claude:backend"], workspace);
+    await runCli(
+      [
+        "integrations",
+        "bridge",
+        "openclaw",
+        "--identity",
+        JSON.stringify({ agentId: "backend", sessionKey: "restore-run" }),
+        "--consumer",
+        "restore-consumer",
+        "--limit",
+        "1",
+      ],
+      workspace
+    );
+
+    const createdBackup = await runCli(["backup", "create", "--json"], workspace);
+    const backup = JSON.parse(createdBackup.stdout) as { id: string };
+
+    await runCli(
+      [
+        "integrations",
+        "ingest",
+        "openclaw",
+        "--input",
+        JSON.stringify({
+          action: "create-post",
+          operationKey: "restore-op-002",
+          identity: { agentId: "backend", sessionKey: "restore-run" },
+          payload: {
+            channel: "backend",
+            type: "note",
+            title: "After backup",
+            body: "body",
+          },
+        }),
+      ],
+      workspace
+    );
+
+    const restored = await runCli(["backup", "restore", "--file", backup.id, "--json"], workspace);
+    const replayed = await runCli(
+      ["integrations", "ingest", "openclaw", "--input", ingestInput],
+      workspace
+    );
+    const resumedBridge = await runCli(
+      [
+        "integrations",
+        "bridge",
+        "openclaw",
+        "--identity",
+        JSON.stringify({ agentId: "backend", sessionKey: "restore-run" }),
+        "--consumer",
+        "restore-consumer",
+      ],
+      workspace
+    );
+    const resumedBridgeAgain = await runCli(
+      [
+        "integrations",
+        "bridge",
+        "openclaw",
+        "--identity",
+        JSON.stringify({ agentId: "backend", sessionKey: "restore-run" }),
+        "--consumer",
+        "restore-consumer",
+      ],
+      workspace
+    );
+
+    expect(restored.exitCode).toBe(0);
+    expect(JSON.parse(replayed.stdout)).toMatchObject({
+      operationKey: "restore-op-001",
+      replayed: true,
+    });
+    expect(resumedBridge.exitCode).toBe(0);
+    expect(resumedBridge.stdout).toContain('"eventType":"post.assigned"');
+    expect(resumedBridgeAgain.exitCode).toBe(0);
+    expect(resumedBridgeAgain.stdout.trim()).toBe("");
+  });
+
   it("imports JSON as a non-destructive merge and reports created, skipped, and conflicts", async () => {
     config = createTestConfig();
     const workspace = writeWorkspaceConfig(config);

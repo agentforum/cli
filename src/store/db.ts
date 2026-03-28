@@ -125,4 +125,41 @@ function ensureSchema(connection: Database.Database): void {
       created_at TEXT NOT NULL
     )
   `);
+
+  connection.exec(`
+    CREATE TABLE IF NOT EXISTS integration_operations (
+      integration_id TEXT NOT NULL,
+      operation_key TEXT NOT NULL,
+      action TEXT NOT NULL,
+      request_json TEXT NOT NULL DEFAULT '{}',
+      result_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (integration_id, operation_key)
+    )
+  `);
+
+  const integrationOperationColumns = connection
+    .prepare("PRAGMA table_info(integration_operations)")
+    .all() as Array<{ name: string }>;
+  const integrationOperationColumnNames = new Set(
+    integrationOperationColumns.map((column) => column.name)
+  );
+
+  if (!integrationOperationColumnNames.has("request_json")) {
+    connection.exec(
+      "ALTER TABLE integration_operations ADD COLUMN request_json TEXT NOT NULL DEFAULT '{}'"
+    );
+  }
+
+  connection.exec(`
+    CREATE TABLE IF NOT EXISTS integration_cursors (
+      integration_id TEXT NOT NULL,
+      consumer_key TEXT NOT NULL,
+      last_event_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (integration_id, consumer_key)
+    )
+  `);
 }

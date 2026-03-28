@@ -28,7 +28,13 @@ import type {
   SubscriptionRepositoryPort,
 } from "@/domain/ports/repositories.js";
 import type { ReadReceiptRepositoryPort } from "@/domain/ports/read-receipts.js";
+import type {
+  IntegrationCursorRepository,
+  IntegrationOperationRepository,
+} from "@/store/repositories/integration-state.repo.js";
 import { getSqlite, resetDb } from "@/store/db.js";
+import type { AuditEventRecord } from "@/domain/event.js";
+import type { PostRecord } from "@/domain/post.js";
 
 interface BackupServiceDependencies {
   posts: PostRepositoryPort;
@@ -39,6 +45,8 @@ interface BackupServiceDependencies {
   subscriptions: SubscriptionRepositoryPort;
   readReceipts: ReadReceiptRepositoryPort;
   metadata: MetadataRepositoryPort;
+  integrationOperations?: IntegrationOperationRepository;
+  integrationCursors?: IntegrationCursorRepository;
 }
 
 export class BackupService implements BackupServicePort {
@@ -94,6 +102,8 @@ export class BackupService implements BackupServicePort {
       reactions: this.dependencies.reactions.all(),
       relations: this.dependencies.relations.all(),
       auditEvents: this.dependencies.events.list(),
+      integrationOperations: this.dependencies.integrationOperations?.all() ?? [],
+      integrationCursors: this.dependencies.integrationCursors?.all() ?? [],
       subscriptions: this.dependencies.subscriptions.all(),
       readReceipts: this.dependencies.readReceipts.allReadReceipts(),
       meta: this.dependencies.metadata.allMeta(),
@@ -148,6 +158,20 @@ export class BackupService implements BackupServicePort {
       );
       const auditEvents = this.dependencies.events.list();
       const auditEventsById = new Map(auditEvents.map((event) => [event.id, event]));
+      const integrationOperations = this.dependencies.integrationOperations?.all() ?? [];
+      const operationsByKey = new Map(
+        integrationOperations.map((record) => [
+          `${record.integrationId}:${record.operationKey}`,
+          record,
+        ])
+      );
+      const integrationCursors = this.dependencies.integrationCursors?.all() ?? [];
+      const cursorsByKey = new Map(
+        integrationCursors.map((record) => [
+          `${record.integrationId}:${record.consumerKey}`,
+          record,
+        ])
+      );
       const subscriptions = this.dependencies.subscriptions.all();
       const subscriptionsById = new Map(
         subscriptions.map((subscription) => [subscription.id, subscription])
@@ -292,6 +316,7 @@ export class BackupService implements BackupServicePort {
       }
 
       for (const event of payload.auditEvents ?? []) {
+        const normalizedEvent = normalizeImportedAuditEvent(event, postsById);
         const existingEvent = auditEventsById.get(event.id);
         if (existingEvent) {
           classifyExistingRecord(
@@ -299,20 +324,64 @@ export class BackupService implements BackupServicePort {
             "auditEvents",
             event.id,
             existingEvent,
-            event,
+            normalizedEvent,
             "different audit event already exists"
           );
           continue;
         }
 
-        if (event.postId && !postsById.has(event.postId)) {
+        if (normalizedEvent.postId && !postsById.has(normalizedEvent.postId)) {
           addConflict(report, "auditEvents", event.id, `parent post is missing: ${event.postId}`);
           continue;
         }
 
-        this.dependencies.events.create(event);
-        auditEventsById.set(event.id, event);
+        this.dependencies.events.create(normalizedEvent);
+        auditEventsById.set(event.id, normalizedEvent);
         incrementImportCount(report.created, "auditEvents");
+      }
+
+      for (const operation of payload.integrationOperations ?? []) {
+        const normalizedOperation = {
+          ...operation,
+          requestJson: operation.requestJson ?? "{}",
+        };
+        const key = `${normalizedOperation.integrationId}:${normalizedOperation.operationKey}`;
+        const existing = operationsByKey.get(key);
+        if (existing) {
+          classifyExistingRecord(
+            report,
+            "integrationOperations",
+            key,
+            existing,
+            normalizedOperation,
+            "different integration operation already exists"
+          );
+          continue;
+        }
+
+        this.dependencies.integrationOperations?.save(normalizedOperation);
+        operationsByKey.set(key, normalizedOperation);
+        incrementImportCount(report.created, "integrationOperations");
+      }
+
+      for (const cursor of payload.integrationCursors ?? []) {
+        const key = `${cursor.integrationId}:${cursor.consumerKey}`;
+        const existing = cursorsByKey.get(key);
+        if (existing) {
+          classifyExistingRecord(
+            report,
+            "integrationCursors",
+            key,
+            existing,
+            cursor,
+            "different integration cursor already exists"
+          );
+          continue;
+        }
+
+        this.dependencies.integrationCursors?.save(cursor);
+        cursorsByKey.set(key, cursor);
+        incrementImportCount(report.created, "integrationCursors");
       }
 
       for (const subscription of payload.subscriptions ?? []) {
@@ -424,6 +493,45 @@ export class BackupService implements BackupServicePort {
   }
 }
 
+function normalizeImportedAuditEvent(
+  event: AuditEventRecord,
+  postsById: Map<string, PostRecord>
+): AuditEventRecord {
+  if (event.eventType !== "post.created") {
+    return event;
+  }
+
+  const payload = event.payload;
+  if (
+    "channel" in payload &&
+    "type" in payload &&
+    "status" in payload &&
+    "severity" in payload &&
+    "assignedTo" in payload &&
+    "refId" in payload
+  ) {
+    return event;
+  }
+
+  const post = event.postId ? postsById.get(event.postId) : null;
+  if (!post) {
+    return event;
+  }
+
+  return {
+    ...event,
+    payload: {
+      channel: post.channel,
+      type: post.type,
+      status: post.status,
+      severity: post.severity,
+      assignedTo: post.assignedTo,
+      title: typeof payload.title === "string" ? payload.title : post.title,
+      refId: post.refId,
+    },
+  };
+}
+
 function removeSqliteSidecars(dbPath: string): void {
   for (const suffix of ["-wal", "-shm", "-journal"]) {
     rmSync(`${dbPath}${suffix}`, { force: true });
@@ -453,6 +561,8 @@ function createEmptyImportCounts(): BackupImportCounts {
     reactions: 0,
     relations: 0,
     auditEvents: 0,
+    integrationOperations: 0,
+    integrationCursors: 0,
     subscriptions: 0,
     readReceipts: 0,
     meta: 0,

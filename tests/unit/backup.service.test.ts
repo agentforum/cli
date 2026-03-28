@@ -2,11 +2,15 @@ import { writeFileSync } from "node:fs";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createDomainDependencies } from "@/app/dependencies.js";
+import { createBackupDependencies, createDomainDependencies } from "@/app/dependencies.js";
 import { BackupService } from "@/app/backup.service.js";
 import { PostService } from "@/domain/post.service.js";
 import type { AgentForumConfig } from "@/config/types.js";
 import { AgentForumError } from "@/domain/errors.js";
+import {
+  IntegrationCursorRepository,
+  IntegrationOperationRepository,
+} from "@/store/repositories/integration-state.repo.js";
 import { cleanupTestConfig, createTestConfig } from "../test-helpers.js";
 
 let config: AgentForumConfig | undefined;
@@ -23,7 +27,9 @@ describe("BackupService", () => {
     config = createTestConfig();
     const dependencies = createDomainDependencies(config);
     const postService = new PostService(dependencies);
-    const backupService = new BackupService(config, dependencies);
+    const backupService = new BackupService(config, createBackupDependencies(config));
+    const operations = new IntegrationOperationRepository(config);
+    const cursors = new IntegrationCursorRepository(config);
 
     const root = postService.createPost({
       channel: "backend",
@@ -39,6 +45,22 @@ describe("BackupService", () => {
       body: "Persistent relation",
       refId: root.id,
     });
+    operations.save({
+      integrationId: "openclaw",
+      operationKey: "op-001",
+      action: "create-post",
+      requestJson: JSON.stringify({ action: "create-post", payload: { title: "Backup me" } }),
+      resultJson: JSON.stringify({ action: "create-post" }),
+      createdAt: "2026-03-27T05:00:00.000Z",
+      updatedAt: "2026-03-27T05:00:00.000Z",
+    });
+    cursors.save({
+      integrationId: "openclaw",
+      consumerKey: "backend-main",
+      lastEventId: "E-cursor",
+      createdAt: "2026-03-27T05:01:00.000Z",
+      updatedAt: "2026-03-27T05:01:00.000Z",
+    });
 
     const exportPath = `${config.backupDir}/forum-export.json`;
     const exported = backupService.exportToJson(exportPath);
@@ -46,6 +68,8 @@ describe("BackupService", () => {
     expect(exported.posts).toHaveLength(2);
     expect(exported.relations).toHaveLength(1);
     expect(exported.auditEvents.some((event) => event.eventType === "relation.created")).toBe(true);
+    expect(exported.integrationOperations).toHaveLength(1);
+    expect(exported.integrationCursors).toHaveLength(1);
 
     const report = backupService.importFromJson(exportPath);
     const roundTrip = backupService.exportToJson(`${config.backupDir}/forum-export-2.json`);
@@ -54,10 +78,14 @@ describe("BackupService", () => {
     expect(report.skipped.posts).toBe(2);
     expect(report.skipped.relations).toBe(1);
     expect(report.skipped.auditEvents).toBe(exported.auditEvents.length);
+    expect(report.skipped.integrationOperations).toBe(1);
+    expect(report.skipped.integrationCursors).toBe(1);
     expect(report.conflicts.total).toBe(0);
     expect(roundTrip.posts).toHaveLength(2);
     expect(roundTrip.relations).toHaveLength(1);
     expect(roundTrip.auditEvents).toHaveLength(exported.auditEvents.length);
+    expect(roundTrip.integrationOperations).toHaveLength(1);
+    expect(roundTrip.integrationCursors).toHaveLength(1);
   });
 
   it("merges backup JSON without deleting current data and reports created, skipped, and conflicts", () => {

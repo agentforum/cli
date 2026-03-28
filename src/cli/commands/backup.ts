@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 
-import { createDomainDependencies } from "@/app/dependencies.js";
+import { createBackupDependencies, createDomainDependencies } from "@/app/dependencies.js";
 import { BackupService } from "@/app/backup.service.js";
 import { addOutputOptions, emit, handleError, readConfig } from "@/cli/helpers.js";
 
@@ -25,7 +25,7 @@ export function registerBackupCommands(program: Command): void {
   ).action((options: BackupOutputOptions) => {
     try {
       const config = readConfig();
-      const service = new BackupService(config, createDomainDependencies(config));
+      const service = new BackupService(config, createBackupDependencies(config));
       emit({ id: service.createBackup(options.output) }, normalize(options));
     } catch (error) {
       handleError(error);
@@ -40,7 +40,7 @@ export function registerBackupCommands(program: Command): void {
   ).action((options: BackupOutputOptions) => {
     try {
       const config = readConfig();
-      const service = new BackupService(config, createDomainDependencies(config));
+      const service = new BackupService(config, createBackupDependencies(config));
       emit(service.exportToJson(options.output as string), normalize(options));
     } catch (error) {
       handleError(error);
@@ -55,7 +55,7 @@ export function registerBackupCommands(program: Command): void {
   ).action((options: BackupOutputOptions) => {
     try {
       const config = readConfig();
-      const service = new BackupService(config, createDomainDependencies(config));
+      const service = new BackupService(config, createBackupDependencies(config));
       emit(service.importFromJson(options.file as string), normalize(options));
     } catch (error) {
       handleError(error);
@@ -70,7 +70,7 @@ export function registerBackupCommands(program: Command): void {
   ).action((options: BackupOutputOptions) => {
     try {
       const config = readConfig();
-      const service = new BackupService(config, createDomainDependencies(config));
+      const service = new BackupService(config, createBackupDependencies(config));
       emit({ id: service.restoreFromSqlite(options.file as string) }, normalize(options));
     } catch (error) {
       handleError(error);
@@ -81,7 +81,7 @@ export function registerBackupCommands(program: Command): void {
     (options: BackupOutputOptions) => {
       try {
         const config = readConfig();
-        const service = new BackupService(config, createDomainDependencies(config));
+        const service = new BackupService(config, createBackupDependencies(config));
         emit(
           service.listBackups().map((id) => ({ id })),
           normalize(options)

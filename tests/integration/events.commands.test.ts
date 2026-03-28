@@ -218,4 +218,17 @@ describe("events command", () => {
     expect(result.stdout).toContain('"session":"run-A"');
     expect(result.stdout).not.toContain('"session":"run-B"');
   });
+
+  it("fails clearly when --after references an unknown event", async () => {
+    config = createTestConfig();
+    const workspace = writeWorkspaceConfig(config);
+
+    const result = await runCli(
+      ["events", "--for", "claude:backend", "--session", "run-A", "--after", "E-missing"],
+      workspace
+    );
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("Audit event not found");
+  });
 });

@@ -73,6 +73,35 @@ export function loadConfig(cwd = process.cwd()): AgentForumConfig {
     enabled: config.eventAudit?.enabled ?? true,
     retentionDays: config.eventAudit?.retentionDays ?? null,
   };
+  const legacyOpenClaw = config.integrations?.openclaw;
+  const pluginConfigs = {
+    ...(config.integrations?.plugins ?? {}),
+  };
+  if (legacyOpenClaw) {
+    pluginConfigs.openclaw = {
+      ...(legacyOpenClaw as Record<string, unknown>),
+      ...(pluginConfigs.openclaw ?? {}),
+      bridge: {
+        pollIntervalMs:
+          (pluginConfigs.openclaw?.bridge?.pollIntervalMs as number | undefined) ??
+          legacyOpenClaw.bridge?.pollIntervalMs ??
+          1000,
+      },
+    };
+  } else if (pluginConfigs.openclaw) {
+    pluginConfigs.openclaw = {
+      ...pluginConfigs.openclaw,
+      bridge: {
+        pollIntervalMs: pluginConfigs.openclaw.bridge?.pollIntervalMs ?? 1000,
+      },
+    };
+  }
+  if (config.integrations) {
+    config.integrations = {
+      ...config.integrations,
+      plugins: pluginConfigs,
+    };
+  }
 
   ensureDirectory(dirname(config.dbPath));
   ensureDirectory(config.backupDir);

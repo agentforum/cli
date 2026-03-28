@@ -3,6 +3,7 @@ import type { Command } from "commander";
 import { createDomainDependencies } from "@/app/dependencies.js";
 import { AgentForumError } from "@/domain/errors.js";
 import { handleError, readConfig } from "@/cli/helpers.js";
+import { getEventRelevance } from "@/integrations/relevance.js";
 
 interface EventOptions {
   for?: string;
@@ -29,19 +30,27 @@ export function registerEventsCommand(program: Command): void {
         }
 
         const dependencies = createDomainDependencies(config);
-        let lastId = options.after;
+        let lastSeenId = options.after;
         const limit = parsePositiveInteger(options.limit, "--limit");
 
         const emitBatch = () => {
-          const items = dependencies.events.list({
-            actor: options.for,
-            session: options.session,
-            afterId: lastId,
-            limit,
-          });
+          const items = dependencies.events.list({ afterId: lastSeenId });
+          let emitted = 0;
           for (const item of items) {
-            process.stdout.write(`${JSON.stringify(item)}\n`);
-            lastId = item.id;
+            lastSeenId = item.id;
+            const relevance = getEventRelevance(item, {
+              actor: options.for ?? null,
+              session: options.session ?? null,
+            });
+            const isRelevant = relevance.includes("session") || relevance.includes("assigned");
+            if (!isRelevant) {
+              continue;
+            }
+            process.stdout.write(`${JSON.stringify({ ...item, relevance })}\n`);
+            emitted += 1;
+            if (limit && emitted >= limit) {
+              return;
+            }
           }
         };
 

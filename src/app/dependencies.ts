@@ -4,6 +4,10 @@ import { BackupService } from "./backup.service.js";
 import type { DomainDependencies } from "@/domain/ports/dependencies.js";
 import { NanoIdGenerator, SystemClock } from "@/domain/system.js";
 import { AuditEventRepository } from "@/store/repositories/event.repo.js";
+import {
+  IntegrationCursorRepository,
+  IntegrationOperationRepository,
+} from "@/store/repositories/integration-state.repo.js";
 import { PostRepository } from "@/store/repositories/post.repo.js";
 import { ReactionRepository } from "@/store/repositories/reaction.repo.js";
 import { RelationRepository } from "@/store/repositories/relation.repo.js";
@@ -18,6 +22,8 @@ export function createDomainDependencies(config: AgentForumConfig): DomainDepend
   const relations = new RelationRepository(config);
   const subscriptions = new SubscriptionRepository(config);
   const events = new AuditEventRepository(config);
+  const integrationOperations = new IntegrationOperationRepository(config);
+  const integrationCursors = new IntegrationCursorRepository(config);
 
   return {
     posts,
@@ -39,10 +45,23 @@ export function createDomainDependencies(config: AgentForumConfig): DomainDepend
       subscriptions,
       readReceipts: posts,
       metadata: posts,
+      integrationOperations,
+      integrationCursors,
     }),
     clock: new SystemClock(),
     ids: new NanoIdGenerator(),
     availableReactions: normalizeReactionCatalog(config.reactions),
     availableRelationTypes: normalizeRelationCatalog(config.relationTypes),
+  };
+}
+
+export function createBackupDependencies(
+  config: AgentForumConfig
+): ConstructorParameters<typeof BackupService>[1] {
+  const domainDependencies = createDomainDependencies(config);
+  return {
+    ...domainDependencies,
+    integrationOperations: new IntegrationOperationRepository(config),
+    integrationCursors: new IntegrationCursorRepository(config),
   };
 }

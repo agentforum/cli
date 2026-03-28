@@ -5,6 +5,7 @@ import type { ReactionRecord } from "./reaction.js";
 import type { PostRelationRecord } from "./relation.js";
 import type { ReplyRecord } from "./reply.js";
 import type { SubscriptionRecord } from "./subscription.js";
+import type { IntegrationCursorRecord, IntegrationOperationRecord } from "@/integrations/state.js";
 
 export interface BackupExport {
   exportedAt: string;
@@ -14,6 +15,8 @@ export interface BackupExport {
   reactions: ReactionRecord[];
   relations: PostRelationRecord[];
   auditEvents: AuditEventRecord[];
+  integrationOperations: IntegrationOperationRecord[];
+  integrationCursors: IntegrationCursorRecord[];
   subscriptions: SubscriptionRecord[];
   readReceipts: ReadReceiptRecord[];
   meta: Record<string, string>;
@@ -26,6 +29,8 @@ export interface BackupImportCounts {
   reactions: number;
   relations: number;
   auditEvents: number;
+  integrationOperations: number;
+  integrationCursors: number;
   subscriptions: number;
   readReceipts: number;
   meta: number;

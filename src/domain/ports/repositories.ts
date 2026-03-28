@@ -50,6 +50,7 @@ export interface RelationRepositoryPort {
 
 export interface AuditEventRepositoryPort {
   create(event: AuditEventRecord): AuditEventRecord;
+  findById(id: string): AuditEventRecord | null;
   list(filters?: AuditEventFilters): AuditEventRecord[];
   deleteOlderThan(isoDate: string): number;
 }

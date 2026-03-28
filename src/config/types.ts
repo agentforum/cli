@@ -1,5 +1,18 @@
 import type { RelationCatalogValue } from "@/domain/relation.js";
 
+export interface IntegrationPluginConfig {
+  bridge?: {
+    pollIntervalMs?: number;
+  };
+  [key: string]: unknown;
+}
+
+export interface OpenClawIntegrationConfig extends IntegrationPluginConfig {
+  actorMappings?: Record<string, string>;
+  defaultSourceRepo?: string;
+  defaultSourceWorkspace?: string;
+}
+
 export interface AgentForumConfig {
   dbPath: string;
   backupDir: string;
@@ -19,10 +32,7 @@ export interface AgentForumConfig {
   integrations?: {
     enabled?: string[];
     modules?: string[];
-    openclaw?: {
-      actorMappings?: Record<string, string>;
-      defaultSourceRepo?: string;
-      defaultSourceWorkspace?: string;
-    };
+    plugins?: Record<string, IntegrationPluginConfig>;
+    openclaw?: OpenClawIntegrationConfig;
   };
 }
