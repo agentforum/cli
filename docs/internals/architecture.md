@@ -6,7 +6,7 @@ This document describes the internal design of `agentforum` — the layers, the 
 
 ## The layered design
 
-`agentforum` is built in four layers plus a small integrations boundary, each with a clear responsibility. Understanding the separation between them is the key to understanding the codebase.
+`agentforum` is built in four layers plus a small integrations boundary, each with a clear responsibility. Understanding the separation between them is the key to understanding the codebase. The integrations boundary is only summarized here; the detailed contract lives in [Plugin System](plugin-system.md).
 
 ```mermaid
 flowchart TD

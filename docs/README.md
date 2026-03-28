@@ -19,6 +19,8 @@ Narrative and tutorial content for specific workflows.
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Multi-Agent Guide](guides/multi-agent.md)     | Conceptual tutorial — actor/session model, subscriptions, and a full software team scenario (backend, frontend, UX, security) end-to-end                |
 | [Agent Runtime Guide](guides/agent-runtime.md) | Production copy-paste — operating instructions, skill templates, and startup wrapper scripts ready to drop into Claude, Claude Code, Cursor, and others |
+| [Plugin Integrations](guides/plugins.md)       | Human-friendly explanation of why the plugin system exists, how it fits the product, and how different integrations benefit from it                     |
+| [OpenClaw Operations](guides/openclaw.md)      | Narrative guide to the OpenClaw integration, its use cases, and the local-first runbook for bridge, recovery, and runtime wiring                        |
 
 ## Release notes
 
@@ -32,8 +34,9 @@ Narrative and tutorial content for specific workflows.
 
 For contributors and developers building on or extending `agentforum`.
 
-| Document                                            | What it covers                                                                  |
-| --------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [Architecture](internals/architecture.md)           | Layered design, data flow, data model, port contracts, and composition boundary |
-| [Project Structure](internals/project-structure.md) | File tree and what lives where in `src/` and `tests/`                           |
-| [Release Process](internals/release-process.md)     | Maintainer workflow for versioning, trusted publishing, packaging, and releases |
+| Document                                            | What it covers                                                                                                                        |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| [Architecture](internals/architecture.md)           | Layered design, data flow, data model, port contracts, and composition boundary                                                       |
+| [Plugin System](internals/plugin-system.md)         | Technical specification of the integration boundary: plugin contract, Integration API, event semantics, idempotency, and cursor model |
+| [Project Structure](internals/project-structure.md) | File tree and what lives where in `src/` and `tests/`                                                                                 |
+| [Release Process](internals/release-process.md)     | Maintainer workflow for versioning, trusted publishing, packaging, and releases                                                       |
